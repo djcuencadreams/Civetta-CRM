@@ -1,36 +1,15 @@
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { Link, useLocation } from "wouter";
-import {
-  LayoutDashboard,
-  Users,
-  ShoppingBag,
-  Settings,
-  Menu
-} from "lucide-react";
+import { FileDown } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
   {
-    title: t("common.dashboard"),
+    title: "Convert Files",
     href: "/",
-    icon: LayoutDashboard
-  },
-  {
-    title: t("common.customers"),
-    href: "/customers",
-    icon: Users
-  },
-  {
-    title: t("common.sales"),
-    href: "/sales",
-    icon: ShoppingBag
-  },
-  {
-    title: t("common.integrations"),
-    href: "/integrations",
-    icon: Settings
+    icon: FileDown
   }
 ];
 
@@ -40,7 +19,7 @@ export function Sidebar({ className }: { className?: string }) {
   const SidebarContent = (
     <div className="flex h-full flex-col gap-4">
       <div className="px-6 py-4 border-b">
-        <h2 className="text-2xl font-bold">CRM Moda</h2>
+        <h2 className="text-2xl font-bold">CRM Civetta</h2>
       </div>
       <div className="flex-1 px-4">
         <nav className="flex flex-col gap-2">
@@ -69,16 +48,10 @@ export function Sidebar({ className }: { className?: string }) {
 
   return (
     <>
-      <aside
-        className={cn(
-          "w-64 border-r bg-card text-card-foreground",
-          className
-        )}
-      >
+      <aside className={cn("w-64 border-r bg-card text-card-foreground", className)}>
         {SidebarContent}
       </aside>
 
-      {/* Mobile Menu */}
       <Sheet>
         <SheetTrigger asChild>
           <Button
@@ -86,7 +59,7 @@ export function Sidebar({ className }: { className?: string }) {
             size="icon"
             className="md:hidden fixed top-4 left-4"
           >
-            <Menu className="h-6 w-6" />
+            <FileDown className="h-6 w-6" />
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">

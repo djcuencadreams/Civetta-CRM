@@ -1,145 +1,66 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
-import { type Sale, type Customer } from "@db/schema";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
-import { subDays, subMonths, subYears, isWithinInterval, startOfDay } from "date-fns";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 
-const timeRanges = {
-  day: { label: "Último día", fn: () => subDays(new Date(), 1) },
-  week: { label: "Última semana", fn: () => subDays(new Date(), 7) },
-  month: { label: "Último mes", fn: () => subMonths(new Date(), 1) },
-  year: { label: "Último año", fn: () => subYears(new Date(), 1) }
-};
+export default function DashboardPage() {
+  const [isDragging, setIsDragging] = useState(false);
+  const [convertedText, setConvertedText] = useState("");
 
-export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState("month");
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
 
-  const { data: customers = [], isLoading: loadingCustomers } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"]
-  });
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
 
-  const { data: sales = [], isLoading: loadingSales } = useQuery<Sale[]>({
-    queryKey: ["/api/sales"]
-  });
+    const formData = new FormData();
+    formData.append("file", files[0]);
 
-  const startDate = timeRanges[timeRange].fn();
-  const filteredSales = sales.filter(sale => 
-    isWithinInterval(new Date(sale.createdAt), {
-      start: startDate,
-      end: new Date()
-    })
-  );
+    try {
+      const response = await fetch("/api/convert", {
+        method: "POST",
+        body: formData,
+      });
 
-  const filteredCustomers = customers.filter(customer =>
-    isWithinInterval(new Date(customer.createdAt), {
-      start: startDate,
-      end: new Date()
-    })
-  );
-
-  const totalSales = filteredSales.reduce((acc, sale) => acc + Number(sale.amount), 0);
-  const averageSale = totalSales / (filteredSales.length || 1);
-
-  const chartData = filteredSales?.reduce((acc: any[], sale) => {
-    const date = new Date(sale.createdAt).toLocaleDateString();
-    const existing = acc.find(item => item.date === date);
-    if (existing) {
-      existing.amount += Number(sale.amount);
-    } else {
-      acc.push({ date, amount: Number(sale.amount) });
+      const result = await response.text();
+      setConvertedText(result);
+    } catch (error) {
+      console.error("Error converting file:", error);
     }
-    return acc;
-  }, []);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Seleccionar período" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(timeRanges).map(([key, { label }]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Total de Ventas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${totalSales.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Venta Promedio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${averageSale.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Clientes Nuevos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {filteredCustomers.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Clientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {customers.length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Ventas por Día</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            {loadingSales ? (
-              <Skeleton className="w-full h-full" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar
-                    dataKey="amount"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
+    <div className="space-y-6 p-4 max-w-4xl mx-auto">
+      <Card
+        className={`p-8 border-2 border-dashed ${
+          isDragging ? "border-primary" : "border-muted"
+        } rounded-lg text-center`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+      >
+        <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+        <h2 className="text-lg font-medium mb-2">Drag and drop your file here</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Supports PDF, Word, PowerPoint, Excel and more
+        </p>
+        <Button variant="outline">
+          Or click to select a file
+        </Button>
       </Card>
+
+      {convertedText && (
+        <Card className="p-6">
+          <h3 className="text-lg font-medium mb-4">Converted Text</h3>
+          <pre className="whitespace-pre-wrap bg-muted p-4 rounded-lg">
+            {convertedText}
+          </pre>
+        </Card>
+      )}
     </div>
   );
 }
