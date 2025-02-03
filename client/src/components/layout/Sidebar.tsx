@@ -1,71 +1,56 @@
+import { FileDown, LayoutDashboard, Users, DollarSign, AppWindow } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
-import { Link, useLocation } from "wouter";
-import { FileDown } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Button } from "../ui/button";
 
 const navigation = [
   {
-    title: "Convert Files",
+    title: "Dashboard",
     href: "/",
-    icon: FileDown
+    icon: LayoutDashboard
+  },
+  {
+    title: "Customers",
+    href: "/customers",
+    icon: Users
+  },
+  {
+    title: "Sales",
+    href: "/sales",
+    icon: DollarSign
+  },
+  {
+    title: "Integrations",
+    href: "/integrations",
+    icon: AppWindow
   }
 ];
 
-export function Sidebar({ className }: { className?: string }) {
-  const [location] = useLocation();
-
-  const SidebarContent = (
-    <div className="flex h-full flex-col gap-4">
-      <div className="px-6 py-4 border-b">
-        <h2 className="text-2xl font-bold">CRM Civetta</h2>
-      </div>
-      <div className="flex-1 px-4">
-        <nav className="flex flex-col gap-2">
+export function Sidebar() {
+  return (
+    <aside className="h-screen w-64 border-r">
+      <nav className="flex h-full flex-col bg-background px-3 py-4">
+        <div className="flex-1 space-y-1">
           {navigation.map((item) => {
-            const isActive = location === item.href;
+            const Icon = item.icon;
             return (
-              <Link
+              <NavLink
                 key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                )}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    "group flex items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                    isActive ? "bg-accent" : "transparent"
+                  )
+                }
               >
-                <item.icon className="h-4 w-4" />
+                <Icon className="mr-2 h-4 w-4" />
                 {item.title}
-              </Link>
+              </NavLink>
             );
           })}
-        </nav>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-      <aside className={cn("w-64 border-r bg-card text-card-foreground", className)}>
-        {SidebarContent}
-      </aside>
-
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden fixed top-4 left-4"
-          >
-            <FileDown className="h-6 w-6" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          {SidebarContent}
-        </SheetContent>
-      </Sheet>
-    </>
+        </div>
+      </nav>
+    </aside>
   );
 }
