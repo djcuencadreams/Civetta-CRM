@@ -125,8 +125,14 @@ export function CustomerForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => {
         const formattedData = {
-          ...data,
-          phoneNumber: formatPhoneNumber(data.phoneNumber)
+          name: `${data.firstName} ${data.lastName}`,
+          email: data.email,
+          phoneCountry: data.phoneCountry,
+          phoneNumber: formatPhoneNumber(data.phoneNumber),
+          street: data.street,
+          city: data.city,
+          province: data.province,
+          deliveryInstructions: data.deliveryInstructions
         };
         mutation.mutate(formattedData);
       })} className="space-y-4">
