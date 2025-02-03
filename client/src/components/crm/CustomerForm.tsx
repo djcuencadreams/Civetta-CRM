@@ -74,11 +74,7 @@ export function CustomerForm({
   
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      const formattedData = {
-        ...values,
-        phoneNumber: values.phoneNumber ? values.phoneNumber.replace(/^0+/, '') : '',
-      };
-      const res = await apiRequest("POST", "/api/customers", formattedData);
+      const res = await apiRequest("POST", "/api/customers", values);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || `HTTP error! status: ${res.status}`);
@@ -100,7 +96,6 @@ export function CustomerForm({
   });
 
   const form = useForm({
-    resolver: zodResolver(insertCustomerSchema),
     defaultValues: customer || {
       firstName: "",
       lastName: "",
