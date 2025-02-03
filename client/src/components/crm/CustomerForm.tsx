@@ -21,11 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
-  { code: "+1", country: "🇺🇸 Estados Unidos (+1)" },
+  { code: "+1_US", country: "🇺🇸 Estados Unidos (+1)" },
   { code: "+54", country: "🇦🇷 Argentina (+54)" },
   { code: "+591", country: "🇧🇴 Bolivia (+591)" },
   { code: "+55", country: "🇧🇷 Brasil (+55)" },
-  { code: "+1_CA", code: "+1", country: "🇨🇦 Canadá (+1)" },
+  { code: "+1_CA", country: "🇨🇦 Canadá (+1)" },
   { code: "+56", country: "🇨🇱 Chile (+56)" },
   { code: "+86", country: "🇨🇳 China (+86)" },
   { code: "+57", country: "🇨🇴 Colombia (+57)" },
@@ -44,7 +44,7 @@ const countryCodes = [
   { code: "+595", country: "🇵🇾 Paraguay (+595)" },
   { code: "+51", country: "🇵🇪 Perú (+51)" },
   { code: "+351", country: "🇵🇹 Portugal (+351)" },
-  { code: "+1_PR", code: "+1", country: "🇵🇷 Puerto Rico (+1)" },
+  { code: "+1_PR", country: "🇵🇷 Puerto Rico (+1)" },
   { code: "+44", country: "🇬🇧 Reino Unido (+44)" },
   { code: "+7", country: "🇷🇺 Rusia (+7)" },
   { code: "+41", country: "🇨🇭 Suiza (+41)" },
