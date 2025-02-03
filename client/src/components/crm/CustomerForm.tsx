@@ -31,6 +31,8 @@ const countryCodes = [
   { code: "+44", country: "🇬🇧 Reino Unido" },
 ];
 
+const DEFAULT_COUNTRY_CODE = "+593";
+
 const provinces = [
   "Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", 
   "El Oro", "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja",
@@ -74,7 +76,7 @@ export function CustomerForm({
       firstName: "",
       lastName: "",
       email: "",
-      phoneCountry: "+593",
+      phoneCountry: DEFAULT_COUNTRY_CODE,
       phoneNumber: "",
       street: "",
       city: "",

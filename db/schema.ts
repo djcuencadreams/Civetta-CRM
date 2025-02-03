@@ -49,11 +49,13 @@ export const customerRelations = relations(customers, ({ many }) => ({
 
 // Schemas
 export const insertCustomerSchema = createInsertSchema(customers, {
-  email: z.string().email({ message: "Ingrese un correo electrónico válido" }),
+  email: z.string().email({ message: "Por favor, ingrese un correo electrónico válido" }).min(1, { message: "El correo electrónico es requerido" }),
   city: z.string().refine((val) => /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(val), {
     message: "Ingrese nombre de su ciudad válido"
   }),
-  phoneNumber: z.string().length(10, { message: "El número debe tener 10 dígitos" })
+  phoneNumber: z.string().length(10, { message: "El número debe tener 10 dígitos" }).min(1, { message: "El número de teléfono es requerido" }),
+  street: z.string().min(1, { message: "La dirección es requerida" }),
+  province: z.string().min(1, { message: "La provincia es requerida" })
 });
 export const selectCustomerSchema = createSelectSchema(customers);
 export const insertSaleSchema = createInsertSchema(sales);

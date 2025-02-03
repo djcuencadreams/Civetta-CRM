@@ -34,14 +34,17 @@ const paymentMethods = [
   { id: "tarjeta", name: "Tarjeta de Crédito/Débito" },
   { id: "transferencia", name: "Transferencia Bancaria" },
   { id: "yappy", name: "Yappy" },
-  { id: "nequi", name: "Nequi" }
+  { id: "nequi", name: "Nequi" },
+  { id: "payphone", name: "Payphone" },
+  { id: "paypal", name: "Paypal" },
+  { id: "otros", name: "Otros" }
 ];
 
 const productCategories = [
   "Ropa",
   "Accesorios",
   "Calzado",
-  "Cosméticos",
+  "Servicios",
   "Joyería",
   "Otros"
 ];
