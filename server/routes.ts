@@ -5,25 +5,7 @@ import { customers, sales, webhooks } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
-import { Markitdown } from "@microsoft/markitdown";
-
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
-
-router.post("/api/convert", upload.single("file"), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).send("No file uploaded");
-  }
-
-  try {
-    const converter = new Markitdown();
-    const result = await converter.convert(req.file.buffer);
-    res.send(result);
-  } catch (error) {
-    console.error("Conversion error:", error);
-    res.status(500).send("Error converting file");
-  }
-});
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
