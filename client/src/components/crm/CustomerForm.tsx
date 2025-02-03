@@ -74,9 +74,14 @@ export function CustomerForm({
   
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      const res = await apiRequest("POST", "/api/customers", values);
+      const formattedData = {
+        ...values,
+        phoneNumber: values.phoneNumber ? values.phoneNumber.replace(/^0+/, '') : '',
+      };
+      const res = await apiRequest("POST", "/api/customers", formattedData);
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        const error = await res.json();
+        throw new Error(error.message || `HTTP error! status: ${res.status}`);
       }
       return res.json();
     },

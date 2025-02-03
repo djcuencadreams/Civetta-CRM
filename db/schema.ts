@@ -5,12 +5,15 @@ import * as z from 'zod';
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   email: text("email"),
-  phone: text("phone"),
-  whatsapp: text("whatsapp"),
-  address: text("address"),
-  notes: text("notes"),
+  phoneCountry: text("phone_country"),
+  phoneNumber: text("phone_number"),
+  street: text("street"),
+  city: text("city"),
+  province: text("province"),
+  deliveryInstructions: text("delivery_instructions"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
