@@ -40,7 +40,7 @@ export function CustomerForm({
   });
 
   const mutation = useMutation({
-    mutationFn: async (values: typeof form.getValues()) => {
+    mutationFn: async (values: ReturnType<typeof form.getValues>) => {
       const res = await apiRequest("POST", "/api/customers", values);
       return res.json();
     },
