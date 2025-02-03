@@ -79,37 +79,21 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="summary">
-        <TabsList>
-          <TabsTrigger value="summary">Resumen</TabsTrigger>
-          <TabsTrigger value="newCustomer">Nuevo Cliente</TabsTrigger>
-        </TabsList>
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="text-lg font-medium mb-4">Ventas Recientes</h2>
+            <SalesList />
+          </CardContent>
+        </Card>
         
-        <TabsContent value="summary" className="space-y-4">
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-medium mb-4">Ventas Recientes</h2>
-              <SalesList />
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-medium mb-4">Clientes Recientes</h2>
-              <CustomerList onSelect={() => {}} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="newCustomer">
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-medium mb-4">Nuevo Cliente</h2>
-              <CustomerForm onComplete={() => {}} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="text-lg font-medium mb-4">Clientes Recientes</h2>
+            <CustomerList onSelect={() => {}} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
