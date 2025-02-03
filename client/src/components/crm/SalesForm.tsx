@@ -92,6 +92,9 @@ export function SalesForm({
       };
 
       const res = await apiRequest("POST", "/api/sales", saleData);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {

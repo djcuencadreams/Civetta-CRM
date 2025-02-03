@@ -73,8 +73,11 @@ export function CustomerForm({
   const queryClient = useQueryClient();
   
   const mutation = useMutation({
-    mutationFn: async (values: ReturnType<typeof form.getValues>) => {
+    mutationFn: async (values: any) => {
       const res = await apiRequest("POST", "/api/customers", values);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -82,7 +85,7 @@ export function CustomerForm({
       toast({ title: t("common.success") });
       onComplete();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({ 
         title: t("common.error"),
         description: error.message,
