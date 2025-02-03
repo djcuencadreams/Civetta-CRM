@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer } from "@db/schema";
@@ -71,7 +70,7 @@ export function CustomerForm({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const res = await apiRequest("POST", "/api/customers", values);
@@ -95,6 +94,29 @@ export function CustomerForm({
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!customer?.id) return;
+      const res = await apiRequest("DELETE", `/api/customers/${customer.id}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Cliente eliminado" });
+      onComplete();
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error al eliminar cliente",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const form = useForm({
     defaultValues: customer || {
       firstName: "",
@@ -109,7 +131,8 @@ export function CustomerForm({
     }
   });
 
-  const formatPhoneNumber = (value: string) => {
+  const formatPhoneNumber = (value: string | undefined) => {
+    if (!value) return '';
     if (value.startsWith('0')) {
       return value.substring(1);
     }
@@ -141,7 +164,7 @@ export function CustomerForm({
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="lastName"
@@ -196,7 +219,7 @@ export function CustomerForm({
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="phoneNumber"
@@ -223,7 +246,7 @@ export function CustomerForm({
 
         <div className="space-y-4">
           <h3 className="font-medium">Dirección de Entrega</h3>
-          
+
           <FormField
             control={form.control}
             name="street"
@@ -302,6 +325,11 @@ export function CustomerForm({
           >
             {t("common.cancel")}
           </Button>
+          {customer && (
+            <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending}>
+              Eliminar Cliente
+            </Button>
+          )}
           <Button type="submit" disabled={mutation.isPending}>
             {t("common.save")}
           </Button>
