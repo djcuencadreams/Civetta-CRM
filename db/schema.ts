@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
+import * as z from 'zod';
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -47,7 +48,13 @@ export const customerRelations = relations(customers, ({ many }) => ({
 }));
 
 // Schemas
-export const insertCustomerSchema = createInsertSchema(customers);
+export const insertCustomerSchema = createInsertSchema(customers, {
+  email: z.string().email({ message: "Ingrese un correo electrónico válido" }),
+  city: z.string().refine((val) => /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(val), {
+    message: "Ingrese nombre de su ciudad válido"
+  }),
+  phoneNumber: z.string().length(10, { message: "El número debe tener 10 dígitos" })
+});
 export const selectCustomerSchema = createSelectSchema(customers);
 export const insertSaleSchema = createInsertSchema(sales);
 export const selectSaleSchema = createSelectSchema(sales);

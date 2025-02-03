@@ -19,6 +19,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
+const countryCodes = [
+  { code: "+1", country: "🇺🇸 USA" },
+  { code: "+44", country: "🇬🇧 UK" },
+  { code: "+34", country: "🇪🇸 Spain" },
+  { code: "+593", country: "🇪🇨 Ecuador" },
+  { code: "+57", country: "🇨🇴 Colombia" },
+  { code: "+51", country: "🇵🇪 Peru" },
+  { code: "+56", country: "🇨🇱 Chile" },
+  { code: "+54", country: "🇦🇷 Argentina" },
+  { code: "+52", country: "🇲🇽 Mexico" },
+];
+
 const provinces = [
   "Azuay", "Bolívar", "Cañar", "Carchi", "Chimborazo", "Cotopaxi", 
   "El Oro", "Esmeraldas", "Galápagos", "Guayas", "Imbabura", "Loja",
@@ -146,8 +158,11 @@ export function CustomerForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="+593">🇪🇨 +593</SelectItem>
-                    {/* Add more countries as needed */}
+                    {countryCodes.map(({code, country}) => (
+                      <SelectItem key={code} value={code}>
+                        {country}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </FormItem>
@@ -161,7 +176,16 @@ export function CustomerForm({
               <FormItem className="col-span-3">
                 <FormLabel>Teléfono celular</FormLabel>
                 <FormControl>
-                  <Input maxLength={10} {...field} />
+                  <Input 
+                    maxLength={10} 
+                    {...field} 
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      if (value.length <= 10) {
+                        field.onChange(value);
+                      }
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
