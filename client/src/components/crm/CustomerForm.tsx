@@ -20,15 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 
 const countryCodes = [
-  { code: "+593", country: "🇪🇨 Ecuador" },
-  { code: "+57", country: "🇨🇴 Colombia" },
-  { code: "+51", country: "🇵🇪 Perú" },
-  { code: "+56", country: "🇨🇱 Chile" },
-  { code: "+54", country: "🇦🇷 Argentina" },
-  { code: "+52", country: "🇲🇽 México" },
-  { code: "+34", country: "🇪🇸 España" },
-  { code: "+1", country: "🇺🇸 Estados Unidos" },
-  { code: "+44", country: "🇬🇧 Reino Unido" },
+  { code: "+593", country: "🇪🇨 Ecuador (+593)" },
+  { code: "+57", country: "🇨🇴 Colombia (+57)" },
+  { code: "+51", country: "🇵🇪 Perú (+51)" },
+  { code: "+56", country: "🇨🇱 Chile (+56)" },
+  { code: "+54", country: "🇦🇷 Argentina (+54)" },
+  { code: "+52", country: "🇲🇽 México (+52)" },
+  { code: "+34", country: "🇪🇸 España (+34)" },
+  { code: "+1", country: "🇺🇸 Estados Unidos (+1)" },
+  { code: "+44", country: "🇬🇧 Reino Unido (+44)" },
 ];
 
 const DEFAULT_COUNTRY_CODE = "+593";
@@ -150,7 +150,7 @@ export function CustomerForm({
             control={form.control}
             name="phoneCountry"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="min-w-[240px]">
                 <FormLabel>País</FormLabel>
                 <Select
                   value={field.value}

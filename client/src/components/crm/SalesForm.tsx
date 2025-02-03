@@ -33,10 +33,9 @@ const paymentMethods = [
   { id: "efectivo", name: "Efectivo" },
   { id: "tarjeta", name: "Tarjeta de Crédito/Débito" },
   { id: "transferencia", name: "Transferencia Bancaria" },
-  { id: "yappy", name: "Yappy" },
-  { id: "nequi", name: "Nequi" },
   { id: "payphone", name: "Payphone" },
   { id: "paypal", name: "Paypal" },
+  { id: "cripto", name: "Cripto" },
   { id: "otros", name: "Otros" }
 ];
 
