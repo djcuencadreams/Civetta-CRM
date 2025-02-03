@@ -8,12 +8,8 @@ export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email"),
-  phoneCountry: text("phone_country"),
-  phoneNumber: text("phone_number"),
-  street: text("street"),
-  city: text("city"),
-  province: text("province"),
-  deliveryInstructions: text("delivery_instructions"),
+  phone: text("phone"),
+  address: text("address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

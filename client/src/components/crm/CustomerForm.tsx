@@ -127,12 +127,8 @@ export function CustomerForm({
         const formattedData = {
           name: `${data.firstName} ${data.lastName}`,
           email: data.email,
-          phoneCountry: data.phoneCountry,
-          phoneNumber: formatPhoneNumber(data.phoneNumber),
-          street: data.street,
-          city: data.city,
-          province: data.province,
-          deliveryInstructions: data.deliveryInstructions
+          phone: `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}`,
+          address: `${data.street}, ${data.city}, ${data.province}\n${data.deliveryInstructions}`,
         };
         mutation.mutate(formattedData);
       })} className="space-y-4">
