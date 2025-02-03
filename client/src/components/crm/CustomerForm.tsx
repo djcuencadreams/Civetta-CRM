@@ -20,15 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 
 const countryCodes = [
-  { code: "+1", country: "🇺🇸 USA" },
-  { code: "+44", country: "🇬🇧 UK" },
-  { code: "+34", country: "🇪🇸 Spain" },
   { code: "+593", country: "🇪🇨 Ecuador" },
   { code: "+57", country: "🇨🇴 Colombia" },
-  { code: "+51", country: "🇵🇪 Peru" },
+  { code: "+51", country: "🇵🇪 Perú" },
   { code: "+56", country: "🇨🇱 Chile" },
   { code: "+54", country: "🇦🇷 Argentina" },
-  { code: "+52", country: "🇲🇽 Mexico" },
+  { code: "+52", country: "🇲🇽 México" },
+  { code: "+34", country: "🇪🇸 España" },
+  { code: "+1", country: "🇺🇸 Estados Unidos" },
+  { code: "+44", country: "🇬🇧 Reino Unido" },
 ];
 
 const provinces = [
