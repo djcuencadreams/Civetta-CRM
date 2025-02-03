@@ -1,5 +1,6 @@
+
 import { FileDown, LayoutDashboard, Users, DollarSign, AppWindow } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
@@ -27,6 +28,8 @@ const navigation = [
 ];
 
 export function Sidebar() {
+  const [location] = useLocation();
+  
   return (
     <aside className="h-screen w-64 border-r">
       <nav className="flex h-full flex-col bg-background px-3 py-4">
@@ -34,19 +37,17 @@ export function Sidebar() {
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink
+              <Link
                 key={item.href}
-                to={item.href}
-                className={({ isActive }) =>
-                  cn(
-                    "group flex items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive ? "bg-accent" : "transparent"
-                  )
-                }
+                href={item.href}
+                className={cn(
+                  "group flex items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                  location === item.href ? "bg-accent" : "transparent"
+                )}
               >
                 <Icon className="mr-2 h-4 w-4" />
                 {item.title}
-              </NavLink>
+              </Link>
             );
           })}
         </div>
