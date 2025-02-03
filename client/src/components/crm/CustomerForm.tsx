@@ -37,6 +37,25 @@ export function CustomerForm({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  const mutation = useMutation({
+    mutationFn: async (values: ReturnType<typeof form.getValues>) => {
+      const res = await apiRequest("POST", "/api/customers", values);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: t("common.success") });
+      onComplete();
+    },
+    onError: (error) => {
+      toast({ 
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const form = useForm({
     resolver: zodResolver(insertCustomerSchema),
     defaultValues: customer || {
