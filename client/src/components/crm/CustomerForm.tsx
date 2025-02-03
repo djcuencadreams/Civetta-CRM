@@ -145,12 +145,12 @@ export function CustomerForm({
           )}
         />
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-12 gap-4">
           <FormField
             control={form.control}
             name="phoneCountry"
             render={({ field }) => (
-              <FormItem className="min-w-[240px]">
+              <FormItem className="col-span-5">
                 <FormLabel>País</FormLabel>
                 <Select
                   value={field.value}
@@ -175,7 +175,7 @@ export function CustomerForm({
             control={form.control}
             name="phoneNumber"
             render={({ field }) => (
-              <FormItem className="col-span-3">
+              <FormItem className="col-span-7">
                 <FormLabel>Teléfono celular</FormLabel>
                 <FormControl>
                   <Input 
