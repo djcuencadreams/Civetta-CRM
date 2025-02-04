@@ -15,8 +15,7 @@ export function LeadForm({ lead = {}, onClose }) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
-      firstName: lead?.firstName || "",
-      lastName: lead?.lastName || "",
+      name: lead?.name || "",
       email: lead?.email || "",
       phone: lead?.phone || "",
       source: lead?.source || "",
@@ -51,10 +50,7 @@ export function LeadForm({ lead = {}, onClose }) {
       if (mutation.isPending) return;
       mutation.mutate(data);
     })} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <Input {...register("firstName")} placeholder="Nombres" />
-        <Input {...register("lastName")} placeholder="Apellidos" />
-      </div>
+      <Input {...register("name")} placeholder="Nombre completo" />
 
       <Input {...register("email")} type="email" placeholder="Correo" />
       <Input {...register("phone")} placeholder="Teléfono" />

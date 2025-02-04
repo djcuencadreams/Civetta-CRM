@@ -28,7 +28,7 @@ export function LeadsList({ onSelect }) {
         >
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-medium">{lead.firstName} {lead.lastName}</h3>
+              <h3 className="font-medium">{lead.name}</h3>
               <div className="text-sm text-muted-foreground">
                 {lead.email} • {lead.phone}
               </div>
