@@ -137,43 +137,47 @@ export function LeadForm({
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Validate response data
       if (!data || !data.id) {
         throw new Error("Invalid response from server");
       }
 
-      // Force immediate refetch
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/leads"],
-        refetchType: 'active',
-        exact: true
-      });
-      
-      // Update cache with validated data
-      // Invalidate queries to ensure fresh data
-      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      
-      // If lead was converted to customer, also invalidate customers
-      if (data.convertedToCustomer) {
-        await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      try {
+        // Invalidate and refetch leads
+        await queryClient.invalidateQueries({ 
+          queryKey: ["/api/leads"],
+          refetchType: 'active'
+        });
+        
+        // If lead was converted to customer, invalidate customers
+        if (data.convertedToCustomer) {
+          await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+        }
+
+        // Update local cache
+        queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
+          if (!oldData) return [data];
+          const filtered = oldData.filter(item => item.id !== data.id);
+          return [...filtered, data].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+
+        toast({ 
+          title: "Lead guardado exitosamente",
+          description: "Todos los campos han sido actualizados",
+          variant: "success"
+        });
+        onClose();
+      } catch (error) {
+        console.error('Error updating cache:', error);
+        toast({ 
+          title: "Error actualizando caché",
+          description: "Los cambios fueron guardados pero requieren refrescar la página",
+          variant: "destructive"
+        });
       }
-
-      // Update local cache
-      queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
-        if (!oldData) return [data];
-        const filtered = oldData.filter(item => item.id !== data.id);
-        return [...filtered, data].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      });
-
-      toast({ 
-        title: "Lead guardado exitosamente",
-        description: "Todos los campos han sido actualizados",
-        variant: "success"
-      });
-      onClose();
     },
     onError: (error: any) => {
       console.error('Lead update error:', error);
