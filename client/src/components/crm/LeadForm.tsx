@@ -89,6 +89,8 @@ export function LeadForm({
     return value;
   };
 
+  const queryClient = useQueryClient();
+  
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const formattedValues = {
@@ -130,8 +132,18 @@ export function LeadForm({
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate and refetch leads
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      
+      // Update the cache with the new data
+      queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
+        if (!oldData) return [data];
+        const index = oldData.findIndex(item => item.id === data.id);
+        if (index === -1) return [...oldData, data];
+        return [...oldData.slice(0, index), data, ...oldData.slice(index + 1)];
+      });
+
       toast({ 
         title: "Lead guardado exitosamente",
         variant: "success"
@@ -139,6 +151,7 @@ export function LeadForm({
       onClose();
     },
     onError: (error: any) => {
+      console.error('Lead update error:', error);
       const errorMessage = error?.response?.data?.error || error.message || "Error desconocido";
       toast({ 
         title: "Error al guardar lead",

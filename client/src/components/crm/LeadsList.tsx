@@ -3,10 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "@/components/ui/use-toast"
+
 
 export function LeadsList({ onSelect }) {
-  const { data: leads, isLoading } = useQuery({ 
+  const { data: leads, isLoading, isError, error } = useQuery({ 
     queryKey: ["/api/leads"],
+    staleTime: 0, // Always refetch when requested
+    cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
     select: (data) => data
       ?.filter(lead => !lead.convertedToCustomer)
       ?.sort((a, b) => {
@@ -46,6 +50,16 @@ export function LeadsList({ onSelect }) {
   };
 
   if (isLoading) return <div>Cargando leads...</div>;
+
+  if (isError) {
+    console.error('Leads fetch error:', error);
+    toast({
+      title: "Error al cargar leads",
+      description: "No se pudieron cargar los leads. Por favor, intente nuevamente.",
+      variant: "destructive"
+    });
+    return <div>Error al cargar leads</div>;
+  }
 
   return (
     <div className="grid gap-4">
