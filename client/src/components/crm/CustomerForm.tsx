@@ -142,8 +142,16 @@ export function CustomerForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit((data) => {
+        if (!data.firstName?.trim() || !data.lastName?.trim()) {
+          toast({ 
+            title: "Error",
+            description: "Nombres y apellidos son requeridos",
+            variant: "destructive"
+          });
+          return;
+        }
         const formattedData = {
-          name: `${data.firstName} ${data.lastName}`,
+          name: `${data.firstName.trim()} ${data.lastName.trim()}`,
           email: data.email,
           phone: `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}`,
           address: `${data.street}, ${data.city}, ${data.province}\n${data.deliveryInstructions}`,
@@ -326,7 +334,7 @@ export function CustomerForm({
             {t("common.cancel")}
           </Button>
           {customer && (
-            <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending}>
+            <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending} style={{backgroundColor: 'red'}}>
               Eliminar Cliente
             </Button>
           )}

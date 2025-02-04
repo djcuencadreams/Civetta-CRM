@@ -85,6 +85,7 @@ export function SalesForm({
       const saleData = {
         customerId: parseInt(values.customerId),
         amount: totalAmount,
+        status: "completed",
         paymentMethod: values.paymentMethod,
         notes: `${values.products.map((p: any) => 
           `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`

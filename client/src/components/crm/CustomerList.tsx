@@ -12,7 +12,8 @@ export function CustomerList({
   onSelect: (customer: Customer) => void;
 }) {
   const { data: customers, isLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"]
+    queryKey: ["/api/customers"],
+    select: (data) => data?.filter(customer => customer.name?.trim())
   });
 
   if (isLoading) {

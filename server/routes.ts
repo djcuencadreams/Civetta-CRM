@@ -28,6 +28,15 @@ export function registerRoutes(app: Express): Server {
     const webhookList = await db.query.webhooks.findMany({
       where: eq(webhooks.event, "new_customer")
     });
+  });
+
+  app.delete("/api/customers/:id", async (req, res) => {
+    try {
+      await db.delete(customers).where(eq(customers.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete customer" });
+    }
 
     webhookList.forEach(webhook => {
       fetch(webhook.url, {
