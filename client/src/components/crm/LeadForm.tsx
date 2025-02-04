@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,14 +103,14 @@ export function LeadForm({
         next_follow_up: values.nextFollowUp?.toISOString() || null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
-      
+
       try {
         const res = await apiRequest(
           lead ? "PUT" : "POST",
           `/api/leads${lead ? `/${lead.id}` : ''}`,
           formattedValues
         );
-        
+
         const contentType = res.headers.get("content-type");
         if (!res.ok) {
           const errorText = contentType?.includes("application/json") 
@@ -119,7 +118,7 @@ export function LeadForm({
             : await res.text();
           throw new Error(errorText);
         }
-        
+
         if (contentType?.includes("application/json")) {
           return await res.json();
         }
