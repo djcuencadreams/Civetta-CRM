@@ -22,8 +22,10 @@ export default function LeadsPage() {
 
       <LeadsList 
         onSelect={(lead) => {
-          setSelectedLead(lead);
-          setDialogOpen(true);
+          if (lead?.id) {
+            setSelectedLead({...lead});
+            setDialogOpen(true);
+          }
         }}
       />
 
