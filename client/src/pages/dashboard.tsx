@@ -27,6 +27,14 @@ export default function DashboardPage() {
     }
   };
 
+  const { data: leads } = useQuery({
+    queryKey: ["/api/leads"],
+    select: (data) => data.filter(lead => {
+      const leadDate = new Date(lead.createdAt);
+      return leadDate >= startOfDay(startDate) && leadDate <= endDate;
+    })
+  });
+
   const { data: sales } = useQuery({
     queryKey: ["/api/sales", startDate, endDate],
     select: (data) => data.filter(sale => {
@@ -73,8 +81,11 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-medium mb-2">Clientes Nuevos</h3>
-            <p className="text-3xl font-bold">{totalCustomers}</p>
+            <h3 className="font-medium mb-2">Contactos Nuevos</h3>
+            <p className="text-3xl font-bold">{(leads?.length || 0) + totalCustomers}</p>
+            <div className="text-sm text-muted-foreground mt-1">
+              {leads?.length || 0} leads • {totalCustomers} clientes
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { customers, sales, webhooks } from "@db/schema";
+import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
@@ -93,6 +93,28 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/webhooks/:id", async (req, res) => {
     await db.delete(webhooks).where(eq(webhooks.id, parseInt(req.params.id)));
     res.status(204).end();
+  });
+
+  // Leads API
+  app.get("/api/leads", async (_req, res) => {
+    const result = await db.query.leads.findMany({
+      orderBy: desc(leads.createdAt),
+      with: { activities: true }
+    });
+    res.json(result);
+  });
+
+  app.post("/api/leads", async (req, res) => {
+    const lead = await db.insert(leads).values(req.body).returning();
+    res.json(lead[0]);
+  });
+
+  app.post("/api/leads/:id/activities", async (req, res) => {
+    const activity = await db.insert(leadActivities).values({
+      leadId: parseInt(req.params.id),
+      ...req.body
+    }).returning();
+    res.json(activity[0]);
   });
 
   return httpServer;
