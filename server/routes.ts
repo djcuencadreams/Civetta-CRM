@@ -163,19 +163,31 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Lead not found" });
       }
 
+      // Validate date fields
+      const lastContactDate = last_contact ? new Date(last_contact) : null;
+      const nextFollowUpDate = next_follow_up ? new Date(next_follow_up) : null;
+
+      if (last_contact && isNaN(lastContactDate?.getTime() || NaN)) {
+        return res.status(400).json({ error: "Invalid last contact date" });
+      }
+
+      if (next_follow_up && isNaN(nextFollowUpDate?.getTime() || NaN)) {
+        return res.status(400).json({ error: "Invalid next follow up date" });
+      }
+
       const lead = await db.update(leads)
         .set({
           name: name?.trim(),
           email: email?.trim() || null,
-          phone: phone ? phone.replace(/\++/g, '+') : null,
+          phone: phone ? phone.replace(/[^\d+]/g, '') : null,
           status,
           source: source?.trim() || null,
           notes: notes?.trim() || null,
           address: address?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
-          lastContact: last_contact ? new Date(last_contact) : null,
-          nextFollowUp: next_follow_up ? new Date(next_follow_up) : null,
+          lastContact: lastContactDate,
+          nextFollowUp: nextFollowUpDate,
           updatedAt: new Date()
         })
         .where(eq(leads.id, parseInt(req.params.id)))

@@ -89,20 +89,22 @@ export function LeadForm({
     return value;
   };
 
+  const queryClient = useQueryClient();
+  
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const formattedValues = {
         name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
-        phone: values.phoneNumber ? values.phoneCountry.replace('_', '') + formatPhoneNumber(values.phoneNumber) : null,
+        phone: values.phoneNumber ? values.phoneCountry.replace(/[_]/g, '') + values.phoneNumber.replace(/\D/g, '') : null,
         address: values.street ? 
           `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
           : null,
         source: values.source || null,
         status: values.status,
         notes: values.notes?.trim() || null,
-        last_contact: values.lastContact instanceof Date ? values.lastContact.toISOString() : values.lastContact || null,
-        next_follow_up: values.nextFollowUp instanceof Date ? values.nextFollowUp.toISOString() : values.nextFollowUp || null,
+        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
+        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
 
@@ -132,13 +134,17 @@ export function LeadForm({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      toast({ title: "Lead guardado exitosamente" });
+      toast({ 
+        title: "Lead guardado exitosamente",
+        variant: "success"
+      });
       onClose();
     },
     onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error || error.message || "Error desconocido";
       toast({ 
         title: "Error al guardar lead",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     }
