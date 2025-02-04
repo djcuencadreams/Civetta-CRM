@@ -1,123 +1,196 @@
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { DatePicker } from "@/components/ui/date-picker";
+import { useToast } from "@/hooks/use-toast";
 
-const leadSources = ["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"];
-const leadStatuses = ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"];
-
-export function LeadForm({ lead = {}, onClose }) {
+export function LeadForm({
+  lead,
+  onClose
+}: {
+  lead?: any;
+  onClose: () => void;
+}) {
+  const [isViewMode, setIsViewMode] = useState(!!lead);
+  const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { register, handleSubmit, setValue, watch } = useForm({
-    defaultValues: {
-      name: lead?.name || "",
-      email: lead?.email || "",
-      phone: lead?.phone || "",
-      source: lead?.source || "",
-      status: lead?.status || "new",
-      notes: lead?.notes || "",
-      lastContact: lead?.lastContact ? new Date(lead.lastContact) : null,
-      nextFollowUp: lead?.nextFollowUp ? new Date(lead.nextFollowUp) : null,
+
+  const form = useForm({
+    defaultValues: lead || {
+      name: "",
+      email: "",
+      phone: "",
+      source: "",
+      notes: ""
     }
   });
 
   const mutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await fetch("/api/leads", {
-        method: lead?.id ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: lead?.id,
-          ...data,
-          name: `${data.firstName} ${data.lastName}`.trim()
-        })
-      });
-      return response.json();
+    mutationFn: async (values: any) => {
+      const res = await apiRequest(lead ? "PUT" : "POST", `/api/leads${lead ? `/${lead.id}` : ''}`, values);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead saved successfully" });
       onClose();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error saving lead",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!lead?.id) return;
+      const res = await apiRequest("DELETE", `/api/leads/${lead.id}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead deleted successfully" });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error deleting lead",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
 
   return (
-    <form onSubmit={handleSubmit((data) => {
-      if (mutation.isPending) return;
-      mutation.mutate(data);
-    })} className="space-y-4">
-      <Input {...register("name")} placeholder="Nombre completo" />
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <Input {...register("email")} type="email" placeholder="Correo" />
-      <Input {...register("phone")} placeholder="Teléfono" />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} type="email" readOnly={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <Select defaultValue={watch("source")} onValueChange={(v) => setValue("source", v)}>
-        <SelectTrigger>
-          <SelectValue placeholder="Fuente" />
-        </SelectTrigger>
-        <SelectContent>
-          {leadSources.map(source => (
-            <SelectItem key={source} value={source}>{source}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <Select defaultValue={watch("status")} onValueChange={(v) => setValue("status", v)}>
-        <SelectTrigger>
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          {leadStatuses.map(status => (
-            <SelectItem key={status} value={status}>{status}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <FormField
+          control={form.control}
+          name="source"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Source</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm">Último Contacto</label>
-          <DatePicker
-            value={watch("lastContact")}
-            onChange={(date) => setValue("lastContact", date)}
-          />
-        </div>
-        <div>
-          <label className="text-sm">Próximo Seguimiento</label>
-          <DatePicker
-            value={watch("nextFollowUp")}
-            onChange={(date) => setValue("nextFollowUp", date)}
-          />
-        </div>
-      </div>
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea {...field} readOnly={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <Textarea {...register("notes")} placeholder="Notas" />
-      
-      <div className="flex justify-between gap-2">
-        {lead?.id && (
-          <Button 
-            variant="destructive" 
-            onClick={async () => {
-              if (confirm('¿Estás seguro de eliminar este lead?')) {
-                await fetch(`/api/leads/${lead.id}`, { method: 'DELETE' });
-                queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-                onClose();
-              }
-            }}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
           >
-            Eliminar
+            Cancel
           </Button>
-        )}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Guardando..." : "Guardar"}
-          </Button>
+          {lead && (
+            <>
+              {isViewMode ? (
+                <Button type="button" onClick={() => setIsViewMode(false)}>
+                  Edit Lead
+                </Button>
+              ) : (
+                <Button type="button" onClick={() => setIsViewMode(true)}>
+                  View Lead
+                </Button>
+              )}
+              <Button 
+                type="button" 
+                onClick={() => deleteMutation.mutate()} 
+                disabled={deleteMutation.isPending}
+                variant="destructive"
+              >
+                Delete Lead
+              </Button>
+            </>
+          )}
+          {!isViewMode && (
+            <Button type="submit" disabled={mutation.isPending}>
+              Save
+            </Button>
+          )}
         </div>
-      </div>
-    </form>
+      </form>
+    </Form>
   );
 }
