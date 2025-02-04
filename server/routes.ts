@@ -176,6 +176,7 @@ export function registerRoutes(app: Express): Server {
           convertedToCustomer: status === 'won',
           lastContact: last_contact ? new Date(last_contact) : null,
           nextFollowUp: next_follow_up ? new Date(next_follow_up) : null,
+          nextFollowUp: next_follow_up ? new Date(next_follow_up) : null,
           updatedAt: new Date()
         })
         .where(eq(leads.id, parseInt(req.params.id)))

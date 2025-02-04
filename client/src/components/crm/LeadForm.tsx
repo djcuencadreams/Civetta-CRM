@@ -94,13 +94,13 @@ export function LeadForm({
       const formattedValues = {
         name: `${values.firstName.trim()} ${values.lastName.trim()}`,
         email: values.email,
-        phone: `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}`,
-        address: `${values.street}, ${values.city}, ${values.province}\n${values.deliveryInstructions}`,
+        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : null,
+        address: values.street ? `${values.street}, ${values.city || ''}, ${values.province || ''}\n${values.deliveryInstructions || ''}` : null,
         source: values.source,
         status: values.status,
         notes: values.notes,
-        last_contact: values.lastContact?.toISOString() || null,
-        next_follow_up: values.nextFollowUp?.toISOString() || null,
+        last_contact: values.lastContact?.toISOString?.() || null,
+        next_follow_up: values.nextFollowUp?.toISOString?.() || null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead',
         lastContact: values.lastContact?.toISOString() || null,
         nextFollowUp: values.nextFollowUp?.toISOString() || null
