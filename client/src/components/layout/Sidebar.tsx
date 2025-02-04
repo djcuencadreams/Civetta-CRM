@@ -1,4 +1,3 @@
-
 import { FileDown, LayoutDashboard, Users, DollarSign, AppWindow, Menu } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -7,23 +6,28 @@ import { useState } from "react";
 
 const navigation = [
   {
-    title: "Panel",
     href: "/",
+    label: "Dashboard",
     icon: LayoutDashboard
   },
   {
-    title: "Clientes",
-    href: "/customers",
+    href: "/leads",
+    label: "Leads",
     icon: Users
   },
   {
-    title: "Ventas",
+    href: "/customers",
+    label: "Clientes",
+    icon: Users
+  },
+  {
     href: "/sales",
+    label: "Ventas",
     icon: DollarSign
   },
   {
-    title: "Integraciones",
     href: "/integrations",
+    label: "Integraciones",
     icon: AppWindow
   }
 ];
@@ -32,7 +36,7 @@ export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
-  
+
   if (isMobile && !isOpen) {
     return (
       <button 
@@ -72,7 +76,7 @@ export function Sidebar({ className }: { className?: string }) {
                 )}
               >
                 <Icon className="mr-2 h-4 w-4" />
-                {item.title}
+                {item.label}
               </Link>
             );
           })}
