@@ -167,7 +167,7 @@ export function registerRoutes(app: Express): Server {
         .set({
           name: name?.trim(),
           email: email?.trim() || null,
-          phone: phone?.trim() || null,
+          phone: phone ? phone.replace(/\++/g, '+') : null,
           status,
           source: source?.trim() || null,
           notes: notes?.trim() || null,

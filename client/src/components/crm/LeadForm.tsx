@@ -94,7 +94,7 @@ export function LeadForm({
       const formattedValues = {
         name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
-        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : null,
+        phone: values.phoneNumber ? values.phoneCountry.replace('_', '') + formatPhoneNumber(values.phoneNumber) : null,
         address: values.street ? 
           `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
           : null,
