@@ -377,7 +377,7 @@ export function CustomerForm({
           >
             {t("common.cancel")}
           </Button>
-          {customer && (
+          {customer && isViewMode && (
             <>
               <Button type="button" onClick={() => setIsViewMode(false)}>
                 Editar Cliente
