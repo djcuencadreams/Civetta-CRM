@@ -1,4 +1,3 @@
-
 import { pgTable, text, serial, integer, timestamp, decimal, boolean, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
