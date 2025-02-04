@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export function LeadForm({
   lead,
@@ -35,16 +36,26 @@ export function LeadForm({
       phone: lead?.phone || "",
       source: lead?.source || "",
       status: lead?.status || "new",
-      notes: lead?.notes || ""
+      notes: lead?.notes || "",
+      lastContact: lead?.last_contact ? new Date(lead.last_contact) : null,
+      nextFollowUp: lead?.next_follow_up ? new Date(lead.next_follow_up) : null
     }
   });
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      const res = await apiRequest(lead ? "PUT" : "POST", `/api/leads${lead ? `/${lead.id}` : ''}`, values);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      const formattedValues = {
+        ...values,
+        last_contact: values.lastContact?.toISOString(),
+        next_follow_up: values.nextFollowUp?.toISOString()
+      };
+      
+      const res = await apiRequest(
+        lead ? "PUT" : "POST",
+        `/api/leads${lead ? `/${lead.id}` : ''}`,
+        formattedValues
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       return res.json();
     },
     onSuccess: () => {
@@ -65,9 +76,7 @@ export function LeadForm({
     mutationFn: async () => {
       if (!lead?.id) return;
       const res = await apiRequest("DELETE", `/api/leads/${lead.id}`);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       return res.json();
     },
     onSuccess: () => {
@@ -135,9 +144,24 @@ export function LeadForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Source</FormLabel>
-              <FormControl>
-                <Input {...field} disabled={isViewMode} />
-              </FormControl>
+              <Select
+                disabled={isViewMode}
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"].map(source => (
+                    <SelectItem key={source} value={source}>
+                      {source}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -161,10 +185,48 @@ export function LeadForm({
                 </FormControl>
                 <SelectContent>
                   {["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"].map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="lastContact"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Last Contact</FormLabel>
+              <FormControl>
+                <DatePicker
+                  disabled={isViewMode}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="nextFollowUp"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Next Follow-up</FormLabel>
+              <FormControl>
+                <DatePicker
+                  disabled={isViewMode}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -199,7 +261,7 @@ export function LeadForm({
                   Edit Lead
                 </Button>
               ) : (
-                <Button type="button" onClick={() => setIsViewMode(true)}>
+                <Button type="button" onClick={() => setIsViewMode(true)} variant="outline">
                   View Lead
                 </Button>
               )}
