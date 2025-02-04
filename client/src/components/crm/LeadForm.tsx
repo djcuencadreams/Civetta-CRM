@@ -7,10 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export function LeadForm({ lead, onClose }) {
+export function LeadForm({ lead = {}, onClose }) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, setValue } = useForm({
-    defaultValues: lead
+    defaultValues: lead || {}
   });
 
   const mutation = useMutation({
@@ -35,13 +35,13 @@ export function LeadForm({ lead, onClose }) {
     <Card className="p-4">
       <form onSubmit={handleSubmit((data) => mutation.mutate(data))}>
         <div className="space-y-4">
-          <Input {...register("name")} placeholder="Name" />
-          <Input {...register("email")} type="email" placeholder="Email" />
-          <Input {...register("phone")} placeholder="Phone" />
+          <Input {...register("name")} placeholder="Nombre" />
+          <Input {...register("email")} type="email" placeholder="Correo" />
+          <Input {...register("phone")} placeholder="Teléfono" />
           
-          <Select defaultValue={lead.source} onValueChange={(v) => setValue("source", v)}>
+          <Select defaultValue={lead?.source} onValueChange={(v) => setValue("source", v)}>
             <SelectTrigger>
-              <SelectValue placeholder="Source" />
+              <SelectValue placeholder="Origen" />
             </SelectTrigger>
             <SelectContent>
               {leadSources.map(source => (
@@ -50,9 +50,9 @@ export function LeadForm({ lead, onClose }) {
             </SelectContent>
           </Select>
 
-          <Select defaultValue={lead.status} onValueChange={(v) => setValue("status", v)}>
+          <Select defaultValue={lead?.status} onValueChange={(v) => setValue("status", v)}>
             <SelectTrigger>
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
               {leadStatuses.map(status => (
@@ -61,7 +61,7 @@ export function LeadForm({ lead, onClose }) {
             </SelectContent>
           </Select>
 
-          <Textarea {...register("notes")} placeholder="Notes" />
+          <Textarea {...register("notes")} placeholder="Notas" />
           
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
