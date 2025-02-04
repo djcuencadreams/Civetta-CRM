@@ -153,9 +153,9 @@ export function LeadForm({
       // Update cache with validated data
       queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
         if (!oldData) return [data];
-        const updatedData = oldData.map(item => item.id === data.id ? data : item);
-        console.log('Updated lead data:', data);
-        return updatedData;
+        // Remove old entry and add updated one
+        const filtered = oldData.filter(item => item.id !== data.id);
+        return [...filtered, data];
       });
 
       toast({ 
