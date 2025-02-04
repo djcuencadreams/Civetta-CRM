@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
 import { DatePicker } from "@/components/ui/date-picker";
 
 const leadSources = ["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"];
@@ -16,18 +15,28 @@ export function LeadForm({ lead = {}, onClose }) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
-      ...lead,
-      lastContact: lead.lastContact ? new Date(lead.lastContact) : null,
-      nextFollowUp: lead.nextFollowUp ? new Date(lead.nextFollowUp) : null,
+      firstName: lead?.firstName || "",
+      lastName: lead?.lastName || "",
+      email: lead?.email || "",
+      phone: lead?.phone || "",
+      source: lead?.source || "",
+      status: lead?.status || "new",
+      notes: lead?.notes || "",
+      lastContact: lead?.lastContact ? new Date(lead.lastContact) : null,
+      nextFollowUp: lead?.nextFollowUp ? new Date(lead.nextFollowUp) : null,
     }
   });
 
   const mutation = useMutation({
     mutationFn: async (data) => {
       const response = await fetch("/api/leads", {
-        method: lead.id ? "PUT" : "POST",
+        method: lead?.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          id: lead?.id,
+          ...data,
+          name: `${data.firstName} ${data.lastName}`.trim()
+        })
       });
       return response.json();
     },
@@ -45,21 +54,9 @@ export function LeadForm({ lead = {}, onClose }) {
       </div>
 
       <Input {...register("email")} type="email" placeholder="Correo" />
-      
-      <div className="grid grid-cols-2 gap-4">
-        <Select defaultValue={lead?.phoneCountry} onValueChange={(v) => setValue("phoneCountry", v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="País" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="+593">🇪🇨 Ecuador (+593)</SelectItem>
-            {/* Add more country codes as needed */}
-          </SelectContent>
-        </Select>
-        <Input {...register("phoneNumber")} placeholder="Teléfono" />
-      </div>
+      <Input {...register("phone")} placeholder="Teléfono" />
 
-      <Select defaultValue={lead?.source} onValueChange={(v) => setValue("source", v)}>
+      <Select defaultValue={watch("source")} onValueChange={(v) => setValue("source", v)}>
         <SelectTrigger>
           <SelectValue placeholder="Fuente" />
         </SelectTrigger>
@@ -70,7 +67,7 @@ export function LeadForm({ lead = {}, onClose }) {
         </SelectContent>
       </Select>
 
-      <Select defaultValue={lead?.status} onValueChange={(v) => setValue("status", v)}>
+      <Select defaultValue={watch("status")} onValueChange={(v) => setValue("status", v)}>
         <SelectTrigger>
           <SelectValue placeholder="Estado" />
         </SelectTrigger>
