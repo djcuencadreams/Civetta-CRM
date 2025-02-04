@@ -36,7 +36,7 @@ export default function LeadsPage() {
           </DialogHeader>
           <LeadForm
             lead={selectedLead}
-            onComplete={() => {
+            onClose={() => {
               setDialogOpen(false);
               setSelectedLead(null);
             }}

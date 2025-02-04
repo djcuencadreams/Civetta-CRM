@@ -23,7 +23,7 @@ export function LeadsList({ onSelect }) {
   return (
     <div className="grid gap-4">
       {leads?.map(lead => (
-        <Card key={lead.id} className="p-4 cursor-pointer hover:shadow-md" onClick={() => onSelect(lead)}>
+        <Card key={lead.id} className="p-4 cursor-pointer hover:shadow-md" onClick={() => onSelect?.(lead)}>
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-medium">{lead.name}</h3>
