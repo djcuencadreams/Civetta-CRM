@@ -1,11 +1,9 @@
-import { useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { LeadForm } from "./LeadForm";
 
 export function LeadsList({ onSelect }) {
   const { data: leads } = useQuery({ queryKey: ["/api/leads"] });
@@ -23,10 +21,14 @@ export function LeadsList({ onSelect }) {
   return (
     <div className="grid gap-4">
       {leads?.map(lead => (
-        <Card key={lead.id} className="p-4 cursor-pointer hover:shadow-md" onClick={() => onSelect?.(lead)}>
+        <Card 
+          key={lead.id} 
+          className="p-4 cursor-pointer hover:shadow-md" 
+          onClick={() => onSelect && onSelect(lead)}
+        >
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-medium">{lead.name}</h3>
+              <h3 className="font-medium">{lead.firstName} {lead.lastName}</h3>
               <div className="text-sm text-muted-foreground">
                 {lead.email} • {lead.phone}
               </div>
@@ -43,15 +45,9 @@ export function LeadsList({ onSelect }) {
             {lead.nextFollowUp && (
               <div>Próximo seguimiento: {format(new Date(lead.nextFollowUp), "PPp", { locale: es })}</div>
             )}
-            {lead.customerLifecycleStage && (
-              <div>Etapa: {lead.customerLifecycleStage}</div>
-            )}
             {lead.notes && (
               <div className="mt-2 text-muted-foreground">{lead.notes}</div>
             )}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Creado: {format(new Date(lead.createdAt), "PPp", { locale: es })}
           </div>
         </Card>
       ))}
