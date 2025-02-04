@@ -47,7 +47,10 @@ export function LeadForm({ lead = {}, onClose }) {
   });
 
   return (
-    <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+    <form onSubmit={handleSubmit((data) => {
+      if (mutation.isPending) return;
+      mutation.mutate(data);
+    })} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Input {...register("firstName")} placeholder="Nombres" />
         <Input {...register("lastName")} placeholder="Apellidos" />
@@ -99,7 +102,9 @@ export function LeadForm({ lead = {}, onClose }) {
       
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button type="submit">Guardar</Button>
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? "Guardando..." : "Guardar"}
+        </Button>
       </div>
     </form>
   );
