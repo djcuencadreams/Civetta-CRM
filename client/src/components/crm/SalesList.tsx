@@ -47,8 +47,16 @@ export function SalesList() {
                 {t(`sales.${sale.status}`)}
               </Badge>
             </div>
-            <div className="text-sm text-muted-foreground">
-              ${sale.amount} - {format(new Date(sale.createdAt), "PPp", { locale: es })}
+            <div className="space-y-2">
+              {sale.notes?.split('\n').map((line, i) => (
+                line.startsWith('Notas:') ? null : 
+                <div key={i} className="text-sm text-muted-foreground pl-2">
+                  {line}
+                </div>
+              ))}
+              <div className="text-sm font-medium">
+                Total: ${sale.amount} - {format(new Date(sale.createdAt), "PPp", { locale: es })}
+              </div>
             </div>
             {sale.notes && (
               <div className="mt-2 text-sm">{sale.notes}</div>

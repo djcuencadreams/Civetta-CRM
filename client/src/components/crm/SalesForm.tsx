@@ -231,8 +231,15 @@ export function SalesForm({
                   )}
                 />
               </div>
+              <div className="mt-2 text-sm font-medium text-right">
+                Subtotal: ${(Number(field.amount) * Number(field.quantity)).toFixed(2)}
+              </div>
             </div>
           ))}
+
+          <div className="mt-4 text-lg font-medium text-right border-t pt-2">
+            Total: ${fields.reduce((sum, field) => sum + (Number(field.amount) * Number(field.quantity)), 0).toFixed(2)}
+          </div>
 
           <Button
             type="button"
