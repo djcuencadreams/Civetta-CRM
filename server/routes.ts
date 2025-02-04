@@ -106,36 +106,79 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/leads", async (req, res) => {
     try {
-      // Validate required fields
-      const { name, source, status } = req.body;
-      if (!name || !source || !status) {
-        return res.status(400).json({ 
-          error: "Missing required fields: name, source, and status are required" 
-        });
+      const { name, source, status, email, phone, last_contact, next_follow_up } = req.body;
+      
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      // Validate email or phone is present
+      if (!email?.trim() && !phone?.trim()) {
+        return res.status(400).json({ error: "Either email or phone is required" });
       }
 
       // Check for duplicate leads
       const existingLead = await db.query.leads.findFirst({
-        where: (leads) => {
-          return req.body.email 
-            ? eq(leads.email, req.body.email)
-            : req.body.phone 
-              ? eq(leads.phone, req.body.phone)
-              : undefined;
-        }
+        where: (leads, { and, or, eq, isNull }) => and(
+          or(
+            email ? eq(leads.email, email) : isNull(leads.email),
+            phone ? eq(leads.phone, phone) : isNull(leads.phone)
+          ),
+          eq(leads.convertedToCustomer, false)
+        )
       });
 
       if (existingLead) {
-        return res.status(409).json({ 
-          error: "Lead already exists with this email or phone" 
-        });
+        return res.status(409).json({ error: "Lead already exists with this email or phone" });
       }
 
-      const lead = await db.insert(leads).values(req.body).returning();
+      const lead = await db.insert(leads).values({
+        ...req.body,
+        customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
+        convertedToCustomer: status === 'won',
+        lastContact: last_contact ? new Date(last_contact) : null,
+        nextFollowUp: next_follow_up ? new Date(next_follow_up) : null
+      }).returning();
+
       res.json(lead[0]);
     } catch (error) {
       console.error('Lead creation error:', error);
       res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  app.put("/api/leads/:id", async (req, res) => {
+    try {
+      const { name, email, phone, status, last_contact, next_follow_up } = req.body;
+      
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const existingLead = await db.query.leads.findFirst({
+        where: (leads, { eq }) => eq(leads.id, parseInt(req.params.id))
+      });
+
+      if (!existingLead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
+      const lead = await db.update(leads)
+        .set({
+          ...req.body,
+          customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
+          convertedToCustomer: status === 'won',
+          lastContact: last_contact ? new Date(last_contact) : null,
+          nextFollowUp: next_follow_up ? new Date(next_follow_up) : null,
+          updatedAt: new Date()
+        })
+        .where(eq(leads.id, parseInt(req.params.id)))
+        .returning();
+
+      res.json(lead[0]);
+    } catch (error) {
+      console.error('Lead update error:', error);
+      res.status(500).json({ error: "Failed to update lead" });
     }
   });
 

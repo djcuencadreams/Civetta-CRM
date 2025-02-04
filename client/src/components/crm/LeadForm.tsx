@@ -111,11 +111,19 @@ export function LeadForm({
           `/api/leads${lead ? `/${lead.id}` : ''}`,
           formattedValues
         );
+        
+        const contentType = res.headers.get("content-type");
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`HTTP error! status: ${res.status}, message: ${errorText}`);
+          const errorText = contentType?.includes("application/json") 
+            ? (await res.json()).error 
+            : await res.text();
+          throw new Error(errorText);
         }
-        return await res.json();
+        
+        if (contentType?.includes("application/json")) {
+          return await res.json();
+        }
+        throw new Error("Invalid response format from server");
       } catch (error) {
         console.error('API Error:', error);
         throw error;
