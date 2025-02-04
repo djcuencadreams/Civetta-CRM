@@ -36,13 +36,6 @@ export function LeadsList({ onSelect }) {
     won: "Ganado",
     lost: "Perdido"
   };
-    contacted: "bg-yellow-500", 
-    qualified: "bg-purple-500",
-    proposal: "bg-orange-500",
-    negotiation: "bg-pink-500",
-    won: "bg-green-500",
-    lost: "bg-red-500"
-  };
 
   return (
     <div className="grid gap-4">
@@ -65,11 +58,11 @@ export function LeadsList({ onSelect }) {
           </div>
           <div className="mt-2 text-sm space-y-1">
             <div>Fuente: {lead.source}</div>
-            {lead.lastContact && (
-              <div>Último contacto: {format(new Date(lead.lastContact), "PPp", { locale: es })}</div>
+            {lead.last_contact && (
+              <div>Último contacto: {format(new Date(lead.last_contact), "PPp", { locale: es })}</div>
             )}
-            {lead.nextFollowUp && (
-              <div>Próximo seguimiento: {format(new Date(lead.nextFollowUp), "PPp", { locale: es })}</div>
+            {lead.next_follow_up && (
+              <div>Próximo seguimiento: {format(new Date(lead.next_follow_up), "PPp", { locale: es })}</div>
             )}
             {lead.notes && (
               <div className="mt-2 text-muted-foreground">{lead.notes}</div>
