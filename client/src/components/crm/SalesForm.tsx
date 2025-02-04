@@ -95,7 +95,7 @@ export function SalesForm({
       );
 
       const saleData = {
-        customerId: parseInt(values.customerId),
+        customerId: Number(values.customerId), 
         amount: totalAmount,
         status: "completed",
         paymentMethod: values.paymentMethod,

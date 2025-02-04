@@ -71,13 +71,13 @@ export function CustomerForm({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isViewMode, setIsViewMode] = useState(!!customer); 
+  const [isViewMode, setIsViewMode] = useState(!!customer);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const method = customer?.id ? "PUT" : "POST";
       const endpoint = customer?.id ? `/api/customers/${customer.id}` : "/api/customers";
-      
+
       const res = await apiRequest(method, endpoint, values);
       if (!res.ok) {
         const error = await res.json();
@@ -133,7 +133,7 @@ export function CustomerForm({
       city: customer.address?.split(',')[1]?.trim() || '',
       province: customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
       deliveryInstructions: customer.address?.split('\n')[1]?.trim() || '',
-      source: customer.source || ''
+      source: customer.source || 'website'  // Default source value
     } : {
       firstName: "",
       lastName: "",
@@ -144,7 +144,7 @@ export function CustomerForm({
       city: "",
       province: "",
       deliveryInstructions: "",
-      source: ""
+      source: "website"  // Default source value for new customers
     }
   });
 

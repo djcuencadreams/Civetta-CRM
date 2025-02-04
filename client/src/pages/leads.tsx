@@ -1,14 +1,14 @@
-
 import { useState } from "react";
 import { LeadsList } from "@/components/crm/LeadsList";
 import { LeadForm } from "@/components/crm/LeadForm";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
+import { type Lead } from "@db/schema";
 
 export default function LeadsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   return (
     <div className="space-y-6">
@@ -22,10 +22,8 @@ export default function LeadsPage() {
 
       <LeadsList 
         onSelect={(lead) => {
-          if (lead?.id) {
-            setSelectedLead({...lead});
-            setDialogOpen(true);
-          }
+          setSelectedLead(lead);
+          setDialogOpen(true);
         }}
       />
 

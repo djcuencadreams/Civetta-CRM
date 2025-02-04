@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { type Lead } from "@db/schema";
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
@@ -51,13 +52,12 @@ const provinces = [
   "Sucumbíos", "Tungurahua", "Zamora Chinchipe"
 ];
 
-export function LeadForm({
-  lead,
-  onClose
-}: {
-  lead?: any;
+interface LeadFormProps {
+  lead?: Lead;
   onClose: () => void;
-}) {
+}
+
+export function LeadForm({ lead, onClose }: LeadFormProps) {
   const [isViewMode, setIsViewMode] = useState(!!lead);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -67,31 +67,26 @@ export function LeadForm({
       firstName: lead?.name?.split(' ')[0] || '',
       lastName: lead?.name?.split(' ').slice(1).join(' ') || '',
       email: lead?.email || '',
-      phoneCountry: lead?.phone?.split(/[0-9]/)[0] || '+593',
-      phoneNumber: lead?.phone?.replace(/^\+\d+/, '') || '',
-      source: lead?.source || '',
+      phoneCountry: lead?.phoneCountry || '+593',
+      phoneNumber: lead?.phoneNumber?.replace(/^\+\d+/, '') || '',
       status: lead?.status || 'new',
-      street: lead?.address?.split(',')[0]?.trim() || '',
-      city: lead?.address?.split(',')[1]?.trim() || '',
-      province: lead?.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
-      deliveryInstructions: lead?.address?.split('\n')[1]?.trim() || '',
+      street: lead?.street || '',
+      city: lead?.city || '',
+      province: lead?.province || '',
+      deliveryInstructions: lead?.deliveryInstructions || '',
       notes: lead?.notes || '',
-      lastContact: lead?.last_contact ? new Date(lead.last_contact) : null,
-      nextFollowUp: lead?.next_follow_up ? new Date(lead.next_follow_up) : null,
+      lastContact: lead?.lastContact ? new Date(lead.lastContact) : null,
+      nextFollowUp: lead?.nextFollowUp ? new Date(lead.nextFollowUp) : null,
     }
   });
 
   const formatPhoneNumber = (value: string | undefined) => {
     if (!value) return '';
-    if (value.startsWith('0')) {
-      return value.substring(1);
-    }
-    return value;
+    return value.replace(/^0/, '');
   };
-  
+
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      // Validate required fields
       if (!values.firstName?.trim()) {
         throw new Error("El nombre es requerido");
       }
@@ -99,95 +94,46 @@ export function LeadForm({
       const formattedValues = {
         name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
-        phone: values.phoneNumber ? values.phoneCountry.replace(/[_]/g, '') + formatPhoneNumber(values.phoneNumber) : null,
-        address: values.street ? 
-          `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
-          : null,
-        source: values.source || null,
+        phoneCountry: values.phoneCountry,
+        phoneNumber: values.phoneNumber ? formatPhoneNumber(values.phoneNumber) : null,
         status: values.status,
+        street: values.street?.trim() || null,
+        city: values.city?.trim() || null,
+        province: values.province || null,
+        deliveryInstructions: values.deliveryInstructions?.trim() || null,
         notes: values.notes?.trim() || null,
-        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
-        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
-        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
+        lastContact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
+        nextFollowUp: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null
       };
 
-      console.log('Sending lead update:', formattedValues);
+      const res = await apiRequest(
+        lead ? "PUT" : "POST",
+        `/api/leads${lead ? `/${lead.id}` : ''}`,
+        formattedValues
+      );
 
-      try {
-        const res = await apiRequest(
-          lead ? "PUT" : "POST",
-          `/api/leads${lead ? `/${lead.id}` : ''}`,
-          formattedValues
-        );
-
-        const contentType = res.headers.get("content-type");
-        if (!res.ok) {
-          const errorText = contentType?.includes("application/json") 
-            ? (await res.json()).error 
-            : await res.text();
-          throw new Error(errorText);
-        }
-
-        if (contentType?.includes("application/json")) {
-          return await res.json();
-        }
-        throw new Error("Invalid response format from server");
-      } catch (error) {
-        console.error('API Error:', error);
-        throw error;
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
       }
+
+      return res.json();
     },
     onSuccess: async (data) => {
-      // Validate response data
-      if (!data || !data.id) {
-        throw new Error("Invalid response from server");
-      }
-
-      try {
-        // Invalidate and refetch leads
-        await queryClient.invalidateQueries({ 
-          queryKey: ["/api/leads"],
-          refetchType: 'active'
-        });
-        
-        // If lead was converted to customer, invalidate customers
-        if (data.convertedToCustomer) {
-          await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-        }
-
-        // Update local cache
-        queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
-          if (!oldData) return [data];
-          const filtered = oldData.filter(item => item.id !== data.id);
-          return [...filtered, data].sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-        });
-
-        toast({ 
-          title: "Lead guardado exitosamente",
-          description: "Todos los campos han sido actualizados"
-        });
-        onClose();
-      } catch (error) {
-        console.error('Error updating cache:', error);
-        toast({ 
-          title: "Error actualizando caché",
-          description: "Los cambios fueron guardados pero requieren refrescar la página",
-          variant: "destructive"
-        });
-      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ 
+        title: "Lead guardado exitosamente",
+        description: "Todos los campos han sido actualizados"
+      });
+      onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Lead update error:', error);
-      const errorMessage = error?.response?.data?.error || error.message || "Error desconocido";
       toast({ 
         title: "Error al guardar lead",
-        description: errorMessage,
+        description: error.message,
         variant: "destructive"
       });
-      // Force refetch on error to ensure consistent state
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     }
   });
 
@@ -313,43 +259,6 @@ export function LeadForm({
 
         <FormField
           control={form.control}
-          name="source"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Fuente</FormLabel>
-              <Select
-                disabled={isViewMode}
-                value={field.value}
-                onValueChange={field.onChange}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {[
-                    ["Website", "Sitio Web"],
-                    ["Referral", "Referido"],
-                    ["Social Media", "Redes Sociales"],
-                    ["Email", "Correo Electrónico"],
-                    ["Cold Call", "Llamada en Frío"],
-                    ["Event", "Evento"],
-                    ["Other", "Otro"]
-                  ].map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
           name="status"
           render={({ field }) => (
             <FormItem>
@@ -461,6 +370,20 @@ export function LeadForm({
 
         <FormField
           control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notas</FormLabel>
+              <FormControl>
+                <Textarea {...field} disabled={isViewMode} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="lastContact"
           render={({ field }) => (
             <FormItem>
@@ -468,8 +391,8 @@ export function LeadForm({
               <FormControl>
                 <DatePicker
                   disabled={isViewMode}
-                  value={field.value ? new Date(field.value) : undefined}
-                  onChange={field.onChange}
+                  date={field.value ? new Date(field.value) : undefined}
+                  onSelect={field.onChange}
                 />
               </FormControl>
               <FormMessage />
@@ -486,23 +409,9 @@ export function LeadForm({
               <FormControl>
                 <DatePicker
                   disabled={isViewMode}
-                  value={field.value ? new Date(field.value) : undefined}
-                  onChange={field.onChange}
+                  date={field.value ? new Date(field.value) : undefined}
+                  onSelect={field.onChange}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notas</FormLabel>
-              <FormControl>
-                <Textarea {...field} disabled={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -517,22 +426,10 @@ export function LeadForm({
           >
             Cancelar
           </Button>
-          {lead && (
-            <>
-              {isViewMode ? (
-                <Button type="button" onClick={() => setIsViewMode(false)}>
-                  Editar Lead
-                </Button>
-              ) : null}
-              <Button 
-                type="button" 
-                onClick={() => deleteMutation.mutate()} 
-                disabled={deleteMutation.isPending}
-                variant="destructive"
-              >
-                Eliminar Lead
-              </Button>
-            </>
+          {lead && isViewMode && (
+            <Button type="button" onClick={() => setIsViewMode(false)}>
+              Editar Lead
+            </Button>
           )}
           {!isViewMode && (
             <Button type="submit" disabled={mutation.isPending}>

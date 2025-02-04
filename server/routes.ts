@@ -5,6 +5,7 @@ import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
+
 const router = Router();
 
 export function registerRoutes(app: Express): Server {
@@ -203,7 +204,9 @@ export function registerRoutes(app: Express): Server {
     try {
       const result = await db.query.leads.findMany({
         orderBy: desc(leads.createdAt),
-        with: { activities: true }
+        with: {
+          activities: true
+        }
       });
       res.json(result);
     } catch (error) {
@@ -214,44 +217,46 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/leads", async (req, res) => {
     try {
-      const { name, source, status, email, phone, last_contact, next_follow_up } = req.body;
+      const { name, source, status, email, phoneNumber, phoneCountry, notes,
+        street, city, province, deliveryInstructions, lastContact, nextFollowUp } = req.body;
 
       if (!name?.trim()) {
-        return res.status(400).json({ error: "Name is required" });
+        return res.status(400).json({ error: "El nombre es requerido" });
       }
 
-      // Validate email or phone is present
-      if (!email?.trim() && !phone?.trim()) {
-        return res.status(400).json({ error: "Either email or phone is required" });
-      }
-
-      // Check for duplicate leads
-      const existingLead = await db.query.leads.findFirst({
-        where: (leads, { and, or, eq, isNull }) => and(
-          or(
-            email ? eq(leads.email, email) : isNull(leads.email),
-            phone ? eq(leads.phone, phone) : isNull(leads.phone)
-          ),
-          eq(leads.convertedToCustomer, false)
-        )
-      });
-
-      if (existingLead) {
-        return res.status(409).json({ error: "Lead already exists with this email or phone" });
-      }
+      const formattedPhone = phoneNumber && phoneCountry ?
+        `${phoneCountry.replace(/[_]/g, '')}${phoneNumber.replace(/^0/, '')}` : null;
 
       const lead = await db.insert(leads).values({
-        ...req.body,
+        name: name.trim(),
+        email: email?.trim() || null,
+        phoneCountry: phoneCountry || null,
+        phoneNumber: formattedPhone,
+        status: status || 'new',
+        notes: notes?.trim() || null,
+        street: street?.trim() || null,
+        city: city?.trim() || null,
+        province: province || null,
+        deliveryInstructions: deliveryInstructions?.trim() || null,
         customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
         convertedToCustomer: status === 'won',
-        lastContact: last_contact ? new Date(last_contact) : null,
-        nextFollowUp: next_follow_up ? new Date(next_follow_up) : null
+        lastContact: lastContact ? new Date(lastContact) : null,
+        nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }).returning();
 
-      res.json(lead[0]);
-    } catch (error) {
+      const leadWithActivities = await db.query.leads.findFirst({
+        where: eq(leads.id, lead[0].id),
+        with: {
+          activities: true
+        }
+      });
+
+      res.json(leadWithActivities);
+    } catch (error: any) {
       console.error('Lead creation error:', error);
-      res.status(500).json({ error: "Failed to create lead" });
+      res.status(500).json({ error: "Error al crear el lead: " + error.message });
     }
   });
 
@@ -276,8 +281,8 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Format phone number
-      const formattedPhone = phoneNumber ?
-        (phoneCountry?.replace(/[_]/g, '') + phoneNumber.replace(/^0/, '')) : null;
+      const formattedPhone = phoneNumber && phoneCountry ?
+        `${phoneCountry.replace(/[_]/g, '')}${phoneNumber.replace(/^0/, '')}` : null;
 
       // Format address
       const formattedAddress = street ?
@@ -315,15 +320,14 @@ export function registerRoutes(app: Express): Server {
         .set({
           name: name?.trim(),
           email: email?.trim() || null,
-          phoneCountry: phoneCountry,
-          phoneNumber: phoneNumber?.replace(/^0/, ''),
+          phoneNumber: formattedPhone,
           status,
           source: source?.trim() || null,
           notes: notes?.trim() || null,
-          street: street?.trim(),
-          city: city?.trim(),
-          province,
-          deliveryInstructions: deliveryInstructions?.trim(),
+          street: street?.trim() || null,
+          city: city?.trim() || null,
+          province: province || null,
+          deliveryInstructions: deliveryInstructions?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
           convertedCustomerId: convertedCustomerId || existingLead.convertedCustomerId,
