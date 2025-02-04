@@ -74,7 +74,10 @@ export const insertWebhookSchema = createInsertSchema(webhooks);
 export const selectWebhookSchema = createSelectSchema(webhooks);
 
 export const leadRelations = relations(leads, ({ many }) => ({
-  activities: many(leadActivities)
+  activities: many(leadActivities, {
+    fields: [leads.id],
+    references: [leadActivities.leadId]
+  })
 }));
 
 export type Customer = typeof customers.$inferSelect;
