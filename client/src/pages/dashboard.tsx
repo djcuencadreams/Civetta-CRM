@@ -81,10 +81,25 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-medium mb-2">Contactos Nuevos</h3>
+            <h3 className="font-medium mb-2">Clientes</h3>
             <p className="text-3xl font-bold">{(leads?.length || 0) + totalCustomers}</p>
-            <div className="text-sm text-muted-foreground mt-1">
-              {leads?.length || 0} leads • {totalCustomers} clientes
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="text-sm">
+                <div className="font-medium">Leads</div>
+                <div className="text-muted-foreground">
+                  {leads?.filter(l => !l.convertedToCustomer).reduce((acc, lead) => {
+                    const counts = acc;
+                    counts[lead.status] = (counts[lead.status] || 0) + 1;
+                    return counts;
+                  }, {} as Record<string, number>)}
+                </div>
+              </div>
+              <div className="text-sm border-l pl-2">
+                <div className="font-medium">Clientes Activos</div>
+                <div className="text-muted-foreground">
+                  Total: {totalCustomers}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
