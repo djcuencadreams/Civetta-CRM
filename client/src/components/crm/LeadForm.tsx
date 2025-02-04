@@ -89,8 +89,6 @@ export function LeadForm({
     return value;
   };
 
-  const queryClient = useQueryClient();
-  
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const formattedValues = {
