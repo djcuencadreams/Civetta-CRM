@@ -100,11 +100,27 @@ export function LeadForm({ lead = {}, onClose }) {
 
       <Textarea {...register("notes")} placeholder="Notas" />
       
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? "Guardando..." : "Guardar"}
-        </Button>
+      <div className="flex justify-between gap-2">
+        {lead?.id && (
+          <Button 
+            variant="destructive" 
+            onClick={async () => {
+              if (confirm('¿Estás seguro de eliminar este lead?')) {
+                await fetch(`/api/leads/${lead.id}`, { method: 'DELETE' });
+                queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+                onClose();
+              }
+            }}
+          >
+            Eliminar
+          </Button>
+        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "Guardando..." : "Guardar"}
+          </Button>
+        </div>
       </div>
     </form>
   );

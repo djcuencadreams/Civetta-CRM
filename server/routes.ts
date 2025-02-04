@@ -117,5 +117,14 @@ export function registerRoutes(app: Express): Server {
     res.json(activity[0]);
   });
 
+  app.delete("/api/leads/:id", async (req, res) => {
+    try {
+      await db.delete(leads).where(eq(leads.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete lead" });
+    }
+  });
+
   return httpServer;
 }
