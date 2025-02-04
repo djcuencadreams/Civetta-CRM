@@ -97,11 +97,11 @@ export function LeadForm({
         email: values.email,
         phone: `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}`,
         address: `${values.street}, ${values.city}, ${values.province}\n${values.deliveryInstructions}`,
-        source: values.source || 'Website',
-        status: values.status || 'new',
+        source: values.source,
+        status: values.status,
         notes: values.notes,
-        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
-        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
+        last_contact: values.lastContact?.toISOString() || null,
+        next_follow_up: values.nextFollowUp?.toISOString() || null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
       
