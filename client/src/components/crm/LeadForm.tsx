@@ -101,7 +101,9 @@ export function LeadForm({
         notes: values.notes,
         last_contact: values.lastContact?.toISOString() || null,
         next_follow_up: values.nextFollowUp?.toISOString() || null,
-        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
+        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead',
+        lastContact: values.lastContact?.toISOString() || null,
+        nextFollowUp: values.nextFollowUp?.toISOString() || null
       };
 
       try {
