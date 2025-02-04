@@ -12,11 +12,13 @@ import {
 import { cn } from "@/lib/utils"
 
 export function DatePicker({
-  date,
-  setDate,
+  value,
+  onChange,
+  disabled,
 }: {
-  date?: Date
-  setDate?: (date?: Date) => void
+  value?: Date
+  onChange?: (date?: Date) => void
+  disabled?: boolean
 }) {
   return (
     <Popover>
@@ -25,18 +27,20 @@ export function DatePicker({
           variant={"outline"}
           className={cn(
             "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground"
+            !value && "text-muted-foreground"
           )}
+          disabled={disabled}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>Seleccionar fecha</span>}
+          {value ? format(value, "PPP") : <span>Seleccionar fecha</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
         <Calendar
           mode="single"
-          selected={date}
-          onSelect={setDate}
+          selected={value}
+          onSelect={onChange}
+          disabled={disabled}
           initialFocus
         />
       </PopoverContent>
