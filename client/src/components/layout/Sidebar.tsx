@@ -41,7 +41,7 @@ export function Sidebar({ className }: { className?: string }) {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 bg-background border rounded-md shadow-md"
+        className="fixed top-6 right-4 z-50 p-2 bg-background border rounded-md shadow-md"
       >
         <Menu className="h-6 w-6" />
       </button>
