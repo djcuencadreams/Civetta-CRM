@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { format, subDays, subMonths, subYears, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
+import { FunnelChart } from "@/components/crm/FunnelChart";
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState("week");
@@ -81,19 +82,7 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardContent className="p-6">
-            <h3 className="font-medium mb-2">Pipeline de Ventas</h3>
-            <p className="text-3xl font-bold">{leads?.length || 0} leads</p>
-            <div className="mt-2 space-y-1">
-              {Object.entries(leads?.reduce((acc, lead) => {
-                acc[lead.status] = (acc[lead.status] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>) || {}).map(([status, count]) => (
-                <div key={status} className="flex justify-between text-sm">
-                  <span className="capitalize">{status}</span>
-                  <span>{count}</span>
-                </div>
-              ))}
-            </div>
+            <FunnelChart />
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div className="text-sm">
                 <div className="font-medium">Leads</div>
