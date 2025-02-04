@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/hooks/use-toast"
 
 
 export function LeadsList({ onSelect }) {
@@ -55,10 +55,10 @@ export function LeadsList({ onSelect }) {
     console.error('Leads fetch error:', error);
     toast({
       title: "Error al cargar leads",
-      description: "No se pudieron cargar los leads. Por favor, intente nuevamente.",
-      variant: "destructive"
+      description: error instanceof Error ? error.message : "No se pudieron cargar los leads. Por favor, intente nuevamente.",
+      variant: "destructive",
     });
-    return <div>Error al cargar leads</div>;
+    return <div className="p-4 text-red-500">Error al cargar leads</div>;
   }
 
   return (
