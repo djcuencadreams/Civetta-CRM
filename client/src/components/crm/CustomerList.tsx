@@ -59,13 +59,22 @@ export function CustomerList({
                 {customer.address}
               </div>
             )}
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => onSelect(customer)}
-            >
-              {t("common.edit")}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => onSelect({...customer, mode: 'view'})}
+              >
+                Ver
+              </Button>
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => onSelect({...customer, mode: 'edit'})}
+              >
+                Editar
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ))}

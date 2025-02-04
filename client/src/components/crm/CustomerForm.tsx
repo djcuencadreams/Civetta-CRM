@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
@@ -70,6 +71,7 @@ export function CustomerForm({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isViewMode, setIsViewMode] = useState(!!customer); // Determine view mode based on customer prop
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -127,7 +129,8 @@ export function CustomerForm({
       street: "",
       city: "",
       province: "",
-      deliveryInstructions: ""
+      deliveryInstructions: "",
+      source: "" // Added source field to default values
     }
   });
 
@@ -155,6 +158,7 @@ export function CustomerForm({
           email: data.email,
           phone: `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}`,
           address: `${data.street}, ${data.city}, ${data.province}\n${data.deliveryInstructions}`,
+          source: data.source // Included source in formattedData
         };
         mutation.mutate(formattedData);
       })} className="space-y-4">
@@ -166,7 +170,7 @@ export function CustomerForm({
               <FormItem>
                 <FormLabel>Nombres</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} readOnly={isViewMode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -180,7 +184,7 @@ export function CustomerForm({
               <FormItem>
                 <FormLabel>Apellidos</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} readOnly={isViewMode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -197,6 +201,7 @@ export function CustomerForm({
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
+                  disabled={isViewMode} // Added disabled prop in view mode
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -220,7 +225,7 @@ export function CustomerForm({
             <FormItem>
               <FormLabel>Correo Electrónico</FormLabel>
               <FormControl>
-                <Input type="email" {...field} />
+                <Input type="email" {...field} readOnly={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -237,6 +242,7 @@ export function CustomerForm({
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
+                  disabled={isViewMode} // Added disabled prop in view mode
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -263,6 +269,7 @@ export function CustomerForm({
                   <Input 
                     maxLength={10} 
                     {...field} 
+                    readOnly={isViewMode}
                     onChange={(e) => {
                       const value = e.target.value.replace(/\D/g, '');
                       if (value.length <= 10) {
@@ -287,7 +294,7 @@ export function CustomerForm({
               <FormItem>
                 <FormLabel>Calle, Intersección y Número de Casa</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} readOnly={isViewMode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -302,7 +309,7 @@ export function CustomerForm({
                 <FormItem>
                   <FormLabel>Ciudad</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} readOnly={isViewMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -318,6 +325,7 @@ export function CustomerForm({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
+                    disabled={isViewMode} // Added disabled prop in view mode
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -342,7 +350,7 @@ export function CustomerForm({
               <FormItem>
                 <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
                 <FormControl>
-                  <Textarea {...field} />
+                  <Textarea {...field} readOnly={isViewMode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -359,13 +367,18 @@ export function CustomerForm({
             {t("common.cancel")}
           </Button>
           {customer && (
-            <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending} style={{backgroundColor: 'red'}}>
-              Eliminar Cliente
-            </Button>
+            <>
+              <Button type="button" onClick={() => setIsViewMode(false)}>
+                Editar Cliente
+              </Button>
+              <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending} style={{backgroundColor: 'red'}}>
+                Eliminar Cliente
+              </Button>
+            </>
           )}
-          <Button type="submit" disabled={mutation.isPending}>
+          {!isViewMode && <Button type="submit" disabled={mutation.isPending}>
             {t("common.save")}
-          </Button>
+          </Button>}
         </div>
       </form>
     </Form>
