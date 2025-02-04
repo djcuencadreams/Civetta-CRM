@@ -94,16 +94,14 @@ export function LeadForm({
       const formattedValues = {
         name: `${values.firstName.trim()} ${values.lastName.trim()}`,
         email: values.email,
-        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : null,
-        address: values.street ? `${values.street}, ${values.city || ''}, ${values.province || ''}\n${values.deliveryInstructions || ''}` : null,
+        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : undefined,
+        address: values.street ? `${values.street}, ${values.city || ''}, ${values.province || ''}\n${values.deliveryInstructions || ''}`.trim() : undefined,
         source: values.source,
         status: values.status,
-        notes: values.notes,
-        last_contact: values.lastContact?.toISOString?.() || null,
-        next_follow_up: values.nextFollowUp?.toISOString?.() || null,
-        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead',
-        lastContact: values.lastContact?.toISOString() || null,
-        nextFollowUp: values.nextFollowUp?.toISOString() || null
+        notes: values.notes || undefined,
+        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : undefined,
+        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : undefined,
+        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
 
       try {
