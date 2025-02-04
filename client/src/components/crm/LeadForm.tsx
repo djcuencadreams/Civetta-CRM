@@ -475,11 +475,7 @@ export function LeadForm({
                 <Button type="button" onClick={() => setIsViewMode(false)}>
                   Editar Lead
                 </Button>
-              ) : (
-                <Button type="button" onClick={() => setIsViewMode(true)} variant="outline">
-                  Ver Lead
-                </Button>
-              )}
+              ) : null}
               <Button 
                 type="button" 
                 onClick={() => deleteMutation.mutate()} 
