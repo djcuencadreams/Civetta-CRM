@@ -1,10 +1,13 @@
+
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  // Register service worker
+  const isMobile = useIsMobile();
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js')
@@ -19,8 +22,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar className="hidden md:block" />
-      <main className="flex-1 overflow-y-auto">
+      <Sidebar className={cn(
+        isMobile ? "absolute z-50 h-full" : "hidden md:block"
+      )} />
+      <main className="flex-1 overflow-y-auto w-full">
         <div className="container px-4 py-6 md:px-6 lg:px-8">
           {children}
         </div>
