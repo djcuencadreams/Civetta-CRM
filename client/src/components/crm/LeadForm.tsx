@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function LeadForm({
   lead,
@@ -28,12 +29,13 @@ export function LeadForm({
   const queryClient = useQueryClient();
 
   const form = useForm({
-    defaultValues: lead || {
-      name: "",
-      email: "",
-      phone: "",
-      source: "",
-      notes: ""
+    defaultValues: {
+      name: lead?.name || "",
+      email: lead?.email || "",
+      phone: lead?.phone || "",
+      source: lead?.source || "",
+      status: lead?.status || "new",
+      notes: lead?.notes || ""
     }
   });
 
@@ -92,7 +94,7 @@ export function LeadForm({
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={isViewMode} />
+                <Input {...field} disabled={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -106,7 +108,7 @@ export function LeadForm({
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input {...field} type="email" readOnly={isViewMode} />
+                <Input {...field} type="email" disabled={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -120,7 +122,7 @@ export function LeadForm({
             <FormItem>
               <FormLabel>Phone</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={isViewMode} />
+                <Input {...field} disabled={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -134,8 +136,35 @@ export function LeadForm({
             <FormItem>
               <FormLabel>Source</FormLabel>
               <FormControl>
-                <Input {...field} readOnly={isViewMode} />
+                <Input {...field} disabled={isViewMode} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select
+                disabled={isViewMode}
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"].map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -148,7 +177,7 @@ export function LeadForm({
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea {...field} readOnly={isViewMode} />
+                <Textarea {...field} disabled={isViewMode} />
               </FormControl>
               <FormMessage />
             </FormItem>
