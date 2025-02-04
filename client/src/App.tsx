@@ -6,6 +6,7 @@ import { Shell } from "@/components/layout/Shell";
 import Dashboard from "@/pages/dashboard";
 import CustomersPage from "@/pages/customers";
 import SalesPage from "@/pages/sales";
+import LeadsPage from "@/pages/leads";
 import IntegrationsPage from "@/pages/integrations";
 import NotFound from "@/pages/not-found";
 
