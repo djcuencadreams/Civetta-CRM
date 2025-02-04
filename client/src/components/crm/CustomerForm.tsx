@@ -120,7 +120,18 @@ export function CustomerForm({
   });
 
   const form = useForm({
-    defaultValues: customer || {
+    defaultValues: customer ? {
+      firstName: customer.name?.split(' ')[0] || '',
+      lastName: customer.name?.split(' ').slice(1).join(' ') || '',
+      email: customer.email || '',
+      phoneCountry: customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
+      phoneNumber: customer.phone?.replace(/^\+\d+/, '') || '',
+      street: customer.address?.split(',')[0]?.trim() || '',
+      city: customer.address?.split(',')[1]?.trim() || '',
+      province: customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
+      deliveryInstructions: customer.address?.split('\n')[1]?.trim() || '',
+      source: customer.source || ''
+    } : {
       firstName: "",
       lastName: "",
       email: "",
@@ -130,7 +141,7 @@ export function CustomerForm({
       city: "",
       province: "",
       deliveryInstructions: "",
-      source: "" // Added source field to default values
+      source: ""
     }
   });
 
