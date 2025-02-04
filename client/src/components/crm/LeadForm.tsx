@@ -151,11 +151,21 @@ export function LeadForm({
       });
       
       // Update cache with validated data
+      // Invalidate queries to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      
+      // If lead was converted to customer, also invalidate customers
+      if (data.convertedToCustomer) {
+        await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      }
+
+      // Update local cache
       queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
         if (!oldData) return [data];
-        // Remove old entry and add updated one
         const filtered = oldData.filter(item => item.id !== data.id);
-        return [...filtered, data];
+        return [...filtered, data].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       });
 
       toast({ 

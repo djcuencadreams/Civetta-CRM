@@ -210,17 +210,37 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Invalid next follow up date" });
       }
 
+      // Create customer if status is won
+      let convertedCustomerId = null;
+      if (status === 'won' && !existingLead.convertedToCustomer) {
+        const [customer] = await db.insert(customers)
+          .values({
+            name: name?.trim(),
+            email: email?.trim() || null,
+            phone: formattedPhone,
+            address: formattedAddress,
+          })
+          .returning();
+        convertedCustomerId = customer.id;
+      }
+
+      // Update lead
       const lead = await db.update(leads)
         .set({
           name: name?.trim(),
           email: email?.trim() || null,
-          phone: formattedPhone,
+          phoneCountry: phoneCountry,
+          phoneNumber: phoneNumber?.replace(/^0/, ''),
           status,
           source: source?.trim() || null,
           notes: notes?.trim() || null,
-          address: formattedAddress,
+          street: street?.trim(),
+          city: city?.trim(),
+          province,
+          deliveryInstructions: deliveryInstructions?.trim(),
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
+          convertedCustomerId: convertedCustomerId || existingLead.convertedCustomerId,
           lastContact: lastContactDate,
           nextFollowUp: nextFollowUpDate,
           updatedAt: new Date()
