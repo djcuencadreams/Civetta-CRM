@@ -189,9 +189,34 @@ export function CustomerForm({
         </div>
 
         <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
+            control={form.control}
+            name="source"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fuente</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"].map(source => (
+                      <SelectItem key={source} value={source}>
+                        {source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
             <FormItem>
               <FormLabel>Correo Electrónico</FormLabel>
               <FormControl>
