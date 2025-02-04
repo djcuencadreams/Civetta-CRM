@@ -171,7 +171,11 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/leads/:id", async (req, res) => {
     try {
-      const { name, email, phone, status, source, notes, address, last_contact, next_follow_up } = req.body;
+      const { 
+        name, email, phoneNumber, phoneCountry, status, source, notes,
+        street, city, province, deliveryInstructions,
+        last_contact, next_follow_up 
+      } = req.body;
       
       if (!name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
@@ -184,6 +188,15 @@ export function registerRoutes(app: Express): Server {
       if (!existingLead) {
         return res.status(404).json({ error: "Lead not found" });
       }
+
+      // Format phone number
+      const formattedPhone = phoneNumber ? 
+        (phoneCountry?.replace(/[_]/g, '') + phoneNumber.replace(/^0/, '')) : null;
+
+      // Format address
+      const formattedAddress = street ? 
+        `${street.trim()}, ${city?.trim() || ''}, ${province || ''}${deliveryInstructions ? '\n' + deliveryInstructions.trim() : ''}`.trim() 
+        : null;
 
       // Validate date fields
       const lastContactDate = last_contact ? new Date(last_contact) : null;
@@ -201,11 +214,11 @@ export function registerRoutes(app: Express): Server {
         .set({
           name: name?.trim(),
           email: email?.trim() || null,
-          phone: phone ? phone.replace(/[^\d+]/g, '') : null,
+          phone: formattedPhone,
           status,
           source: source?.trim() || null,
           notes: notes?.trim() || null,
-          address: address?.trim() || null,
+          address: formattedAddress,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
           lastContact: lastContactDate,
