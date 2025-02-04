@@ -98,8 +98,6 @@ export function LeadForm({
         address: values.street ? 
           `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
           : null,
-        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
-        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
         source: values.source || null,
         status: values.status,
         notes: values.notes?.trim() || null,
