@@ -101,6 +101,18 @@ export default function DashboardPage() {
                     ))
                   }
                 </div>
+                <div className="mt-2">
+                  <div className="font-medium">Por Año</div>
+                  {leads && Object.entries(
+                    leads.reduce((acc, lead) => {
+                      const year = new Date(lead.createdAt).getFullYear();
+                      acc[year] = (acc[year] || 0) + 1;
+                      return acc;
+                    }, {} as Record<number, number>)
+                  ).sort((a, b) => b[0] - a[0]).map(([year, count]) => (
+                    <div key={year}>{year}: {count} leads</div>
+                  ))}
+                </div>
               </div>
               <div className="text-sm border-l pl-2">
                 <div className="font-medium">Clientes Activos</div>
