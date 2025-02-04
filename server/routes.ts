@@ -165,17 +165,17 @@ export function registerRoutes(app: Express): Server {
 
       const lead = await db.update(leads)
         .set({
-          name,
-          email,
-          phone,
+          name: name?.trim(),
+          email: email?.trim() || null,
+          phone: phone?.trim() || null,
           status,
-          source,
-          notes,
-          address,
+          source: source?.trim() || null,
+          notes: notes?.trim() || null,
+          address: address?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
-          lastContact: last_contact ? new Date(last_contact) : undefined,
-          nextFollowUp: next_follow_up ? new Date(next_follow_up) : undefined,
+          lastContact: last_contact ? new Date(last_contact) : null,
+          nextFollowUp: next_follow_up ? new Date(next_follow_up) : null,
           updatedAt: new Date()
         })
         .where(eq(leads.id, parseInt(req.params.id)))

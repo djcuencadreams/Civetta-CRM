@@ -92,15 +92,17 @@ export function LeadForm({
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       const formattedValues = {
-        name: `${values.firstName.trim()} ${values.lastName.trim()}`,
+        name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
         phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : null,
-        address: values.street ? `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}\n${values.deliveryInstructions?.trim() || ''}`.trim() : null,
-        source: values.source,
+        address: values.street ? 
+          `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
+          : null,
+        source: values.source || null,
         status: values.status,
         notes: values.notes?.trim() || null,
-        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
-        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
+        last_contact: values.lastContact instanceof Date ? values.lastContact.toISOString() : values.lastContact || null,
+        next_follow_up: values.nextFollowUp instanceof Date ? values.nextFollowUp.toISOString() : values.nextFollowUp || null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
 
