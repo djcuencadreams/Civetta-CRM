@@ -94,10 +94,12 @@ export function LeadForm({
       const formattedValues = {
         name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
-        phone: values.phoneNumber ? values.phoneCountry.replace(/[_]/g, '') + values.phoneNumber.replace(/\D/g, '') : null,
+        phone: values.phoneNumber ? values.phoneCountry.replace(/[_]/g, '') + formatPhoneNumber(values.phoneNumber) : null,
         address: values.street ? 
           `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}${values.deliveryInstructions ? '\n' + values.deliveryInstructions.trim() : ''}`.trim() 
           : null,
+        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
+        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
         source: values.source || null,
         status: values.status,
         notes: values.notes?.trim() || null,

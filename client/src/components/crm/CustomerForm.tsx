@@ -75,7 +75,10 @@ export function CustomerForm({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      const res = await apiRequest("POST", "/api/customers", values);
+      const method = customer?.id ? "PUT" : "POST";
+      const endpoint = customer?.id ? `/api/customers/${customer.id}` : "/api/customers";
+      
+      const res = await apiRequest(method, endpoint, values);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || `HTTP error! status: ${res.status}`);

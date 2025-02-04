@@ -21,13 +21,35 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/customers", async (req, res) => {
-    const customer = await db.insert(customers).values(req.body).returning();
-    res.json(customer[0]);
+    try {
+      const customer = await db.insert(customers).values(req.body).returning();
+      res.json(customer[0]);
 
-    // Notify integrations
-    const webhookList = await db.query.webhooks.findMany({
-      where: eq(webhooks.event, "new_customer")
-    });
+      // Notify integrations
+      const webhookList = await db.query.webhooks.findMany({
+        where: eq(webhooks.event, "new_customer")
+      });
+    } catch (error) {
+      console.error('Customer creation error:', error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  app.put("/api/customers/:id", async (req, res) => {
+    try {
+      const customer = await db.update(customers)
+        .set({
+          ...req.body,
+          updatedAt: new Date()
+        })
+        .where(eq(customers.id, parseInt(req.params.id)))
+        .returning();
+      
+      res.json(customer[0]);
+    } catch (error) {
+      console.error('Customer update error:', error);
+      res.status(500).json({ error: "Failed to update customer" });
+    }
   });
 
   app.delete("/api/customers/:id", async (req, res) => {
