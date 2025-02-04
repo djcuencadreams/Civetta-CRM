@@ -166,10 +166,10 @@ export function CustomerForm({
         }
         const formattedData = {
           name: `${data.firstName.trim()} ${data.lastName.trim()}`,
-          email: data.email,
-          phone: `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}`,
-          address: `${data.street}, ${data.city}, ${data.province}\n${data.deliveryInstructions}`,
-          source: data.source // Included source in formattedData
+          email: data.email?.trim() || null,
+          phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
+          address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
+          source: data.source
         };
         mutation.mutate(formattedData);
       })} className="space-y-4">

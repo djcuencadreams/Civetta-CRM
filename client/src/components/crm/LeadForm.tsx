@@ -93,14 +93,14 @@ export function LeadForm({
     mutationFn: async (values: any) => {
       const formattedValues = {
         name: `${values.firstName.trim()} ${values.lastName.trim()}`,
-        email: values.email,
-        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : undefined,
-        address: values.street ? `${values.street}, ${values.city || ''}, ${values.province || ''}\n${values.deliveryInstructions || ''}`.trim() : undefined,
+        email: values.email?.trim() || null,
+        phone: values.phoneNumber ? `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}` : null,
+        address: values.street ? `${values.street.trim()}, ${values.city?.trim() || ''}, ${values.province || ''}\n${values.deliveryInstructions?.trim() || ''}`.trim() : null,
         source: values.source,
         status: values.status,
-        notes: values.notes || undefined,
-        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : undefined,
-        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : undefined,
+        notes: values.notes?.trim() || null,
+        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
+        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
 
