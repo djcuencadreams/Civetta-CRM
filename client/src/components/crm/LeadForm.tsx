@@ -106,6 +106,8 @@ export function LeadForm({
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
 
+      console.log('Sending lead update:', formattedValues);
+
       try {
         const res = await apiRequest(
           lead ? "PUT" : "POST",
@@ -131,17 +133,20 @@ export function LeadForm({
       }
     },
     onSuccess: (data) => {
-      // Invalidate and refetch leads
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      // Force immediate refetch to ensure latest data
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/leads"],
+        refetchType: 'active',
+        exact: true
+      });
       
-      // Update the cache with the new data
+      // Optimistically update cache
       queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
         if (!oldData) return [data];
-        const index = oldData.findIndex(item => item.id === data.id);
-        if (index === -1) return [...oldData, data];
-        return [...oldData.slice(0, index), data, ...oldData.slice(index + 1)];
+        return oldData.map(item => item.id === data.id ? data : item);
       });
 
+      console.log('Lead saved successfully:', data);
       toast({ 
         title: "Lead guardado exitosamente",
         variant: "success"
@@ -156,6 +161,8 @@ export function LeadForm({
         description: errorMessage,
         variant: "destructive"
       });
+      // Force refetch on error to ensure consistent state
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     }
   });
 
