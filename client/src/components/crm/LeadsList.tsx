@@ -24,8 +24,11 @@ export function LeadsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between">
-        <h2 className="text-2xl font-bold">Leads</h2>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Leads</h2>
+          <p className="text-muted-foreground">Gestión del pipeline de ventas</p>
+        </div>
         <Button onClick={() => setSelectedLead({})}>Nuevo Lead</Button>
       </div>
 
@@ -47,11 +50,23 @@ export function LeadsList() {
                 {lead.status}
               </Badge>
             </div>
-            <div className="mt-2 text-sm">
-              Source: {lead.source}
+            <div className="mt-2 text-sm space-y-1">
+              <div>Fuente: {lead.source}</div>
+              {lead.lastContact && (
+                <div>Último contacto: {format(new Date(lead.lastContact), "PPp", { locale: es })}</div>
+              )}
+              {lead.nextFollowUp && (
+                <div>Próximo seguimiento: {format(new Date(lead.nextFollowUp), "PPp", { locale: es })}</div>
+              )}
+              {lead.customerLifecycleStage && (
+                <div>Etapa: {lead.customerLifecycleStage}</div>
+              )}
+              {lead.notes && (
+                <div className="mt-2 text-muted-foreground">{lead.notes}</div>
+              )}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Created: {format(new Date(lead.createdAt), "PPp", { locale: es })}
+              Creado: {format(new Date(lead.createdAt), "PPp", { locale: es })}
             </div>
           </Card>
         ))}
