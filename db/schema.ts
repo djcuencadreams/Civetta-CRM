@@ -74,9 +74,13 @@ export const insertWebhookSchema = createInsertSchema(webhooks);
 export const selectWebhookSchema = createSelectSchema(webhooks);
 
 export const leadRelations = relations(leads, ({ many }) => ({
-  activities: many(leadActivities, {
-    fields: [leads.id],
-    references: [leadActivities.leadId]
+  activities: many(leadActivities)
+}));
+
+export const leadActivityRelations = relations(leadActivities, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadActivities.leadId],
+    references: [leads.id]
   })
 }));
 
