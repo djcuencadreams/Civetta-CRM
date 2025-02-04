@@ -91,6 +91,11 @@ export function LeadForm({
   
   const mutation = useMutation({
     mutationFn: async (values: any) => {
+      // Validate required fields
+      if (!values.firstName?.trim()) {
+        throw new Error("El nombre es requerido");
+      }
+
       const formattedValues = {
         name: `${values.firstName?.trim()} ${values.lastName?.trim()}`.trim(),
         email: values.email?.trim() || null,
@@ -133,22 +138,29 @@ export function LeadForm({
       }
     },
     onSuccess: (data) => {
-      // Force immediate refetch to ensure latest data
+      // Validate response data
+      if (!data || !data.id) {
+        throw new Error("Invalid response from server");
+      }
+
+      // Force immediate refetch
       queryClient.invalidateQueries({ 
         queryKey: ["/api/leads"],
         refetchType: 'active',
         exact: true
       });
       
-      // Optimistically update cache
+      // Update cache with validated data
       queryClient.setQueryData(["/api/leads"], (oldData: any[]) => {
         if (!oldData) return [data];
-        return oldData.map(item => item.id === data.id ? data : item);
+        const updatedData = oldData.map(item => item.id === data.id ? data : item);
+        console.log('Updated lead data:', data);
+        return updatedData;
       });
 
-      console.log('Lead saved successfully:', data);
       toast({ 
         title: "Lead guardado exitosamente",
+        description: "Todos los campos han sido actualizados",
         variant: "success"
       });
       onClose();
