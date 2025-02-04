@@ -91,7 +91,15 @@ export default function DashboardPage() {
                     const counts = acc;
                     counts[lead.status] = (counts[lead.status] || 0) + 1;
                     return counts;
-                  }, {} as Record<string, number>)}
+                  }, {} as Record<string, number>) &&
+                    Object.entries(leads?.filter(l => !l.convertedToCustomer).reduce((acc, lead) => {
+                      const counts = acc;
+                      counts[lead.status] = (counts[lead.status] || 0) + 1;
+                      return counts;
+                    }, {} as Record<string, number>)).map(([status, count]) => (
+                      <div key={status}>{status}: {count}</div>
+                    ))
+                  }
                 </div>
               </div>
               <div className="text-sm border-l pl-2">
