@@ -105,8 +105,38 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/leads", async (req, res) => {
-    const lead = await db.insert(leads).values(req.body).returning();
-    res.json(lead[0]);
+    try {
+      // Validate required fields
+      const { name, source, status } = req.body;
+      if (!name || !source || !status) {
+        return res.status(400).json({ 
+          error: "Missing required fields: name, source, and status are required" 
+        });
+      }
+
+      // Check for duplicate leads
+      const existingLead = await db.query.leads.findFirst({
+        where: (leads) => {
+          return req.body.email 
+            ? eq(leads.email, req.body.email)
+            : req.body.phone 
+              ? eq(leads.phone, req.body.phone)
+              : undefined;
+        }
+      });
+
+      if (existingLead) {
+        return res.status(409).json({ 
+          error: "Lead already exists with this email or phone" 
+        });
+      }
+
+      const lead = await db.insert(leads).values(req.body).returning();
+      res.json(lead[0]);
+    } catch (error) {
+      console.error('Lead creation error:', error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
   });
 
   app.post("/api/leads/:id/activities", async (req, res) => {

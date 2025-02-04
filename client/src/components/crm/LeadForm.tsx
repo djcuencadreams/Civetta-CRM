@@ -97,20 +97,29 @@ export function LeadForm({
         email: values.email,
         phone: `${values.phoneCountry}${formatPhoneNumber(values.phoneNumber)}`,
         address: `${values.street}, ${values.city}, ${values.province}\n${values.deliveryInstructions}`,
-        source: values.source,
-        status: values.status,
+        source: values.source || 'Website',
+        status: values.status || 'new',
         notes: values.notes,
-        last_contact: values.lastContact?.toISOString(),
-        next_follow_up: values.nextFollowUp?.toISOString()
+        last_contact: values.lastContact?.toISOString() || null,
+        next_follow_up: values.nextFollowUp?.toISOString() || null,
+        customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
       
-      const res = await apiRequest(
-        lead ? "PUT" : "POST",
-        `/api/leads${lead ? `/${lead.id}` : ''}`,
-        formattedValues
-      );
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      return res.json();
+      try {
+        const res = await apiRequest(
+          lead ? "PUT" : "POST",
+          `/api/leads${lead ? `/${lead.id}` : ''}`,
+          formattedValues
+        );
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`HTTP error! status: ${res.status}, message: ${errorText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });

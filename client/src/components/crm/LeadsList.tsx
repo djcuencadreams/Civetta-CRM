@@ -19,6 +19,23 @@ export function LeadsList({ onSelect }) {
 
   const funnelStages = {
     new: "bg-blue-500",
+    contacted: "bg-purple-500",
+    qualified: "bg-indigo-500",
+    proposal: "bg-pink-500",
+    negotiation: "bg-orange-500",
+    won: "bg-green-500",
+    lost: "bg-red-500"
+  };
+
+  const stageLabels = {
+    new: "Nuevo",
+    contacted: "Contactado",
+    qualified: "Calificado",
+    proposal: "Propuesta",
+    negotiation: "Negociación",
+    won: "Ganado",
+    lost: "Perdido"
+  };
     contacted: "bg-yellow-500", 
     qualified: "bg-purple-500",
     proposal: "bg-orange-500",
@@ -42,8 +59,8 @@ export function LeadsList({ onSelect }) {
                 {lead.email} • {lead.phone}
               </div>
             </div>
-            <Badge className={funnelStages[lead.status]}>
-              {lead.status}
+            <Badge className={funnelStages[lead.status] || "bg-gray-500"}>
+              {stageLabels[lead.status] || lead.status}
             </Badge>
           </div>
           <div className="mt-2 text-sm space-y-1">
