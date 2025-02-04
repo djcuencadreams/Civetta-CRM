@@ -166,8 +166,7 @@ export function LeadForm({
 
         toast({ 
           title: "Lead guardado exitosamente",
-          description: "Todos los campos han sido actualizados",
-          variant: "success"
+          description: "Todos los campos han sido actualizados"
         });
         onClose();
       } catch (error) {
@@ -469,7 +468,7 @@ export function LeadForm({
               <FormControl>
                 <DatePicker
                   disabled={isViewMode}
-                  value={field.value}
+                  value={field.value ? new Date(field.value) : undefined}
                   onChange={field.onChange}
                 />
               </FormControl>
@@ -487,7 +486,7 @@ export function LeadForm({
               <FormControl>
                 <DatePicker
                   disabled={isViewMode}
-                  value={field.value}
+                  value={field.value ? new Date(field.value) : undefined}
                   onChange={field.onChange}
                 />
               </FormControl>

@@ -71,7 +71,7 @@ export function CustomerForm({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isViewMode, setIsViewMode] = useState(!!customer); // Determine view mode based on customer prop
+  const [isViewMode, setIsViewMode] = useState(!!customer); 
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -215,7 +215,7 @@ export function CustomerForm({
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
-                  disabled={isViewMode} // Added disabled prop in view mode
+                  disabled={isViewMode} 
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -256,7 +256,7 @@ export function CustomerForm({
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
-                  disabled={isViewMode} // Added disabled prop in view mode
+                  disabled={isViewMode} 
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -339,7 +339,7 @@ export function CustomerForm({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={isViewMode} // Added disabled prop in view mode
+                    disabled={isViewMode} 
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -385,7 +385,16 @@ export function CustomerForm({
               <Button type="button" onClick={() => setIsViewMode(false)}>
                 Editar Cliente
               </Button>
-              <Button type="button" onClick={deleteMutation.mutate} disabled={deleteMutation.isPending} style={{backgroundColor: 'red'}}>
+              <Button 
+                type="button" 
+                onClick={() => {
+                  if (window.confirm('¿Está seguro de eliminar este cliente?')) {
+                    deleteMutation.mutate();
+                  }
+                }} 
+                disabled={deleteMutation.isPending} 
+                style={{backgroundColor: 'red'}}
+              >
                 Eliminar Cliente
               </Button>
             </>

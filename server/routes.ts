@@ -13,21 +13,40 @@ export function registerRoutes(app: Express): Server {
 
   // Customers API
   app.get("/api/customers", async (_req, res) => {
-    const result = await db.query.customers.findMany({
-      orderBy: desc(customers.createdAt),
-      with: { sales: true }
-    });
-    res.json(result);
+    try {
+      const result = await db.query.customers.findMany({
+        orderBy: desc(customers.createdAt),
+        with: { sales: true }
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
   });
 
   app.post("/api/customers", async (req, res) => {
     try {
+      if (!req.body.name?.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
       const customer = await db.insert(customers).values(req.body).returning();
       res.json(customer[0]);
 
       // Notify integrations
       const webhookList = await db.query.webhooks.findMany({
         where: eq(webhooks.event, "new_customer")
+      });
+
+      webhookList.forEach(webhook => {
+        if (webhook.active) {
+          fetch(webhook.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(customer[0])
+          }).catch(error => console.error('Webhook notification error:', error));
+        }
       });
     } catch (error) {
       console.error('Customer creation error:', error);
@@ -37,6 +56,10 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/customers/:id", async (req, res) => {
     try {
+      if (!req.body.name?.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
       const customer = await db.update(customers)
         .set({
           ...req.body,
@@ -44,7 +67,11 @@ export function registerRoutes(app: Express): Server {
         })
         .where(eq(customers.id, parseInt(req.params.id)))
         .returning();
-      
+
+      if (!customer.length) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
       res.json(customer[0]);
     } catch (error) {
       console.error('Customer update error:', error);
@@ -54,82 +81,141 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/customers/:id", async (req, res) => {
     try {
-      await db.delete(customers).where(eq(customers.id, parseInt(req.params.id)));
+      const result = await db.delete(customers)
+        .where(eq(customers.id, parseInt(req.params.id)))
+        .returning();
+
+      if (!result.length) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
       res.json({ success: true });
     } catch (error) {
+      console.error('Customer deletion error:', error);
       res.status(500).json({ error: "Failed to delete customer" });
     }
-
-    webhookList.forEach(webhook => {
-      fetch(webhook.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customer[0])
-      }).catch(console.error);
-    });
   });
 
   // Sales API
   app.get("/api/sales", async (_req, res) => {
-    const result = await db.query.sales.findMany({
-      orderBy: desc(sales.createdAt),
-      with: { customer: true }
-    });
-    res.json(result);
+    try {
+      const result = await db.query.sales.findMany({
+        orderBy: desc(sales.createdAt),
+        with: { customer: true }
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+      res.status(500).json({ error: "Failed to fetch sales" });
+    }
   });
 
   app.post("/api/sales", async (req, res) => {
-    const sale = await db.insert(sales).values(req.body).returning();
-    const saleWithCustomer = await db.query.sales.findFirst({
-      where: eq(sales.id, sale[0].id),
-      with: { customer: true }
-    });
+    try {
+      if (!req.body.customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
 
-    res.json(saleWithCustomer);
+      if (!req.body.amount || isNaN(Number(req.body.amount))) {
+        return res.status(400).json({ error: "Valid amount is required" });
+      }
 
-    // Notify integrations
-    const webhookList = await db.query.webhooks.findMany({
-      where: eq(webhooks.event, "new_sale")
-    });
+      const sale = await db.insert(sales).values(req.body).returning();
+      const saleWithCustomer = await db.query.sales.findFirst({
+        where: eq(sales.id, sale[0].id),
+        with: { customer: true }
+      });
 
-    webhookList.forEach(webhook => {
-      fetch(webhook.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(saleWithCustomer)
-      }).catch(console.error);
-    });
+      res.json(saleWithCustomer);
+
+      // Notify integrations
+      const webhookList = await db.query.webhooks.findMany({
+        where: eq(webhooks.event, "new_sale")
+      });
+
+      webhookList.forEach(webhook => {
+        if (webhook.active) {
+          fetch(webhook.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(saleWithCustomer)
+          }).catch(error => console.error('Webhook notification error:', error));
+        }
+      });
+    } catch (error) {
+      console.error('Sale creation error:', error);
+      res.status(500).json({ error: "Failed to create sale" });
+    }
   });
 
   // Webhooks API
   app.get("/api/webhooks", async (_req, res) => {
-    const result = await db.query.webhooks.findMany();
-    res.json(result);
+    try {
+      const result = await db.query.webhooks.findMany();
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching webhooks:', error);
+      res.status(500).json({ error: "Failed to fetch webhooks" });
+    }
   });
 
   app.post("/api/webhooks", async (req, res) => {
-    const webhook = await db.insert(webhooks).values(req.body).returning();
-    res.json(webhook[0]);
+    try {
+      if (!req.body.name?.trim()) {
+        return res.status(400).json({ error: "Webhook name is required" });
+      }
+
+      if (!req.body.url?.trim()) {
+        return res.status(400).json({ error: "Webhook URL is required" });
+      }
+
+      if (!req.body.event?.trim()) {
+        return res.status(400).json({ error: "Event type is required" });
+      }
+
+      const webhook = await db.insert(webhooks).values(req.body).returning();
+      res.json(webhook[0]);
+    } catch (error) {
+      console.error('Webhook creation error:', error);
+      res.status(500).json({ error: "Failed to create webhook" });
+    }
   });
 
   app.delete("/api/webhooks/:id", async (req, res) => {
-    await db.delete(webhooks).where(eq(webhooks.id, parseInt(req.params.id)));
-    res.status(204).end();
+    try {
+      const result = await db.delete(webhooks)
+        .where(eq(webhooks.id, parseInt(req.params.id)))
+        .returning();
+
+      if (!result.length) {
+        return res.status(404).json({ error: "Webhook not found" });
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      console.error('Webhook deletion error:', error);
+      res.status(500).json({ error: "Failed to delete webhook" });
+    }
   });
 
   // Leads API
   app.get("/api/leads", async (_req, res) => {
-    const result = await db.query.leads.findMany({
-      orderBy: desc(leads.createdAt),
-      with: { activities: true }
-    });
-    res.json(result);
+    try {
+      const result = await db.query.leads.findMany({
+        orderBy: desc(leads.createdAt),
+        with: { activities: true }
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
   });
 
   app.post("/api/leads", async (req, res) => {
     try {
       const { name, source, status, email, phone, last_contact, next_follow_up } = req.body;
-      
+
       if (!name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
       }
@@ -171,12 +257,12 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/leads/:id", async (req, res) => {
     try {
-      const { 
+      const {
         name, email, phoneNumber, phoneCountry, status, source, notes,
         street, city, province, deliveryInstructions,
-        last_contact, next_follow_up 
+        last_contact, next_follow_up
       } = req.body;
-      
+
       if (!name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
       }
@@ -190,12 +276,12 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Format phone number
-      const formattedPhone = phoneNumber ? 
+      const formattedPhone = phoneNumber ?
         (phoneCountry?.replace(/[_]/g, '') + phoneNumber.replace(/^0/, '')) : null;
 
       // Format address
-      const formattedAddress = street ? 
-        `${street.trim()}, ${city?.trim() || ''}, ${province || ''}${deliveryInstructions ? '\n' + deliveryInstructions.trim() : ''}`.trim() 
+      const formattedAddress = street ?
+        `${street.trim()}, ${city?.trim() || ''}, ${province || ''}${deliveryInstructions ? '\n' + deliveryInstructions.trim() : ''}`.trim()
         : null;
 
       // Validate date fields
@@ -256,18 +342,31 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/leads/:id/activities", async (req, res) => {
-    const activity = await db.insert(leadActivities).values({
-      leadId: parseInt(req.params.id),
-      ...req.body
-    }).returning();
-    res.json(activity[0]);
+    try {
+      const activity = await db.insert(leadActivities).values({
+        leadId: parseInt(req.params.id),
+        ...req.body
+      }).returning();
+      res.json(activity[0]);
+    } catch (error) {
+      console.error('Lead activity creation error:', error);
+      res.status(500).json({ error: "Failed to create lead activity" });
+    }
   });
 
   app.delete("/api/leads/:id", async (req, res) => {
     try {
-      await db.delete(leads).where(eq(leads.id, parseInt(req.params.id)));
+      const result = await db.delete(leads)
+        .where(eq(leads.id, parseInt(req.params.id)))
+        .returning();
+
+      if (!result.length) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+
       res.json({ success: true });
     } catch (error) {
+      console.error('Lead deletion error:', error);
       res.status(500).json({ error: "Failed to delete lead" });
     }
   });

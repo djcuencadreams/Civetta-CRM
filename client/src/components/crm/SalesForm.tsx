@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,18 +55,19 @@ export function SalesForm({
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const { data: customers } = useQuery<Customer[]>({
+
+  const { data: customers, isLoading: isLoadingCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"]
   });
-  
+
   const form = useForm({
     defaultValues: {
       customerId: "",
       products: [{ name: "", category: "", amount: "", quantity: "1" }],
       paymentMethod: "efectivo",
       notes: ""
-    }
+    },
+    resolver: zodResolver(insertSaleSchema)
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -77,9 +77,21 @@ export function SalesForm({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
+      if (!values.customerId) {
+        throw new Error("Debe seleccionar un cliente");
+      }
+
       const totalAmount = values.products.reduce(
-        (sum: number, product: any) => sum + (Number(product.amount) * Number(product.quantity)),
-        0
+        (sum: number, product: any) => {
+          const amount = Number(product.amount);
+          const quantity = Number(product.quantity);
+
+          if (isNaN(amount) || isNaN(quantity) || amount < 0 || quantity < 1) {
+            throw new Error("Los valores de precio y cantidad deben ser números válidos");
+          }
+
+          return sum + (amount * quantity);
+        }, 0
       );
 
       const saleData = {
@@ -87,14 +99,15 @@ export function SalesForm({
         amount: totalAmount,
         status: "completed",
         paymentMethod: values.paymentMethod,
-        notes: `${values.products.map((p: any) => 
+        notes: values.products.map((p: any) => 
           `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`
-        ).join("\n")}${values.notes ? `\n\nNotas: ${values.notes}` : ""}`
+        ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
       };
 
       const res = await apiRequest("POST", "/api/sales", saleData);
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        const error = await res.json();
+        throw new Error(error.message || `Error: ${res.status}`);
       }
       return res.json();
     },
@@ -103,7 +116,7 @@ export function SalesForm({
       toast({ title: t("common.success") });
       onComplete();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({ 
         title: t("common.error"),
         description: error.message,
@@ -111,6 +124,10 @@ export function SalesForm({
       });
     }
   });
+
+  if (isLoadingCustomers) {
+    return <div>Cargando clientes...</div>;
+  }
 
   return (
     <>
@@ -210,7 +227,18 @@ export function SalesForm({
                     <FormItem>
                       <FormLabel>Precio</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          min="0" 
+                          {...field} 
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || Number(value) >= 0) {
+                              field.onChange(value);
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -224,7 +252,17 @@ export function SalesForm({
                     <FormItem>
                       <FormLabel>Cantidad</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" {...field} />
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          {...field} 
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || Number(value) >= 1) {
+                              field.onChange(value);
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
