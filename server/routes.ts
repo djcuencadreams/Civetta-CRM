@@ -149,7 +149,7 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/leads/:id", async (req, res) => {
     try {
-      const { name, email, phone, status, last_contact, next_follow_up } = req.body;
+      const { name, email, phone, status, source, notes, address, last_contact, next_follow_up } = req.body;
       
       if (!name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
@@ -165,7 +165,13 @@ export function registerRoutes(app: Express): Server {
 
       const lead = await db.update(leads)
         .set({
-          ...req.body,
+          name,
+          email,
+          phone,
+          status,
+          source,
+          notes,
+          address,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
           lastContact: last_contact ? new Date(last_contact) : null,
