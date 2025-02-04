@@ -78,7 +78,7 @@ export function LeadForm({
       deliveryInstructions: lead?.address?.split('\n')[1]?.trim() || '',
       notes: lead?.notes || '',
       lastContact: lead?.last_contact ? new Date(lead.last_contact) : null,
-      nextFollowUp: lead?.next_follow_up ? new Date(lead.next_follow_up) : null
+      nextFollowUp: lead?.next_follow_up ? new Date(lead.next_follow_up) : null,
     }
   });
 
@@ -100,8 +100,8 @@ export function LeadForm({
         source: values.source || 'Website',
         status: values.status || 'new',
         notes: values.notes,
-        last_contact: values.lastContact?.toISOString() || null,
-        next_follow_up: values.nextFollowUp?.toISOString() || null,
+        last_contact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
+        next_follow_up: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null,
         customer_lifecycle_stage: values.status === 'won' ? 'customer' : 'lead'
       };
       
