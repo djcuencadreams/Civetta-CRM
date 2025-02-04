@@ -1,16 +1,18 @@
-
 CREATE TABLE IF NOT EXISTS leads (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT,
-  phone_country VARCHAR(10),
-  phone_number VARCHAR(15),
+  phone TEXT,
   status VARCHAR(50) NOT NULL DEFAULT 'new',
-  source VARCHAR(50) NOT NULL,
+  source VARCHAR(50) NOT NULL DEFAULT 'website',
   notes TEXT,
   converted_to_customer BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_contact TIMESTAMP,
+  next_follow_up TIMESTAMP,
+  customer_lifecycle_stage VARCHAR(50),
+  converted_customer_id INTEGER REFERENCES customers(id)
 );
 
 CREATE TABLE IF NOT EXISTS lead_activities (

@@ -203,9 +203,9 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/leads", async (_req, res) => {
     try {
       const result = await db.query.leads.findMany({
-        orderBy: desc(leads.createdAt),
+        orderBy: [desc(leads.createdAt)],
         with: {
-          activities: true
+          convertedCustomer: true
         }
       });
       res.json(result);
@@ -217,43 +217,33 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/leads", async (req, res) => {
     try {
-      const { name, source, status, email, phoneNumber, phoneCountry, notes,
-        street, city, province, deliveryInstructions, lastContact, nextFollowUp } = req.body;
+      const { name, email, phone, status, source, notes,
+        lastContact, nextFollowUp, phoneCountry, street, city,
+        province, deliveryInstructions } = req.body;
 
       if (!name?.trim()) {
         return res.status(400).json({ error: "El nombre es requerido" });
       }
 
-      const formattedPhone = phoneNumber && phoneCountry ?
-        `${phoneCountry.replace(/[_]/g, '')}${phoneNumber.replace(/^0/, '')}` : null;
-
       const lead = await db.insert(leads).values({
         name: name.trim(),
         email: email?.trim() || null,
+        phone: phone?.trim() || null,
         phoneCountry: phoneCountry || null,
-        phoneNumber: formattedPhone,
-        status: status || 'new',
-        notes: notes?.trim() || null,
         street: street?.trim() || null,
         city: city?.trim() || null,
         province: province || null,
         deliveryInstructions: deliveryInstructions?.trim() || null,
-        customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
-        convertedToCustomer: status === 'won',
+        status: status || 'new',
+        source: source || 'website',
+        notes: notes?.trim() || null,
         lastContact: lastContact ? new Date(lastContact) : null,
         nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
+        convertedToCustomer: status === 'won'
       }).returning();
 
-      const leadWithActivities = await db.query.leads.findFirst({
-        where: eq(leads.id, lead[0].id),
-        with: {
-          activities: true
-        }
-      });
-
-      res.json(leadWithActivities);
+      res.json(lead[0]);
     } catch (error: any) {
       console.error('Lead creation error:', error);
       res.status(500).json({ error: "Error al crear el lead: " + error.message });
@@ -263,9 +253,8 @@ export function registerRoutes(app: Express): Server {
   app.put("/api/leads/:id", async (req, res) => {
     try {
       const {
-        name, email, phoneNumber, phoneCountry, status, source, notes,
-        street, city, province, deliveryInstructions,
-        last_contact, next_follow_up
+        name, email, phone, status, source, notes,
+        lastContact, nextFollowUp
       } = req.body;
 
       if (!name?.trim()) {
@@ -273,43 +262,22 @@ export function registerRoutes(app: Express): Server {
       }
 
       const existingLead = await db.query.leads.findFirst({
-        where: (leads, { eq }) => eq(leads.id, parseInt(req.params.id))
+        where: eq(leads.id, parseInt(req.params.id))
       });
 
       if (!existingLead) {
         return res.status(404).json({ error: "Lead not found" });
       }
 
-      // Format phone number
-      const formattedPhone = phoneNumber && phoneCountry ?
-        `${phoneCountry.replace(/[_]/g, '')}${phoneNumber.replace(/^0/, '')}` : null;
-
-      // Format address
-      const formattedAddress = street ?
-        `${street.trim()}, ${city?.trim() || ''}, ${province || ''}${deliveryInstructions ? '\n' + deliveryInstructions.trim() : ''}`.trim()
-        : null;
-
-      // Validate date fields
-      const lastContactDate = last_contact ? new Date(last_contact) : null;
-      const nextFollowUpDate = next_follow_up ? new Date(next_follow_up) : null;
-
-      if (last_contact && isNaN(lastContactDate?.getTime() || NaN)) {
-        return res.status(400).json({ error: "Invalid last contact date" });
-      }
-
-      if (next_follow_up && isNaN(nextFollowUpDate?.getTime() || NaN)) {
-        return res.status(400).json({ error: "Invalid next follow up date" });
-      }
-
       // Create customer if status is won
-      let convertedCustomerId = null;
+      let convertedCustomerId = existingLead.convertedCustomerId;
       if (status === 'won' && !existingLead.convertedToCustomer) {
         const [customer] = await db.insert(customers)
           .values({
-            name: name?.trim(),
+            name: name.trim(),
             email: email?.trim() || null,
-            phone: formattedPhone,
-            address: formattedAddress,
+            phone: phone?.trim() || null,
+            source: source || 'website'
           })
           .returning();
         convertedCustomerId = customer.id;
@@ -318,21 +286,17 @@ export function registerRoutes(app: Express): Server {
       // Update lead
       const lead = await db.update(leads)
         .set({
-          name: name?.trim(),
+          name: name.trim(),
           email: email?.trim() || null,
-          phoneNumber: formattedPhone,
+          phone: phone?.trim() || null,
           status,
-          source: source?.trim() || null,
+          source: source || 'website',
           notes: notes?.trim() || null,
-          street: street?.trim() || null,
-          city: city?.trim() || null,
-          province: province || null,
-          deliveryInstructions: deliveryInstructions?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
-          convertedCustomerId: convertedCustomerId || existingLead.convertedCustomerId,
-          lastContact: lastContactDate,
-          nextFollowUp: nextFollowUpDate,
+          convertedCustomerId,
+          lastContact: lastContact ? new Date(lastContact) : null,
+          nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null,
           updatedAt: new Date()
         })
         .where(eq(leads.id, parseInt(req.params.id)))

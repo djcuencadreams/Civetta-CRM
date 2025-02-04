@@ -3,19 +3,32 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
 import { type Lead } from "@db/schema";
+import { useEffect } from "react";
 
 interface LeadsListProps {
   onSelect: (lead: Lead) => void;
 }
 
 export function LeadsList({ onSelect }: LeadsListProps) {
+  const { toast } = useToast();
   const { data: leads, isLoading, isError, error } = useQuery<Lead[]>({ 
     queryKey: ["/api/leads"],
     staleTime: 0,
     gcTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
+
+  useEffect(() => {
+    if (isError) {
+      console.error('Leads fetch error:', error);
+      toast({
+        title: "Error al cargar leads",
+        description: error instanceof Error ? error.message : "No se pudieron cargar los leads. Por favor, intente nuevamente.",
+        variant: "destructive",
+      });
+    }
+  }, [isError, error, toast]);
 
   const funnelStages = {
     new: "bg-blue-500",
@@ -39,16 +52,6 @@ export function LeadsList({ onSelect }: LeadsListProps) {
 
   if (isLoading) return <div>Cargando leads...</div>;
 
-  if (isError) {
-    console.error('Leads fetch error:', error);
-    toast({
-      title: "Error al cargar leads",
-      description: error instanceof Error ? error.message : "No se pudieron cargar los leads. Por favor, intente nuevamente.",
-      variant: "destructive",
-    });
-    return <div className="p-4 text-red-500">Error al cargar leads</div>;
-  }
-
   const activeLeads = leads?.filter(lead => !lead.convertedToCustomer) ?? [];
 
   if (activeLeads.length === 0) {
@@ -68,7 +71,7 @@ export function LeadsList({ onSelect }: LeadsListProps) {
               <h3 className="font-medium">{lead.name}</h3>
               <div className="text-sm text-muted-foreground">
                 {lead.email && <span>{lead.email} • </span>}
-                {lead.phoneNumber}
+                {lead.phone && <span>{lead.phone}</span>}
               </div>
             </div>
             <Badge className={funnelStages[lead.status as keyof typeof funnelStages] || "bg-gray-500"}>
