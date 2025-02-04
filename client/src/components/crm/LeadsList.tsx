@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,17 +5,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export function LeadsList({ onSelect }) {
-  const { data: leads } = useQuery({ 
-    queryKey: ["/api/leads"],
-    select: (data) => data?.map(lead => ({
-      ...lead,
-      created_at: new Date(lead.created_at),
-      updated_at: new Date(lead.updated_at),
-      last_contact: lead.last_contact ? new Date(lead.last_contact) : null,
-      next_follow_up: lead.next_follow_up ? new Date(lead.next_follow_up) : null
-    }))
-  });
-
   const { data: leads, isLoading } = useQuery({ 
     queryKey: ["/api/leads"],
     select: (data) => data
