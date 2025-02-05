@@ -77,59 +77,50 @@ export function SalesForm({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      try {
-        const customerId = parseInt(values.customerId, 10);
-        if (!customerId || isNaN(customerId)) {
-          throw new Error("Debe seleccionar un cliente válido");
-        }
-
-        // Validate products
-        if (!values.products?.length) {
-          throw new Error("Debe agregar al menos un producto");
-        }
-
-        const totalAmount = values.products.reduce(
-          (sum: number, product: any) => {
-            const amount = Number(product.amount);
-            const quantity = Number(product.quantity);
-
-            if (isNaN(amount) || isNaN(quantity) || amount < 0 || quantity < 1) {
-              throw new Error("Los valores de precio y cantidad deben ser números válidos");
-            }
-            if (!product.name?.trim()) {
-              throw new Error("El nombre del producto es requerido");
-            }
-            if (!product.category?.trim()) {
-              throw new Error("La categoría del producto es requerida");
-            }
-
-            return sum + (amount * quantity);
-          }, 0
-        );
-
-        const saleData = {
-          customerId,
-          amount: totalAmount,
-          status: "completed",
-          paymentMethod: values.paymentMethod,
-          notes: values.products.map((p: any) => 
-            `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`
-          ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
-        };
-
-        console.log('Submitting sale:', saleData);
-        const res = await apiRequest("POST", "/api/sales", saleData);
-        
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.message || `Error en el servidor: ${res.status}`);
-        }
-        
-        return res.json();
-      } catch (error: any) {
-        console.error('Sale submission error:', error);
-        throw error;
+      const customerId = parseInt(values.customerId, 10);
+      if (!customerId || isNaN(customerId)) {
+        throw new Error("Debe seleccionar un cliente válido");
       }
+
+      if (!values.products?.length) {
+        throw new Error("Debe agregar al menos un producto");
+      }
+
+      const totalAmount = values.products.reduce(
+        (sum: number, product: any) => {
+          const amount = Number(product.amount);
+          const quantity = Number(product.quantity);
+
+          if (isNaN(amount) || isNaN(quantity) || amount < 0 || quantity < 1) {
+            throw new Error("Los valores de precio y cantidad deben ser números válidos");
+          }
+          if (!product.name?.trim()) {
+            throw new Error("El nombre del producto es requerido");
+          }
+          if (!product.category?.trim()) {
+            throw new Error("La categoría del producto es requerida");
+          }
+
+          return sum + (amount * quantity);
+        }, 0
+      );
+
+      const saleData = {
+        customerId,
+        amount: totalAmount,
+        status: "completed",
+        paymentMethod: values.paymentMethod,
+        notes: values.products.map((p: any) => 
+          `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`
+        ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
+      };
+
+      const res = await apiRequest("POST", "/api/sales", saleData);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al crear la venta");
+      }
+      return res.json();
     },
     onSuccess: (data) => {
       console.log('Sale created successfully:', data);
@@ -157,7 +148,20 @@ export function SalesForm({
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+        <form onSubmit={form.handleSubmit((data) => {
+          mutation.mutate(data, {
+            onSuccess: () => {
+              onComplete();
+            },
+            onError: (error: Error) => {
+              toast({
+                title: "Error",
+                description: error.message,
+                variant: "destructive"
+              });
+            }
+          });
+        })} className="space-y-4">
           <FormField
             control={form.control}
             name="customerId"
