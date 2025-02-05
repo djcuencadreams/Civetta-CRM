@@ -77,8 +77,9 @@ export function SalesForm({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
-      if (!values.customerId) {
-        throw new Error("Debe seleccionar un cliente");
+      const customerId = parseInt(values.customerId, 10);
+      if (!customerId || isNaN(customerId)) {
+        throw new Error("Debe seleccionar un cliente válido");
       }
 
       const totalAmount = values.products.reduce(
@@ -95,7 +96,7 @@ export function SalesForm({
       );
 
       const saleData = {
-        customerId: Number(values.customerId), 
+        customerId,
         amount: totalAmount,
         status: "completed",
         paymentMethod: values.paymentMethod,
@@ -141,8 +142,8 @@ export function SalesForm({
                 <FormLabel>Cliente</FormLabel>
                 <div className="flex gap-2">
                   <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
+                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                    value={field.value?.toString()}
                   >
                     <FormControl>
                       <SelectTrigger className="flex-1">
