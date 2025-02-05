@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sin Conexión - CRM Empresarial</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f9fafb;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 28rem;
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        p {
+            margin-bottom: 1.5rem;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1.5rem;
+        }
+        .button {
+            background-color: #000;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4ZM2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12Z" fill="currentColor"/>
+            <path d="M8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12ZM12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6Z" fill="currentColor"/>
+        </svg>
+        <h1>Sin conexión</h1>
+        <p>No pudimos cargar el contenido que buscas porque no hay conexión a Internet. Por favor, verifica tu conexión e intenta nuevamente.</p>
+        <a href="/" class="button">Intentar nuevamente</a>
+    </div>
+</body>
+</html>

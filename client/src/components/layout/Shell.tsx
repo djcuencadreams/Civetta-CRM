@@ -1,84 +1,74 @@
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast({
+        title: "Conexión restaurada",
+        description: "La aplicación está conectada nuevamente.",
+        duration: 3000,
+      });
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast({
+        title: "Sin conexión",
+        description: "La aplicación está funcionando en modo offline.",
+        duration: 5000,
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     const registerServiceWorker = async () => {
       if ('serviceWorker' in navigator) {
-        const MAX_RETRIES = 3;
-        let retryCount = 0;
+        try {
+          const registration = await navigator.serviceWorker.register('/service-worker.js');
+          console.log('Service Worker registrado exitosamente:', registration.scope);
 
-        const register = async (): Promise<ServiceWorkerRegistration | null> => {
-          try {
-            const swUrl = '/src/service-worker.ts';
-            const swType = 'module';
-
-            const registration = await navigator.serviceWorker.register(swUrl, {
-              scope: '/',
-              type: swType
-            });
-
-            console.log('Service Worker registrado exitosamente:', registration.scope);
-            return registration;
-          } catch (error) {
-            console.error('Intento de registro del Service Worker fallido:', error);
-            return null;
-          }
-        };
-
-        while (retryCount < MAX_RETRIES) {
-          const registration = await register();
-          if (registration) {
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              if (newWorker) {
-                newWorker.addEventListener('statechange', () => {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    toast({
-                      title: "Actualización disponible",
-                      description: "Hay una nueva versión de la aplicación disponible. Recarga para actualizar.",
-                      duration: 5000,
-                    });
-                  }
-                });
-              }
-            });
-            break;
-          }
-
-          retryCount++;
-          if (retryCount < MAX_RETRIES) {
-            const backoffTime = Math.pow(2, retryCount) * 1000;
-            await new Promise(resolve => setTimeout(resolve, backoffTime));
-          }
-        }
-
-        if (retryCount === MAX_RETRIES) {
-          if (!navigator.onLine) {
-            toast({
-              title: "Modo sin conexión",
-              description: "La aplicación está funcionando sin conexión. Algunas características pueden estar limitadas.",
-              duration: 5000,
-            });
-          } else {
-            toast({
-              title: "Error de registro",
-              description: "No se pudo registrar el service worker después de varios intentos. La aplicación puede tener funcionalidad limitada.",
-              duration: 5000,
-            });
-          }
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  toast({
+                    title: "Actualización disponible",
+                    description: "Hay una nueva versión de la aplicación disponible. Recarga para actualizar.",
+                    duration: 5000,
+                  });
+                }
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error al registrar el Service Worker:', error);
+          toast({
+            title: "Funcionalidad offline limitada",
+            description: "Algunas características pueden no estar disponibles sin conexión.",
+            duration: 5000,
+          });
         }
       }
     };
 
     registerServiceWorker();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [toast]);
 
   return (
@@ -87,6 +77,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         isMobile ? "absolute z-50 h-full" : "hidden md:block"
       )} />
       <main className="flex-1 overflow-y-auto w-full">
+        {!isOnline && (
+          <div className="bg-yellow-100 p-2 text-center text-yellow-800">
+            Modo sin conexión - Algunas funciones pueden estar limitadas
+          </div>
+        )}
         <div className="container px-4 py-6 md:px-6 lg:px-8">
           {children}
         </div>

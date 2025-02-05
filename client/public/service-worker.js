@@ -1,13 +1,11 @@
 /// <reference lib="webworker" />
-
-declare const self: ServiceWorkerGlobalScope;
+/// <reference lib="es2015" />
+/// <reference lib="webworker.importscripts" />
 
 const CACHE_NAME = 'crm-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
   '/manifest.json',
   '/offline.html',
   '/icons/icon-192.svg',
