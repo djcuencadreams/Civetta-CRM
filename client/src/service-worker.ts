@@ -1,4 +1,9 @@
 /// <reference lib="webworker" />
+/// <reference lib="es2015" />
+/// <reference lib="webworker.importscripts" />
+
+declare const self: ServiceWorkerGlobalScope;
+export {};
 
 const CACHE_NAME = 'crm-cache-v1';
 const ASSETS_TO_CACHE = [
@@ -10,19 +15,16 @@ const ASSETS_TO_CACHE = [
   '/assets/*'
 ];
 
-declare const self: ServiceWorkerGlobalScope;
-
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting(); // Asegura que el service worker se active inmediatamente
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  // Elimina caches antiguos
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -32,15 +34,12 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  // Toma el control de todas las páginas inmediatamente
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignora las solicitudes que no son GET
   if (event.request.method !== 'GET') return;
 
-  // Ignora las solicitudes de desarrollo de Vite
   if (event.request.url.includes('/@vite') || 
       event.request.url.includes('hmr') ||
       event.request.url.includes('hot-update')) {
@@ -57,7 +56,6 @@ self.addEventListener('fetch', (event) => {
       if (event.request.url.includes('/api/')) {
         return fetch(event.request)
           .then(response => {
-            // Solo cachea respuestas exitosas
             if (!response || response.status !== 200) {
               return response;
             }
@@ -92,5 +90,3 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-
-export {};

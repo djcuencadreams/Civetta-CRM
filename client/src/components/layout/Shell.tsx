@@ -12,38 +12,55 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const registerServiceWorker = async () => {
       if ('serviceWorker' in navigator) {
-        try {
-          // In development, use the TypeScript file, in production use the compiled JS
-          const swUrl = import.meta.env.DEV 
-            ? '/src/service-worker.ts'
-            : '/service-worker.js';
+        const MAX_RETRIES = 3;
+        let retryCount = 0;
 
-          const registration = await navigator.serviceWorker.register(swUrl, {
-            scope: '/',
-            type: import.meta.env.DEV ? 'module' : 'classic'
-          });
+        const register = async (): Promise<ServiceWorkerRegistration | null> => {
+          try {
+            const swUrl = '/src/service-worker.ts';
+            const swType = 'module';
 
-          console.log('Service Worker registered successfully:', registration.scope);
+            const registration = await navigator.serviceWorker.register(swUrl, {
+              scope: '/',
+              type: swType
+            });
 
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  toast({
-                    title: "Actualización disponible",
-                    description: "Hay una nueva versión de la aplicación disponible. Recarga para actualizar.",
-                    duration: 5000,
-                  });
-                }
-              });
-            }
-          });
+            console.log('Service Worker registrado exitosamente:', registration.scope);
+            return registration;
+          } catch (error) {
+            console.error('Intento de registro del Service Worker fallido:', error);
+            return null;
+          }
+        };
 
-        } catch (error) {
-          console.error('Service Worker registration failed:', error);
+        while (retryCount < MAX_RETRIES) {
+          const registration = await register();
+          if (registration) {
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    toast({
+                      title: "Actualización disponible",
+                      description: "Hay una nueva versión de la aplicación disponible. Recarga para actualizar.",
+                      duration: 5000,
+                    });
+                  }
+                });
+              }
+            });
+            break;
+          }
 
-          // Check if the error is due to being offline
+          retryCount++;
+          if (retryCount < MAX_RETRIES) {
+            const backoffTime = Math.pow(2, retryCount) * 1000;
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
+        }
+
+        if (retryCount === MAX_RETRIES) {
           if (!navigator.onLine) {
             toast({
               title: "Modo sin conexión",
@@ -51,8 +68,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
               duration: 5000,
             });
           } else {
-            // Log the actual error for debugging
-            console.error('Service Worker error details:', error);
+            toast({
+              title: "Error de registro",
+              description: "No se pudo registrar el service worker después de varios intentos. La aplicación puede tener funcionalidad limitada.",
+              duration: 5000,
+            });
           }
         }
       }
