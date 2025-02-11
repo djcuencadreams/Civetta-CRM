@@ -339,20 +339,5 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Backup API
-  app.post("/api/backup", async (_req, res) => {
-    try {
-      const { backupService } = await import('./lib/backup');
-      const result = await backupService.performBackup();
-      res.json(result);
-    } catch (error) {
-      console.error('Error durante el respaldo:', error);
-      res.status(500).json({
-        error: "Error al realizar el respaldo",
-        message: error instanceof Error ? error.message : "Error desconocido"
-      });
-    }
-  });
-
   return httpServer;
 }
