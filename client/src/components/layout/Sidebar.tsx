@@ -2,7 +2,7 @@ import { FileDown, LayoutDashboard, Users, DollarSign, AppWindow, Menu } from "l
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import React, { useState } from "react";
+import { useState } from "react";
 
 const navigation = [
   {
@@ -35,7 +35,7 @@ const navigation = [
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (isMobile && !isOpen) {
     return (
