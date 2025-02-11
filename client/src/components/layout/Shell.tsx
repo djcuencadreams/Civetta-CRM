@@ -1,16 +1,24 @@
+import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 
-export function Shell({ children }: { children: React.ReactNode }) {
+interface ShellProps {
+  children: React.ReactNode;
+}
+
+export function Shell({ children }: ShellProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setIsOnline(navigator.onLine);
+
     const handleOnline = () => {
       setIsOnline(true);
       toast({
@@ -32,38 +40,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const registerServiceWorker = async () => {
-      if ('serviceWorker' in navigator) {
-        try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js');
+    // Mover el registro del Service Worker aquí
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then((registration) => {
           console.log('Service Worker registrado exitosamente:', registration.scope);
-
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  toast({
-                    title: "Actualización disponible",
-                    description: "Hay una nueva versión de la aplicación disponible. Recarga para actualizar.",
-                    duration: 5000,
-                  });
-                }
-              });
-            }
-          });
-        } catch (error) {
+        })
+        .catch((error) => {
           console.error('Error al registrar el Service Worker:', error);
-          toast({
-            title: "Funcionalidad offline limitada",
-            description: "Algunas características pueden no estar disponibles sin conexión.",
-            duration: 5000,
-          });
-        }
-      }
-    };
-
-    registerServiceWorker();
+        });
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -73,9 +59,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar className={cn(
-        isMobile ? "absolute z-50 h-full" : "hidden md:block"
-      )} />
+      <Sidebar 
+        className={cn(
+          isMobile ? "absolute z-50 h-full" : "hidden md:block"
+        )} 
+      />
       <main className="flex-1 overflow-y-auto w-full">
         {!isOnline && (
           <div className="bg-yellow-100 p-2 text-center text-yellow-800">
