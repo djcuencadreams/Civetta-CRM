@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
+/// <reference lib="es2015" />
 
-declare const self: ServiceWorkerGlobalScope;
+export type {}
+declare const self: ServiceWorkerGlobalScope
 
 const CACHE_NAME = 'crm-cache-v1';
 const ASSETS_TO_CACHE = [
@@ -14,7 +16,7 @@ const ASSETS_TO_CACHE = [
   '/icons/icon-512.svg'
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -28,7 +30,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', (event: ExtendableEvent) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
@@ -48,7 +50,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', (event: FetchEvent) => {
   if (event.request.method !== 'GET') return;
 
   if (event.request.url.includes('/@vite') || 
@@ -102,7 +104,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.addEventListener('sync', (event) => {
+self.addEventListener('sync', (event: SyncEvent) => {
   if (event.tag === 'syncData') {
     event.waitUntil(Promise.resolve());
   }

@@ -1,15 +1,22 @@
 import React from 'react'
+import { Route, Switch } from "wouter"
+import DashboardPage from "@/pages/dashboard"
+import LeadsPage from "@/pages/leads"
+import CustomersPage from "@/pages/customers"
+import SalesPage from "@/pages/sales"
+import IntegrationsPage from "@/pages/integrations"
+import NotFoundPage from "@/pages/not-found"
 
 function App() {
-  const [count, setCount] = React.useState(0)
-
   return (
-    <div>
-      <h1>Test React App</h1>
-      <button onClick={() => setCount(c => c + 1)}>
-        count is {count}
-      </button>
-    </div>
+    <Switch>
+      <Route path="/" component={DashboardPage} />
+      <Route path="/leads" component={LeadsPage} />
+      <Route path="/customers" component={CustomersPage} />
+      <Route path="/sales" component={SalesPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
+      <Route component={NotFoundPage} />
+    </Switch>
   )
 }
 

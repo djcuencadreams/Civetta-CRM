@@ -7,14 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { es } from "date-fns/locale";
 
-const statusColors = {
-  pending: "bg-yellow-500",
-  completed: "bg-green-500",
-  cancelled: "bg-red-500"
+type SaleWithCustomer = Sale & {
+  customer: {
+    name: string;
+  };
 };
 
+const statusVariants = {
+  pending: "default",
+  completed: "default",
+  cancelled: "destructive"
+} as const;
+
 export function SalesList() {
-  const { data: sales, isLoading } = useQuery<Sale[]>({
+  const { data: sales, isLoading } = useQuery<SaleWithCustomer[]>({
     queryKey: ["/api/sales"]
   });
 
@@ -40,10 +46,7 @@ export function SalesList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-medium">{sale.customer.name}</h3>
-              <Badge variant={
-                sale.status === "completed" ? "success" :
-                sale.status === "cancelled" ? "destructive" : "default"
-              }>
+              <Badge variant={statusVariants[sale.status as keyof typeof statusVariants]}>
                 {t(`sales.${sale.status}`)}
               </Badge>
             </div>
