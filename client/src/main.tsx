@@ -1,63 +1,43 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
 import './index.css'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { TestComponent } from './TestComponent'
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
-    },
-  },
-})
-
-// Add error boundary
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean, error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error }
-  }
-
-  componentDidCatch(error: Error) {
-    console.error('React Error Boundary caught an error:', error)
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-4">
-          <h1>Something went wrong.</h1>
-          <pre className="mt-2 p-2 bg-red-50 text-red-900 rounded">
-            {this.state.error?.message}
-          </pre>
-        </div>
-      )
-    }
-
-    return this.props.children
-  }
+// Super simple component with no hooks or dependencies
+function App() {
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold">Basic React Test</h1>
+      <p>This is a minimal React component with no hooks.</p>
+      <TestComponent />
+    </div>
+  )
 }
 
-const rootElement = document.getElementById('root')
-if (!rootElement) {
-  throw new Error('No se encontró el elemento root')
-}
+// Log information for debugging
+console.log('React version:', React.version)
+console.log('ReactDOM version:', ReactDOM.version || 'Not available')
+console.log('Root element found:', document.getElementById('root'))
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-)
+// Basic React initialization
+try {
+  const rootElement = document.getElementById('root')
+  if (!rootElement) {
+    throw new Error('Root element not found')
+  }
+
+  const root = ReactDOM.createRoot(rootElement)
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  )
+} catch (error) {
+  console.error('Error initializing React:', error)
+  document.body.innerHTML = `
+    <div style="padding: 20px; color: red;">
+      <h1>React Initialization Error</h1>
+      <pre>${error instanceof Error ? error.message : String(error)}</pre>
+    </div>
+  `
+}
