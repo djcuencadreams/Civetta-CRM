@@ -3,23 +3,23 @@ import { useState, useEffect } from "react";
 const MOBILE_BREAKPOINT = 768;
 
 export function useIsMobile(): boolean {
-  const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-
-    const handleResize = () => {
+    // Function to check if window width is less than breakpoint
+    const checkMobile = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
     };
 
-    // Set initial value
-    handleResize();
+    // Initial check
+    checkMobile();
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []); // Empty dependency array
+    // Add event listener
+    window.addEventListener('resize', checkMobile);
 
-  // Return false during initialization/SSR
-  return mounted ? isMobile : false;
+    // Cleanup
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []); // Empty dependency array means this runs once on mount
+
+  return isMobile;
 }

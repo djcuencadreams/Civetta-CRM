@@ -40,17 +40,6 @@ export function Shell({ children }: ShellProps) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Mover el registro del Service Worker aquí
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js')
-        .then((registration) => {
-          console.log('Service Worker registrado exitosamente:', registration.scope);
-        })
-        .catch((error) => {
-          console.error('Error al registrar el Service Worker:', error);
-        });
-    }
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -61,7 +50,7 @@ export function Shell({ children }: ShellProps) {
     <div className="flex min-h-screen bg-background">
       <Sidebar 
         className={cn(
-          isMobile ? "absolute z-50 h-full" : "hidden md:block"
+          isMobile ? "fixed z-50 h-full" : "hidden md:block"
         )} 
       />
       <main className="flex-1 overflow-y-auto w-full">

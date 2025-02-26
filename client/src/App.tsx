@@ -1,22 +1,15 @@
 import React from 'react'
-import { Route, Switch } from "wouter"
+import { Route } from "wouter"
 import DashboardPage from "@/pages/dashboard"
-import LeadsPage from "@/pages/leads"
-import CustomersPage from "@/pages/customers"
-import SalesPage from "@/pages/sales"
-import IntegrationsPage from "@/pages/integrations"
-import NotFoundPage from "@/pages/not-found"
 
+// Simplify the App component to minimal functionality
 function App() {
   return (
-    <Switch>
-      <Route path="/" component={DashboardPage} />
-      <Route path="/leads" component={LeadsPage} />
-      <Route path="/customers" component={CustomersPage} />
-      <Route path="/sales" component={SalesPage} />
-      <Route path="/integrations" component={IntegrationsPage} />
-      <Route component={NotFoundPage} />
-    </Switch>
+    <div className="min-h-screen bg-background">
+      <main className="p-8">
+        <DashboardPage />
+      </main>
+    </div>
   )
 }
 
