@@ -4,6 +4,11 @@
 export type {}
 declare const self: ServiceWorkerGlobalScope
 
+// Define SyncEvent type which is missing
+interface SyncEvent extends ExtendableEvent {
+  tag: string;
+}
+
 const CACHE_NAME = 'crm-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
@@ -98,7 +103,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
               );
             }
 
-            return caches.match('/offline.html');
+            return caches.match('/offline.html') as Promise<Response>;
           });
       })
   );

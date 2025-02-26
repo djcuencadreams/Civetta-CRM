@@ -1,14 +1,37 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { Shell } from './components/layout/Shell'
 
-// Simplify the App component to minimal functionality
 function App() {
+  // Simple state to test useState initialization
+  const [count, setCount] = useState(0)
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="p-8">
-        <h1 className="text-2xl font-bold">CIVETTA CRM</h1>
-        <p className="mt-4">Bienvenido al sistema CRM para mercados hispanohablantes</p>
-      </main>
-    </div>
+    <Shell>
+      <div className="p-6">
+        <h1 className="text-3xl font-bold mb-4">CIVETTA CRM</h1>
+        <p className="mb-4">Bienvenido al sistema CRM para mercados hispanohablantes</p>
+
+        {/* Simple counter to verify useState is working */}
+        <div className="p-4 bg-muted rounded-md mt-6">
+          <p className="mb-2">Contador para verificar que useState funciona correctamente:</p>
+          <div className="flex items-center gap-4">
+            <button 
+              className="px-4 py-2 bg-primary text-white rounded"
+              onClick={() => setCount(count - 1)}
+            >
+              -
+            </button>
+            <span className="text-xl font-medium">{count}</span>
+            <button 
+              className="px-4 py-2 bg-primary text-white rounded"
+              onClick={() => setCount(count + 1)}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      </div>
+    </Shell>
   )
 }
 
