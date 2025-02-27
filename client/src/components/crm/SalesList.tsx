@@ -78,12 +78,12 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
       });
     }
 
-    // Apply advanced filters
-    if (filters.status && filters.status !== "") {
+    // Apply advanced filters - Fixed to use "all" instead of empty string
+    if (filters.status && filters.status !== "all") {
       result = result.filter(sale => sale.status === filters.status);
     }
 
-    if (filters.brand && filters.brand !== "" && !brand) {
+    if (filters.brand && filters.brand !== "all" && !brand) {
       // Only apply brand filter here if not already filtered by prop
       result = result.filter(sale => sale.brand === filters.brand);
     }

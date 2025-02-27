@@ -1,0 +1,79 @@
+[
+  {
+    "id": 5,
+    "customerId": 6,
+    "amount": "55.00",
+    "status": "completed",
+    "paymentMethod": "efectivo",
+    "brand": "sleepwear",
+    "notes": "Zapatos (Calzado) - $55 x 1",
+    "createdAt": "2025-02-04T00:08:47.829Z",
+    "updatedAt": "2025-02-04T00:08:47.829Z"
+  },
+  {
+    "id": 6,
+    "customerId": 4,
+    "amount": "215.00",
+    "status": "completed",
+    "paymentMethod": "tarjeta",
+    "brand": "sleepwear",
+    "notes": "Aretes (Joyería) - $35 x 1\nZapatos (Calzado) - $90 x 2",
+    "createdAt": "2025-02-04T00:31:53.217Z",
+    "updatedAt": "2025-02-04T00:31:53.217Z"
+  },
+  {
+    "id": 7,
+    "customerId": 1,
+    "amount": "150.00",
+    "status": "completed",
+    "paymentMethod": "tarjeta",
+    "brand": "sleepwear",
+    "notes": "Pijama de seda (Pijamas) - $150.00 x 1",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 8,
+    "customerId": 2,
+    "amount": "95.50",
+    "status": "completed",
+    "paymentMethod": "efectivo",
+    "brand": "sleepwear",
+    "notes": "Bata de baño (Batas) - $95.50 x 1",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 9,
+    "customerId": 3,
+    "amount": "450.00",
+    "status": "completed",
+    "paymentMethod": "transferencia",
+    "brand": "bride",
+    "notes": "Velo de novia (Velos) - $250.00 x 1\nTocado de flores (Tocados) - $200.00 x 1",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 10,
+    "customerId": 4,
+    "amount": "195.00",
+    "status": "pending",
+    "paymentMethod": "tarjeta",
+    "brand": "bride",
+    "notes": "Accesorios para el cabello (Accesorios de Cabello) - $195.00 x 1",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 11,
+    "customerId": 5,
+    "amount": "120.00",
+    "status": "completed",
+    "paymentMethod": "efectivo",
+    "brand": "sleepwear",
+    "notes": "Conjunto de pijama (Conjuntos) - $120.00 x 1",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  }
+]

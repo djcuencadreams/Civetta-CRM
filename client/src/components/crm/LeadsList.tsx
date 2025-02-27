@@ -61,15 +61,15 @@ export function LeadsList({ onSelect }: LeadsListProps) {
     }
 
     // Apply advanced filters
-    if (filters.status && filters.status !== "") {
+    if (filters.status && filters.status !== "all") {
       result = result.filter(lead => lead.status === filters.status);
     }
 
-    if (filters.source && filters.source !== "") {
+    if (filters.source && filters.source !== "all") {
       result = result.filter(lead => lead.source === filters.source);
     }
 
-    if (filters.brand && filters.brand !== "") {
+    if (filters.brand && filters.brand !== "all") {
       result = result.filter(lead => lead.brand === filters.brand);
     }
 

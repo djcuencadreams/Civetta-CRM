@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, like } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
 
@@ -112,6 +112,20 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Customer not found" });
       }
 
+      // First check if this customer has already been converted to a lead
+      // by checking if there's a lead with a note mentioning this customer ID
+      const existingLeads = await db.select()
+        .from(leads)
+        .where(like(leads.notes, `%Converted from customer ID ${customerId}%`));
+
+      if (existingLeads.length > 0) {
+        // Return the existing lead instead of creating a new one
+        return res.status(200).json({
+          message: "Customer was already converted to a lead",
+          lead: existingLeads[0]
+        });
+      }
+
       // Parse name into parts (assuming format is "First Last")
       const nameParts = customer.name.split(' ');
       const firstName = nameParts[0] || '';
@@ -148,6 +162,10 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
+
+      // Now delete the customer to prevent duplication
+      await db.delete(customers)
+        .where(eq(customers.id, customerId));
 
       // Return the new lead
       res.status(201).json(lead);

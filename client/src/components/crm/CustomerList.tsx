@@ -75,12 +75,12 @@ export function CustomerList({
       });
     }
 
-    // Apply advanced filters
-    if (filters.source && filters.source !== "") {
+    // Apply advanced filters - Updated to use "all" instead of empty string
+    if (filters.source && filters.source !== "all") {
       result = result.filter(customer => customer.source === filters.source);
     }
 
-    if (filters.brand && filters.brand !== "" && !brand) {
+    if (filters.brand && filters.brand !== "all" && !brand) {
       // Only apply brand filter here if not already filtered by prop
       result = result.filter(customer => customer.brand === filters.brand);
     }
@@ -92,7 +92,7 @@ export function CustomerList({
       );
     }
 
-    if (filters.province && filters.province !== "") {
+    if (filters.province && filters.province !== "all") {
       result = result.filter(customer => 
         customer.address && 
         customer.address.toLowerCase().includes(filters.province as string)

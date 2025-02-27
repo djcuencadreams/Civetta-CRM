@@ -205,14 +205,15 @@ export function SearchFilterBar({
                       )}
                       {option.type === 'select' && option.options && (
                         <Select
-                          value={(filters[option.id] || '') as string}
+                          value={(filters[option.id] || 'all') as string} //default to all
                           onValueChange={(value) => handleFilterChange(option.id, value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={`Seleccionar ${option.label.toLowerCase()}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Todos</SelectItem>
+                            {/* Fix: Using "all" as a value instead of empty string */}
+                            <SelectItem value="all">Todos</SelectItem>
                             {option.options.map((opt) => (
                               <SelectItem key={opt.value} value={opt.value}>
                                 {opt.label}
@@ -252,6 +253,9 @@ export function SearchFilterBar({
             <div className="flex flex-wrap gap-1">
               {Object.entries(filters).map(([key, value]) => {
                 if (!value || (Array.isArray(value) && value.length === 0) || key === '_searchText') return null;
+
+                // Skip "all" values in filters
+                if (value === "all") return null;
 
                 const option = filterOptions.find(opt => opt.id === key);
                 if (!option) return null;
