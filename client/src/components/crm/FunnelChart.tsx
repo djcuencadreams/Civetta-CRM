@@ -170,8 +170,17 @@ export function FunnelChart({ brand }: { brand?: string }) {
                   stroke="none"
                   dataKey="label"
                   formatter={(name: string, entry: any) => {
-                    const data = entry as FunnelDataItem;
-                    return `${name}: ${data.value} (${data.conversionRate}%)`;
+                    // Add null check to ensure entry is valid
+                    if (!entry || typeof entry !== 'object') return name;
+
+                    // Safely cast entry to our expected type
+                    const data = entry as Partial<FunnelDataItem>;
+
+                    // Provide fallbacks for missing properties
+                    const value = data.value !== undefined ? data.value : 0;
+                    const rate = data.conversionRate !== undefined ? data.conversionRate : 0;
+
+                    return `${name}: ${value} (${rate}%)`;
                   }}
                 />
               </Funnel>

@@ -82,12 +82,43 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/customers/:id", async (req, res) => {
     try {
+      const customerId = parseInt(req.params.id);
+
+      // First, check if there are any leads referencing this customer
+      const referencingLeads = await db.select()
+        .from(leads)
+        .where(eq(leads.convertedCustomerId, customerId));
+
+      if (referencingLeads.length > 0) {
+        // Update leads to remove the reference to this customer
+        await db.update(leads)
+          .set({
+            convertedCustomerId: null,
+            updatedAt: new Date()
+          })
+          .where(eq(leads.convertedCustomerId, customerId));
+      }
+
+      // Check if there are any sales referencing this customer
+      const referencingSales = await db.select()
+        .from(sales)
+        .where(eq(sales.customerId, customerId));
+
+      if (referencingSales.length > 0) {
+        // Cannot delete a customer with associated sales
+        return res.status(400).json({ 
+          error: "No se puede eliminar este cliente porque tiene ventas asociadas. Elimine primero las ventas asociadas.",
+          salesCount: referencingSales.length
+        });
+      }
+
+      // Now safe to delete the customer
       const result = await db.delete(customers)
-        .where(eq(customers.id, parseInt(req.params.id)))
+        .where(eq(customers.id, customerId))
         .returning();
 
       if (!result.length) {
-        return res.status(404).json({ error: "Customer not found" });
+        return res.status(404).json({ error: "Cliente no encontrado" });
       }
 
       res.json({ success: true });
