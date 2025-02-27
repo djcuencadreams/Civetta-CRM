@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { type Webhook } from "@db/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -14,9 +14,10 @@ export function IntegrationsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newWebhook, setNewWebhook] = useState({ name: "", url: "", event: "new_sale" });
-  
+
   const { data: webhooks } = useQuery<Webhook[]>({
-    queryKey: ["/api/webhooks"]
+    queryKey: ["/api/webhooks"],
+    queryFn: getQueryFn({ on401: "throw" }),
   });
 
   const createWebhook = useMutation({
@@ -41,6 +42,22 @@ export function IntegrationsPanel() {
     }
   });
 
+  // Handle WhatsApp configuration
+  const handleWhatsAppConfigure = () => {
+    toast({
+      title: "WhatsApp Business",
+      description: "La integración con WhatsApp Business está en desarrollo. Estará disponible pronto.",
+    });
+  };
+
+  // Handle Slack configuration
+  const handleSlackConfigure = () => {
+    toast({
+      title: "Slack",
+      description: "La integración con Slack está en desarrollo. Estará disponible pronto.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -54,7 +71,7 @@ export function IntegrationsPanel() {
           <p className="text-sm text-muted-foreground mb-4">
             Conecta con WhatsApp Business API para enviar notificaciones automáticas.
           </p>
-          <Button variant="outline">{t("integrations.configure")}</Button>
+          <Button variant="outline" onClick={handleWhatsAppConfigure}>{t("integrations.configure")}</Button>
         </CardContent>
       </Card>
 
@@ -69,7 +86,7 @@ export function IntegrationsPanel() {
           <p className="text-sm text-muted-foreground mb-4">
             Recibe notificaciones de ventas en tu canal de Slack.
           </p>
-          <Button variant="outline">{t("integrations.configure")}</Button>
+          <Button variant="outline" onClick={handleSlackConfigure}>{t("integrations.configure")}</Button>
         </CardContent>
       </Card>
 
@@ -97,7 +114,17 @@ export function IntegrationsPanel() {
               />
             </div>
             <Button
-              onClick={() => createWebhook.mutate(newWebhook)}
+              onClick={() => {
+                if (!newWebhook.name || !newWebhook.url) {
+                  toast({
+                    title: "Error",
+                    description: "Por favor, complete todos los campos",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                createWebhook.mutate(newWebhook);
+              }}
               disabled={createWebhook.isPending}
             >
               {t("integrations.addWebhook")}

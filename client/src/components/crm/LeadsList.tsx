@@ -6,6 +6,7 @@ import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { type Lead } from "@db/schema";
 import { useEffect } from "react";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface LeadsListProps {
   onSelect: (lead: Lead) => void;
@@ -15,6 +16,7 @@ export function LeadsList({ onSelect }: LeadsListProps) {
   const { toast } = useToast();
   const { data: leads, isLoading, isError, error } = useQuery<Lead[]>({ 
     queryKey: ["/api/leads"],
+    queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 0,
     gcTime: 5 * 60 * 1000, // Cache for 5 minutes
   });

@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from "recharts";
 import { type Lead, brandEnum } from "@db/schema";
+import { getQueryFn } from "@/lib/queryClient";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#9F7AEA', '#48BB78', '#F56565'];
 
@@ -19,6 +20,7 @@ type FunnelDataItem = {
 export function FunnelChart({ brand }: { brand?: string }) {
   const { data: leads } = useQuery<Lead[]>({ 
     queryKey: ["/api/leads", brand],
+    queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => {
       // Filter leads by brand if specified
       if (brand) {

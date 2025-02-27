@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { t } from "@/lib/i18n";
 import { type Customer, brandEnum } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getQueryFn } from "@/lib/queryClient";
 
 // Extended Customer type with optional mode for view/edit
 type CustomerWithMode = Customer & {
@@ -20,6 +21,7 @@ export function CustomerList({
 }) {
   const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers", brand],
+    queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => {
       // Filter customers by name (non-empty) and brand if specified
       let filtered = data?.filter(customer => customer.name?.trim());

@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { es } from "date-fns/locale";
+import { getQueryFn } from "@/lib/queryClient";
 
 type SaleWithCustomer = Sale & {
   customer: {
@@ -22,6 +23,7 @@ const statusVariants = {
 export function SalesList({ brand }: { brand?: string }) {
   const { data: sales, isLoading } = useQuery<SaleWithCustomer[]>({
     queryKey: ["/api/sales", brand],
+    queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => {
       // Apply brand filter if specified
       if (brand) {

@@ -9,6 +9,7 @@ import { format, subDays, subMonths, subYears, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { FunnelChart } from "@/components/crm/FunnelChart";
 import { type Lead, type Sale, brandEnum } from "@db/schema";
+import { getQueryFn } from "@/lib/queryClient";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -31,6 +32,7 @@ export default function DashboardPage() {
 
   const { data: leads } = useQuery<Lead[]>({
     queryKey: ["/api/leads", selectedBrand],
+    queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => data.filter(lead => {
       const leadDate = new Date(lead.createdAt);
       const brandMatch = selectedBrand === "all" || lead.brand === selectedBrand;
@@ -40,6 +42,7 @@ export default function DashboardPage() {
 
   const { data: sales } = useQuery<Sale[]>({
     queryKey: ["/api/sales", startDate, endDate, selectedBrand],
+    queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => data.filter(sale => {
       const saleDate = new Date(sale.createdAt);
       const brandMatch = selectedBrand === "all" || sale.brand === selectedBrand;

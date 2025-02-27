@@ -1,11 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { scheduleBackups } from "../db/backup";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Enhanced request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -37,16 +39,38 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize automated database backups (every 24 hours)
+  try {
+    await scheduleBackups();
+    log("Automated database backups scheduled successfully");
+  } catch (error) {
+    log("Failed to schedule database backups: " + (error as Error).message);
+    // Continue with server startup even if backup scheduling fails
+  }
+
   const server = registerRoutes(app);
 
+  // Enhanced error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    const errorId = Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+
+    // Log detailed error information with a unique error ID
+    console.error(`[ERROR-${errorId}]`, {
+      message: err.message,
+      stack: err.stack,
+      status,
+      timestamp: new Date().toISOString()
+    });
 
     if (!res.headersSent) {
-      res.status(status).json({ message });
+      res.status(status).json({ 
+        message, 
+        errorId,
+        timestamp: new Date().toISOString()
+      });
     }
-    console.error(err); // Log error instead of throwing
   });
 
   if (app.get("env") === "development") {
