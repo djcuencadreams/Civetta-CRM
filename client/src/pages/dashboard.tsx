@@ -10,30 +10,35 @@ import { es } from "date-fns/locale";
 import { FunnelChart } from "@/components/crm/FunnelChart";
 import { type Lead, type Sale, type Customer, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
-import { SearchFilterBar, FilterState } from "@/components/crm/SearchFilterBar";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Calendar, 
-  DollarSign, 
-  PhoneForwarded, 
-  Activity 
+import { FilterState } from "@/components/crm/SearchFilterBar";
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Calendar,
+  DollarSign,
+  PhoneForwarded,
+  Activity,
+  UserPlus,
+  FileText,
+  PlusCircle
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell
 } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -49,6 +54,7 @@ export default function DashboardPage() {
   const [customerFilters, setCustomerFilters] = useState<FilterState>({});
 
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
 
   const getDateRange = () => {
@@ -125,70 +131,67 @@ export default function DashboardPage() {
   const BRAND_COLORS = ['#9F7AEA', '#4E7ADE'];
 
   // Find upcoming follow-ups
-  const upcomingFollowUps = leads?.filter(lead => 
-    lead.nextFollowUp && 
-    isFuture(new Date(lead.nextFollowUp)) && 
+  const upcomingFollowUps = leads?.filter(lead =>
+    lead.nextFollowUp &&
+    isFuture(new Date(lead.nextFollowUp)) &&
     differenceInDays(new Date(lead.nextFollowUp), new Date()) <= 7
   ).sort((a, b) => new Date(a.nextFollowUp!).getTime() - new Date(b.nextFollowUp!).getTime()) || [];
 
   // Get brand display name
   const getBrandDisplayName = (brandValue: string) => {
-    switch(brandValue) {
+    switch (brandValue) {
       case brandEnum.BRIDE: return "Civetta Bride";
       case brandEnum.SLEEPWEAR: return "Civetta Sleepwear";
       default: return "Todas las marcas";
     }
   };
 
-  // Filter options for the dashboard search
-  const dashboardFilterOptions = [
-    {
-      id: "status",
-      label: "Estado",
-      type: "select" as const,
-      options: [
-        { value: "new", label: "Nuevo" },
-        { value: "contacted", label: "Contactado" },
-        { value: "qualified", label: "Calificado" },
-        { value: "proposal", label: "Propuesta" },
-        { value: "negotiation", label: "Negociación" },
-        { value: "won", label: "Ganado" },
-        { value: "lost", label: "Perdido" }
-      ],
-    },
-    {
-      id: "brand",
-      label: "Marca",
-      type: "select" as const,
-      options: [
-        { value: "sleepwear", label: "Civetta Sleepwear" },
-        { value: "bride", label: "Civetta Bride" },
-      ],
-    }
-  ];
+  // Handle direct creation actions
+  const handleCreateLead = () => {
+    navigate("/leads?new=true");
+  };
+
+  const handleCreateCustomer = () => {
+    navigate("/customers?new=true");
+  };
+
+  const handleCreateSale = () => {
+    navigate("/sales?new=true");
+  };
 
   return (
     <div className="space-y-6 p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className={`flex flex-col items-${isMobile ? 'center' : 'start'} gap-2`}>
           <div className="flex items-center justify-center">
-            <img 
-              src="/media/logoCivetta01.png" 
-              alt="Civetta Logo" 
-              className="h-14 object-contain" 
+            <img
+              src="/media/logoCivetta01.png"
+              alt="Civetta Logo"
+              className={isMobile ? "h-16 object-contain" : "h-28 object-contain"}
             />
           </div>
           <h1 className="text-2xl font-bold">
             {isMobile ? "CRM Civetta" : "Panel de Control"}
           </h1>
         </div>
+        {/* Mobile layout - Quick Action Buttons above filters */}
+        {isMobile && (
+          <div className="grid gap-4 grid-cols-3 w-full">
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateLead}>
+              <PhoneForwarded className="h-4 w-4 text-purple-500" />
+              <span className="text-xs">Nuevo Lead</span>
+            </Button>
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateCustomer}>
+              <UserPlus className="h-4 w-4 text-blue-500" />
+              <span className="text-xs">Nuevo Cliente</span>
+            </Button>
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateSale}>
+              <FileText className="h-4 w-4 text-green-500" />
+              <span className="text-xs">Nueva Venta</span>
+            </Button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-4">
-          <SearchFilterBar 
-            searchPlaceholder="Buscar leads..."
-            filterOptions={dashboardFilterOptions} 
-            filters={leadFilters} 
-            setFilters={setLeadFilters} 
-          />
           <Select value={selectedBrand} onValueChange={setSelectedBrand}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Marca" />
@@ -214,18 +217,45 @@ export default function DashboardPage() {
           </Select>
           {dateRange === "custom" && (
             <div className="flex flex-col sm:flex-row gap-2">
-              <DatePicker 
-                value={startDate} 
+              <DatePicker
+                value={startDate}
                 onChange={(date) => date && setStartDate(date)}
               />
-              <DatePicker 
-                value={endDate} 
+              <DatePicker
+                value={endDate}
                 onChange={(date) => date && setEndDate(date)}
               />
             </div>
           )}
         </div>
       </div>
+
+      {/* Desktop layout - Quick Action Buttons */}
+      {!isMobile && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateLead}>
+            <PhoneForwarded className="h-5 w-5 text-purple-500" />
+            <span className="flex flex-col items-start">
+              <span className="font-medium">Nuevo Lead</span>
+              <span className="text-xs text-muted-foreground">Registrar un prospecto</span>
+            </span>
+          </Button>
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateCustomer}>
+            <UserPlus className="h-5 w-5 text-blue-500" />
+            <span className="flex flex-col items-start">
+              <span className="font-medium">Nuevo Cliente</span>
+              <span className="text-xs text-muted-foreground">Agregar un cliente</span>
+            </span>
+          </Button>
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateSale}>
+            <FileText className="h-5 w-5 text-green-500" />
+            <span className="flex flex-col items-start">
+              <span className="font-medium">Nueva Venta</span>
+              <span className="text-xs text-muted-foreground">Registrar una venta</span>
+            </span>
+          </Button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -411,8 +441,8 @@ export default function DashboardPage() {
                         {format(new Date(lead.nextFollowUp!), 'PPP', { locale: es })}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {differenceInDays(new Date(lead.nextFollowUp!), new Date()) === 0 
-                          ? 'Hoy' 
+                        {differenceInDays(new Date(lead.nextFollowUp!), new Date()) === 0
+                          ? 'Hoy'
                           : `En ${differenceInDays(new Date(lead.nextFollowUp!), new Date())} días`}
                       </p>
                     </div>
@@ -438,7 +468,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
-            <SalesList brand={selectedBrand === "all" ? undefined : selectedBrand} filters={saleFilters}/>
+            <SalesList brand={selectedBrand === "all" ? undefined : selectedBrand} filters={saleFilters} />
           </CardContent>
         </Card>
 
@@ -450,9 +480,9 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
-            <CustomerList 
-              onSelect={() => {}} 
-              brand={selectedBrand === "all" ? undefined : selectedBrand} 
+            <CustomerList
+              onSelect={() => { }}
+              brand={selectedBrand === "all" ? undefined : selectedBrand}
               filters={customerFilters} />
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LeadsList } from "@/components/crm/LeadsList";
 import { LeadForm } from "@/components/crm/LeadForm";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus } from "lucide-react";
 import { type Lead } from "@db/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "wouter";
 
 export default function LeadsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | undefined>(undefined);
   const isMobile = useIsMobile();
+  const [location] = useLocation();
+
+  // Check for new=true parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.split('?')[1]);
+    if (searchParams.get('new') === 'true') {
+      setDialogOpen(true);
+    }
+  }, [location]);
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SalesList } from "@/components/crm/SalesList";
 import { SalesForm } from "@/components/crm/SalesForm";
 import { t } from "@/lib/i18n";
@@ -7,10 +7,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "wouter";
 
 export default function SalesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [location] = useLocation();
+
+  // Check for new=true parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.split('?')[1]);
+    if (searchParams.get('new') === 'true') {
+      setDialogOpen(true);
+    }
+  }, [location]);
 
   return (
     <div className="space-y-6">
