@@ -1,16 +1,38 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { SalesList } from "@/components/crm/SalesList";
 import { CustomerList } from "@/components/crm/CustomerList";
 import { DatePicker } from "@/components/ui/date-picker";
-import { format, subDays, subMonths, subYears, startOfDay } from "date-fns";
+import { format, subDays, subMonths, subYears, startOfDay, isFuture, differenceInDays, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { FunnelChart } from "@/components/crm/FunnelChart";
-import { type Lead, type Sale, brandEnum } from "@db/schema";
+import { type Lead, type Sale, type Customer, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
 import { SearchFilterBar, FilterState } from "@/components/crm/SearchFilterBar";
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Users, 
+  Calendar, 
+  DollarSign, 
+  PhoneForwarded, 
+  Activity 
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -56,8 +78,54 @@ export default function DashboardPage() {
     })
   });
 
+  const { data: customers } = useQuery<Customer[]>({
+    queryKey: ["/api/customers", selectedBrand, customerFilters],
+    queryFn: getQueryFn({ on401: "throw" }),
+    select: (data) => data.filter(customer => {
+      const customerDate = new Date(customer.createdAt);
+      const brandMatch = selectedBrand === "all" || customer.brand === selectedBrand;
+      return customerDate >= startOfDay(startDate) && customerDate <= endDate && brandMatch;
+    })
+  });
+
+  // Calculate KPIs and metrics
   const totalSales = sales?.reduce((sum: number, sale) => sum + Number(sale.amount), 0) || 0;
-  const totalCustomers = sales ? new Set(sales.map(sale => sale.customerId)).size : 0;
+  const totalCustomers = customers?.length || 0;
+  const activeLeads = leads?.filter(lead => !lead.convertedToCustomer)?.length || 0;
+  const wonLeads = leads?.filter(lead => lead.status === 'won')?.length || 0;
+  const conversionRate = activeLeads > 0 ? Math.round((wonLeads / activeLeads) * 100) : 0;
+
+  // Calculate sales trends for chart
+  const salesByDay = sales?.reduce((acc: Record<string, number>, sale) => {
+    const day = format(new Date(sale.createdAt), 'yyyy-MM-dd');
+    acc[day] = (acc[day] || 0) + Number(sale.amount);
+    return acc;
+  }, {}) || {};
+
+  const salesTrendData = Object.entries(salesByDay).map(([day, value]) => ({
+    day: format(new Date(day), 'dd/MM'),
+    value
+  })).sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+
+  // Calculate brand distribution for pie chart
+  const salesByBrand = sales?.reduce((acc: Record<string, number>, sale) => {
+    acc[sale.brand] = (acc[sale.brand] || 0) + Number(sale.amount);
+    return acc;
+  }, {}) || {};
+
+  const brandPieData = Object.entries(salesByBrand).map(([brand, value]) => ({
+    name: brand === 'bride' ? 'Civetta Bride' : 'Civetta Sleepwear',
+    value
+  }));
+
+  const BRAND_COLORS = ['#9F7AEA', '#4E7ADE'];
+
+  // Find upcoming follow-ups
+  const upcomingFollowUps = leads?.filter(lead => 
+    lead.nextFollowUp && 
+    isFuture(new Date(lead.nextFollowUp)) && 
+    differenceInDays(new Date(lead.nextFollowUp), new Date()) <= 7
+  ).sort((a, b) => new Date(a.nextFollowUp!).getTime() - new Date(b.nextFollowUp!).getTime()) || [];
 
   // Get brand display name
   const getBrandDisplayName = (brandValue: string) => {
@@ -144,78 +212,229 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-medium">Ventas Totales</h3>
-              <div className="text-sm font-medium text-muted-foreground">{getBrandDisplayName(selectedBrand)}</div>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Ventas Totales</p>
+                <h3 className="text-2xl font-bold mt-1">${totalSales.toFixed(2)}</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
             </div>
-            <p className="text-3xl font-bold">${totalSales.toFixed(2)}</p>
+            <div className="text-xs text-muted-foreground mt-2">{getBrandDisplayName(selectedBrand)}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardContent className="p-6">
-            <FunnelChart brand={selectedBrand === "all" ? undefined : selectedBrand} />
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div className="text-sm">
-                <div className="font-medium">Leads</div>
-                <div className="text-muted-foreground">
-                  {leads?.filter((l: Lead) => !l.convertedToCustomer).reduce((acc: Record<string, number>, lead: Lead) => {
-                    const counts = acc;
-                    counts[lead.status] = (counts[lead.status] || 0) + 1;
-                    return counts;
-                  }, {} as Record<string, number>) &&
-                    Object.entries(leads?.filter((l: Lead) => !l.convertedToCustomer).reduce((acc: Record<string, number>, lead: Lead) => {
-                      const counts = acc;
-                      counts[lead.status] = (counts[lead.status] || 0) + 1;
-                      return counts;
-                    }, {} as Record<string, number>)).map(([status, count]) => (
-                      <div key={status}>{status}: {count}</div>
-                    ))
-                  }
-                </div>
-                <div className="mt-2">
-                  <div className="font-medium">Por Año</div>
-                  {leads && Object.entries(
-                    leads.reduce((acc: Record<number, number>, lead: Lead) => {
-                      const year = new Date(lead.createdAt).getFullYear();
-                      acc[year] = (acc[year] || 0) + 1;
-                      return acc;
-                    }, {} as Record<number, number>)
-                  ).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => (
-                    <div key={year}>{year}: {count} leads</div>
-                  ))}
-                </div>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Clientes</p>
+                <h3 className="text-2xl font-bold mt-1">{totalCustomers}</h3>
               </div>
-              <div className="text-sm border-l pl-2">
-                <div className="font-medium">Clientes Activos</div>
-                <div className="text-muted-foreground">
-                  Total: {totalCustomers}
-                </div>
+              <div className="p-2 bg-blue-500/10 rounded-full">
+                <Users className="h-5 w-5 text-blue-500" />
               </div>
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">{getBrandDisplayName(selectedBrand)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Leads Activos</p>
+                <h3 className="text-2xl font-bold mt-1">{activeLeads}</h3>
+              </div>
+              <div className="p-2 bg-purple-500/10 rounded-full">
+                <PhoneForwarded className="h-5 w-5 text-purple-500" />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">{getBrandDisplayName(selectedBrand)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tasa de Conversión</p>
+                <h3 className="text-2xl font-bold mt-1">{conversionRate}%</h3>
+              </div>
+              <div className="p-2 bg-green-500/10 rounded-full">
+                <Activity className="h-5 w-5 text-green-500" />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              Leads convertidos a clientes
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Charts Row */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Enhanced Sales Pipeline Chart */}
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Pipeline de Ventas</CardTitle>
+            <CardDescription>
+              Visión del embudo de ventas y conversión por etapa
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FunnelChart brand={selectedBrand === "all" ? undefined : selectedBrand} />
+          </CardContent>
+        </Card>
+
+        {/* Sales Trend Chart */}
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Tendencia de Ventas</CardTitle>
+            <CardDescription>
+              Evolución de ventas durante el periodo seleccionado
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              {salesTrendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={salesTrendData}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#4E7ADE"
+                      strokeWidth={2}
+                      name="Ventas ($)"
+                      activeDot={{ r: 8 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No hay suficientes datos para mostrar la tendencia
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Additional KPI row */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Brand Distribution */}
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Distribución por Marca</CardTitle>
+            <CardDescription>
+              Porcentaje de ventas por marca
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px]">
+              {brandPieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={brandPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {brandPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={BRAND_COLORS[index % BRAND_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`$${value}`, 'Ventas']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No hay suficientes datos para mostrar la distribución
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Follow-ups */}
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Próximos Seguimientos</CardTitle>
+            <CardDescription>
+              Seguimientos programados para los próximos 7 días
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-[250px] overflow-auto">
+              {upcomingFollowUps.length > 0 ? (
+                upcomingFollowUps.map(lead => (
+                  <div key={lead.id} className="flex items-center justify-between border-b pb-2">
+                    <div>
+                      <p className="font-medium">{lead.name}</p>
+                      <p className="text-sm text-muted-foreground">{lead.email || lead.phone || 'Sin contacto'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-medium ${isToday(new Date(lead.nextFollowUp!)) ? 'text-red-500' : ''}`}>
+                        {format(new Date(lead.nextFollowUp!), 'PPP', { locale: es })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {differenceInDays(new Date(lead.nextFollowUp!), new Date()) === 0 
+                          ? 'Hoy' 
+                          : `En ${differenceInDays(new Date(lead.nextFollowUp!), new Date())} días`}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  No hay seguimientos programados para los próximos 7 días
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lists Section */}
       <div className="space-y-4">
         <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Ventas Recientes</CardTitle>
+            <CardDescription>
+              Últimas transacciones realizadas
+            </CardDescription>
+          </CardHeader>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">Ventas Recientes</h2>
-              <div className="text-sm font-medium text-muted-foreground">{getBrandDisplayName(selectedBrand)}</div>
-            </div>
             <SalesList brand={selectedBrand === "all" ? undefined : selectedBrand} filters={saleFilters}/>
           </CardContent>
         </Card>
 
         <Card>
+          <CardHeader className="pb-0">
+            <CardTitle>Clientes Recientes</CardTitle>
+            <CardDescription>
+              Últimos clientes agregados al sistema
+            </CardDescription>
+          </CardHeader>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">Clientes Recientes</h2>
-              <div className="text-sm font-medium text-muted-foreground">{getBrandDisplayName(selectedBrand)}</div>
-            </div>
             <CustomerList 
               onSelect={() => {}} 
               brand={selectedBrand === "all" ? undefined : selectedBrand} 

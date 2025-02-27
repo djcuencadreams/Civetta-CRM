@@ -6,15 +6,39 @@ import {
   Funnel,
   LabelList,
   Tooltip,
+  Cell,
+  Legend,
 } from "recharts";
 import { type Lead, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
+import { useMemo } from "react";
+import { formatDistanceToNow, differenceInDays } from "date-fns";
+import { es } from "date-fns/locale";
+import { ChartTooltipContent } from "@/components/ui/chart";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#9F7AEA', '#48BB78', '#F56565'];
+// Updated color palette to be more professional and visually distinguishable
+const COLORS = ['#4E7ADE', '#6366F1', '#8884d8', '#9F7AEA', '#48BB78', '#10B981', '#F56565'];
+
+// Labels for stages to be more user-friendly
+const STAGE_LABELS = {
+  new: "Nuevos",
+  contacted: "Contactados",
+  qualified: "Calificados",
+  proposal: "Propuestas",
+  negotiation: "Negociación",
+  won: "Ganados",
+  lost: "Perdidos"
+};
 
 type FunnelDataItem = {
   name: string;
   value: number;
+  label: string;
+  // Added fields for additional information
+  conversionRate?: number;
+  avgAge?: number;
+  totalValue?: number;
+  color?: string;
 };
 
 export function FunnelChart({ brand }: { brand?: string }) {
@@ -31,21 +55,86 @@ export function FunnelChart({ brand }: { brand?: string }) {
     placeholderData: [] 
   });
 
-  const funnelData = (leads || []).reduce((acc: FunnelDataItem[], lead: Lead) => {
-    const stage = acc.find(x => x.name === lead.status);
-    if (stage) {
-      stage.value++;
-    } else {
-      acc.push({ name: lead.status || 'new', value: 1 });
-    }
-    return acc;
-  }, []);
+  // Enhanced funnel data with more metrics for better insights
+  const funnelData = useMemo(() => {
+    if (!leads || leads.length === 0) return [];
 
-  // Sort funnel stages in correct order
-  const stageOrder = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
-  funnelData.sort((a: FunnelDataItem, b: FunnelDataItem) => 
-    stageOrder.indexOf(a.name) - stageOrder.indexOf(b.name)
-  );
+    // Calculate total count for conversion rates
+    const leadCounts: Record<string, number> = {};
+    const leadValues: Record<string, number> = {};
+    const leadAges: Record<string, number[]> = {};
+
+    leads.forEach(lead => {
+      const stage = lead.status || 'new';
+
+      // Count leads by stage
+      leadCounts[stage] = (leadCounts[stage] || 0) + 1;
+
+      // Calculate potential value (estimate based on customer data if available)
+      // Using a simplistic model where leads further in the pipeline have higher values
+      const estimatedValue = lead.convertedCustomerId ? 1000 : 
+        stage === 'negotiation' ? 800 :
+        stage === 'proposal' ? 600 :
+        stage === 'qualified' ? 400 :
+        stage === 'contacted' ? 200 : 100;
+
+      leadValues[stage] = (leadValues[stage] || 0) + estimatedValue;
+
+      // Calculate age of lead in days
+      const createdDate = new Date(lead.createdAt);
+      const ageInDays = differenceInDays(new Date(), createdDate);
+      if (!leadAges[stage]) leadAges[stage] = [];
+      leadAges[stage].push(ageInDays);
+    });
+
+    // Sort stages in the correct order
+    const stageOrder = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+
+    // Generate funnel data items
+    let previousCount = leadCounts['new'] || 0;
+    const result: FunnelDataItem[] = stageOrder
+      .filter(stage => leadCounts[stage]) // Only include stages with leads
+      .map((stage, index) => {
+        const count = leadCounts[stage];
+        const conversionRate = previousCount > 0 ? Math.round((count / previousCount) * 100) : 0;
+        const avgAge = leadAges[stage]?.length > 0 
+          ? Math.round(leadAges[stage].reduce((a, b) => a + b, 0) / leadAges[stage].length) 
+          : 0;
+
+        const item: FunnelDataItem = {
+          name: stage,
+          value: count,
+          label: STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage,
+          conversionRate: index > 0 ? conversionRate : 100,
+          avgAge,
+          totalValue: leadValues[stage] || 0,
+          color: COLORS[index % COLORS.length]
+        };
+
+        previousCount = count;
+        return item;
+      });
+
+    return result;
+  }, [leads]);
+
+  // Create a custom tooltip component for funnel chart
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+
+    const data = payload[0].payload as FunnelDataItem;
+    return (
+      <div className="rounded-lg border bg-background p-2 shadow-md">
+        <h3 className="font-medium">{data.label}</h3>
+        <div className="space-y-1 mt-1 text-sm">
+          <p>Cantidad: <span className="font-medium">{data.value}</span></p>
+          <p>Tasa de conversión: <span className="font-medium">{data.conversionRate}%</span></p>
+          <p>Tiempo promedio: <span className="font-medium">{data.avgAge} días</span></p>
+          <p>Valor estimado: <span className="font-medium">${data.totalValue?.toLocaleString()}</span></p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card className="p-6">
@@ -54,40 +143,72 @@ export function FunnelChart({ brand }: { brand?: string }) {
         {brand === brandEnum.BRIDE ? " (Civetta Bride)" : 
          brand === brandEnum.SLEEPWEAR ? " (Civetta Sleepwear)" : ""}
       </h2>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <RechartsChart>
-            <Tooltip />
-            <Funnel
-              data={funnelData}
-              dataKey="value"
-              nameKey="name"
-              fill="#8884d8"
-            >
-              <LabelList
-                position="right"
-                fill="#fff"
-                stroke="none"
-                dataKey="name"
-                formatter={(name: string) => 
-                  `${name.charAt(0).toUpperCase() + name.slice(1)}: ${
-                    funnelData.find((d: FunnelDataItem) => d.name === name)?.value || 0
-                  }`
-                }
-              />
-              {funnelData.map((_: FunnelDataItem, index: number) => (
-                <Funnel
-                  key={index}
-                  dataKey="value"
-                  fill={COLORS[index % COLORS.length]}
-                  stroke="#fff"
-                  strokeWidth={2}
-                />
-              ))}
-            </Funnel>
-          </RechartsChart>
-        </ResponsiveContainer>
+      <div className="text-sm text-muted-foreground mb-2">
+        Mostrando flujo de conversión y métricas por etapa
       </div>
+
+      <div className="h-[400px]">
+        {funnelData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsChart>
+              <Tooltip content={<CustomTooltip />} />
+              <Funnel
+                dataKey="value"
+                data={funnelData}
+                isAnimationActive
+              >
+                <Legend />
+                {funnelData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.color} 
+                  />
+                ))}
+                <LabelList
+                  position="right"
+                  fill="#000"
+                  stroke="none"
+                  dataKey="label"
+                  formatter={(name: string, entry: any) => {
+                    const data = entry as FunnelDataItem;
+                    return `${name}: ${data.value} (${data.conversionRate}%)`;
+                  }}
+                />
+              </Funnel>
+            </RechartsChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            No hay suficientes datos para mostrar el pipeline
+          </div>
+        )}
+      </div>
+
+      {/* Additional metrics dashboard */}
+      {funnelData.length > 0 && (
+        <div className="grid grid-cols-3 gap-4 mt-4 text-sm">
+          <div>
+            <div className="font-medium">Etapa con más leads</div>
+            <div className="text-lg font-semibold">
+              {funnelData.reduce((max, item) => item.value > max.value ? item : max, funnelData[0]).label}
+            </div>
+          </div>
+          <div>
+            <div className="font-medium">Tasa de conversión general</div>
+            <div className="text-lg font-semibold">
+              {funnelData.find(item => item.name === 'won')?.value && funnelData.find(item => item.name === 'new')?.value
+                ? `${Math.round((funnelData.find(item => item.name === 'won')!.value / funnelData.find(item => item.name === 'new')!.value) * 100)}%`
+                : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <div className="font-medium">Valor estimado total</div>
+            <div className="text-lg font-semibold">
+              ${funnelData.reduce((sum, item) => sum + (item.totalValue || 0), 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { type Lead } from "@db/schema";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 
 interface LeadFormProps {
   lead?: Lead;
@@ -25,6 +27,7 @@ interface LeadFormProps {
 
 export function LeadForm({ lead, onClose }: LeadFormProps) {
   const [isViewMode, setIsViewMode] = useState(!!lead);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -98,6 +101,43 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       });
     }
   });
+
+  // Add a new mutation for deleting leads
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!lead) return;
+
+      const res = await apiRequest(
+        "DELETE",
+        `/api/leads/${lead.id}`,
+        undefined
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
+      }
+
+      return true;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead eliminado exitosamente" });
+      onClose();
+    },
+    onError: (error: Error) => {
+      console.error('Lead deletion error:', error);
+      toast({
+        title: "Error al eliminar lead",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDelete = () => {
+    deleteMutation.mutate();
+  };
 
   return (
     <Form {...form}>
@@ -284,24 +324,53 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
           )}
         />
 
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
-            Cancelar
-          </Button>
-          {lead && isViewMode && (
-            <Button type="button" onClick={() => setIsViewMode(false)}>
-              Editar Lead
-            </Button>
+        <div className="flex justify-between gap-2">
+          {lead && (
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  type="button" 
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar Lead
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Está seguro de eliminar este lead?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Esta eliminará permanentemente el lead y todos sus datos asociados.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
-          {!isViewMode && (
-            <Button type="submit" disabled={mutation.isPending}>
-              Guardar
+
+          <div className="flex ml-auto gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+            >
+              Cancelar
             </Button>
-          )}
+            {lead && isViewMode && (
+              <Button type="button" onClick={() => setIsViewMode(false)}>
+                Editar Lead
+              </Button>
+            )}
+            {!isViewMode && (
+              <Button type="submit" disabled={mutation.isPending}>
+                Guardar
+              </Button>
+            )}
+          </div>
         </div>
       </form>
     </Form>
