@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-02-27T04:42:30.838Z",
+  "tables": [
+    "customers",
+    "leads",
+    "sales",
+    "webhooks"
+  ],
+  "recordCounts": {}
+}

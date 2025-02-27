@@ -33,6 +33,7 @@ import {
   Pie,
   Cell
 } from "recharts";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -46,6 +47,9 @@ export default function DashboardPage() {
   const [leadFilters, setLeadFilters] = useState<FilterState>({});
   const [saleFilters, setSaleFilters] = useState<FilterState>({});
   const [customerFilters, setCustomerFilters] = useState<FilterState>({});
+
+  const isMobile = useIsMobile();
+
 
   const getDateRange = () => {
     const now = new Date();
@@ -166,7 +170,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold">Panel de Control</h1>
+        <div className={`flex flex-col items-${isMobile ? 'center' : 'start'} gap-2`}>
+          <div className="flex items-center justify-center">
+            <img 
+              src="/media/logoCivetta01.png" 
+              alt="Civetta Logo" 
+              className="h-14 object-contain" 
+            />
+          </div>
+          <h1 className="text-2xl font-bold">
+            {isMobile ? "CRM Civetta" : "Panel de Control"}
+          </h1>
+        </div>
         <div className="flex flex-col sm:flex-row gap-4">
           <SearchFilterBar 
             searchPlaceholder="Buscar leads..."

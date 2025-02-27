@@ -6,18 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Customer } from "@db/schema";
 import { Plus } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function CustomersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
+  const isMobile = useIsMobile();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
+      <div className={`flex items-center ${isMobile ? 'flex-col space-y-4 justify-center' : 'justify-between'}`}>
+        <h1 className={`text-2xl font-bold tracking-tight ${isMobile ? 'text-center' : ''}`}>
           {t("common.customers")}
         </h1>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2">
+        <Button 
+          onClick={() => setDialogOpen(true)} 
+          className="gap-2"
+          size={isMobile ? "sm" : "default"}
+        >
           <Plus className="h-4 w-4" />
           {t("customers.newCustomer")}
         </Button>

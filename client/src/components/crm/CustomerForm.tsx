@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
@@ -81,6 +82,7 @@ export function CustomerForm({
   const queryClient = useQueryClient();
   const [isViewMode, setIsViewMode] = useState(!!customer);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -113,7 +115,8 @@ export function CustomerForm({
       if (!customer?.id) return;
       const res = await apiRequest("DELETE", `/api/customers/${customer.id}`);
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        const error = await res.json();
+        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
       }
       return res.json();
     },
@@ -122,7 +125,7 @@ export function CustomerForm({
       toast({ title: "Cliente eliminado" });
       onComplete();
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({ 
         title: "Error al eliminar cliente",
         description: error.message,
@@ -440,44 +443,63 @@ export function CustomerForm({
             />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onComplete}
-            >
-              {t("common.cancel")}
-            </Button>
+          <div className="flex justify-between gap-2">
             {customer && isViewMode && (
-              <>
-                <Button type="button" onClick={() => setIsViewMode(false)}>
-                  Editar Cliente
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={() => setShowConvertDialog(true)}
-                  variant="secondary"
-                  disabled={convertToLeadMutation.isPending}
-                >
-                  Convertir a Lead
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={() => {
-                    if (window.confirm('¿Está seguro de eliminar este cliente?')) {
-                      deleteMutation.mutate();
-                    }
-                  }} 
-                  disabled={deleteMutation.isPending} 
-                  style={{backgroundColor: 'red'}}
-                >
-                  Eliminar Cliente
-                </Button>
-              </>
+              <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    type="button" 
+                    variant="destructive"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar Cliente
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Está seguro de eliminar este cliente?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta acción no se puede deshacer. Esta eliminará permanentemente el cliente y todos sus datos asociados.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteMutation.mutate()}>
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
-            {!isViewMode && <Button type="submit" disabled={mutation.isPending}>
-              {t("common.save")}
-            </Button>}
+
+            <div className="flex ml-auto gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onComplete}
+              >
+                {t("common.cancel")}
+              </Button>
+              {customer && isViewMode && (
+                <>
+                  <Button type="button" onClick={() => setIsViewMode(false)}>
+                    Editar Cliente
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={() => setShowConvertDialog(true)}
+                    variant="secondary"
+                    disabled={convertToLeadMutation.isPending}
+                  >
+                    Convertir a Lead
+                  </Button>
+                </>
+              )}
+              {!isViewMode && <Button type="submit" disabled={mutation.isPending}>
+                {t("common.save")}
+              </Button>}
+            </div>
           </div>
         </form>
       </Form>
