@@ -38,7 +38,10 @@ import {
 } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LeadForm } from "@/components/crm/LeadForm";
+import { CustomerForm } from "@/components/crm/CustomerForm";
+import { SalesForm } from "@/components/crm/SalesForm";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -53,9 +56,12 @@ export default function DashboardPage() {
   const [saleFilters, setSaleFilters] = useState<FilterState>({});
   const [customerFilters, setCustomerFilters] = useState<FilterState>({});
 
-  const isMobile = useIsMobile();
-  const navigate = useNavigate();
+  // Dialog states for quick actions
+  const [leadDialogOpen, setLeadDialogOpen] = useState(false);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
 
+  const isMobile = useIsMobile();
 
   const getDateRange = () => {
     const now = new Date();
@@ -119,9 +125,11 @@ export default function DashboardPage() {
 
   // Calculate brand distribution for pie chart
   const salesByBrand = sales?.reduce((acc: Record<string, number>, sale) => {
-    acc[sale.brand] = (acc[sale.brand] || 0) + Number(sale.amount);
+    if (sale.brand) {
+      acc[sale.brand] = (acc[sale.brand] || 0) + Number(sale.amount);
+    }
     return acc;
-  }, {}) || {};
+  }, {} as Record<string, number>) || {};
 
   const brandPieData = Object.entries(salesByBrand).map(([brand, value]) => ({
     name: brand === 'bride' ? 'Civetta Bride' : 'Civetta Sleepwear',
@@ -146,19 +154,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle direct creation actions
-  const handleCreateLead = () => {
-    navigate("/leads?new=true");
-  };
-
-  const handleCreateCustomer = () => {
-    navigate("/customers?new=true");
-  };
-
-  const handleCreateSale = () => {
-    navigate("/sales?new=true");
-  };
-
   return (
     <div className="space-y-6 p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -167,7 +162,7 @@ export default function DashboardPage() {
             <img
               src="/media/logoCivetta01.png"
               alt="Civetta Logo"
-              className={isMobile ? "h-16 object-contain" : "h-28 object-contain"}
+              className={isMobile ? "h-20 object-contain" : "h-40 object-contain"}
             />
           </div>
           <h1 className="text-2xl font-bold">
@@ -177,15 +172,15 @@ export default function DashboardPage() {
         {/* Mobile layout - Quick Action Buttons above filters */}
         {isMobile && (
           <div className="grid gap-4 grid-cols-3 w-full">
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateLead}>
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setLeadDialogOpen(true)}>
               <PhoneForwarded className="h-4 w-4 text-purple-500" />
               <span className="text-xs">Nuevo Lead</span>
             </Button>
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateCustomer}>
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setCustomerDialogOpen(true)}>
               <UserPlus className="h-4 w-4 text-blue-500" />
               <span className="text-xs">Nuevo Cliente</span>
             </Button>
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={handleCreateSale}>
+            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setSaleDialogOpen(true)}>
               <FileText className="h-4 w-4 text-green-500" />
               <span className="text-xs">Nueva Venta</span>
             </Button>
@@ -233,21 +228,21 @@ export default function DashboardPage() {
       {/* Desktop layout - Quick Action Buttons */}
       {!isMobile && (
         <div className="grid gap-4 md:grid-cols-3">
-          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateLead}>
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={() => setLeadDialogOpen(true)}>
             <PhoneForwarded className="h-5 w-5 text-purple-500" />
             <span className="flex flex-col items-start">
               <span className="font-medium">Nuevo Lead</span>
               <span className="text-xs text-muted-foreground">Registrar un prospecto</span>
             </span>
           </Button>
-          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateCustomer}>
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={() => setCustomerDialogOpen(true)}>
             <UserPlus className="h-5 w-5 text-blue-500" />
             <span className="flex flex-col items-start">
               <span className="font-medium">Nuevo Cliente</span>
               <span className="text-xs text-muted-foreground">Agregar un cliente</span>
             </span>
           </Button>
-          <Button variant="outline" className="w-full h-16 gap-3" onClick={handleCreateSale}>
+          <Button variant="outline" className="w-full h-16 gap-3" onClick={() => setSaleDialogOpen(true)}>
             <FileText className="h-5 w-5 text-green-500" />
             <span className="flex flex-col items-start">
               <span className="font-medium">Nueva Venta</span>
@@ -487,6 +482,42 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog for creating a new lead directly from the dashboard */}
+      <Dialog open={leadDialogOpen} onOpenChange={setLeadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Lead</DialogTitle>
+          </DialogHeader>
+          <LeadForm
+            onClose={() => setLeadDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for creating a new customer directly from the dashboard */}
+      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Cliente</DialogTitle>
+          </DialogHeader>
+          <CustomerForm
+            onComplete={() => setCustomerDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for creating a new sale directly from the dashboard */}
+      <Dialog open={saleDialogOpen} onOpenChange={setSaleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva Venta</DialogTitle>
+          </DialogHeader>
+          <SalesForm
+            onComplete={() => setSaleDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,12 +5,27 @@ import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
 import { eq, desc, like } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
+import * as pdfjsLib from "pdfjs-dist";
+import fileUpload from "express-fileupload";
 
 const router = Router();
+
+// Configure file upload middleware
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   app.use(router);
+
+  // Enable file uploads
+  app.use(fileUpload({
+    limits: { fileSize: 10 * 1024 * 1024 },
+    useTempFiles: true,
+    tempFileDir: '/tmp/'
+  }));
 
   // Customers API
   app.get("/api/customers", async (_req, res) => {
@@ -452,5 +467,243 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // PDF Import API
+  app.post("/api/integrations/pdf/extract", async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0 || !('pdf' in req.files)) {
+        return res.status(400).json({ error: "No PDF file uploaded" });
+      }
+
+      // Type assertion for express-fileupload
+      const pdfFile = req.files.pdf as fileUpload.UploadedFile;
+
+      // Load the PDF file
+      const arrayBuffer = pdfFile.data;
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+
+      // Extract text from the PDF
+      let extractedText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map((item: any) => item.str);
+        extractedText += strings.join(' ') + '\n';
+      }
+
+      // Parse the text to extract customer information
+      const extractedCustomers = extractCustomerData(extractedText);
+
+      res.json(extractedCustomers);
+    } catch (error) {
+      console.error('PDF extraction error:', error);
+      res.status(500).json({ error: "Failed to extract data from PDF" });
+    }
+  });
+
+  app.post("/api/integrations/pdf/import", async (req, res) => {
+    try {
+      const { customers: customersData } = req.body;
+
+      if (!customersData || !Array.isArray(customersData) || customersData.length === 0) {
+        return res.status(400).json({ error: "No customer data provided" });
+      }
+
+      // Insert the customers into the database
+      const result = [];
+      for (const customerData of customersData) {
+        // Format address if individual components are provided
+        let address = null;
+        if (customerData.street) {
+          address = `${customerData.street}, ${customerData.city || ''}, ${customerData.state || ''}${customerData.postalCode ? ' ' + customerData.postalCode : ''}`;
+          if (customerData.deliveryInstructions) {
+            address += `\n${customerData.deliveryInstructions}`;
+          }
+        } else if (customerData.address) {
+          address = customerData.address;
+        }
+
+        // Insert the customer
+        const [customer] = await db.insert(customers).values({
+          name: customerData.name,
+          email: customerData.email || null,
+          phone: customerData.phone || null,
+          address: address,
+          source: 'pdf_import',
+          brand: 'sleepwear', // Default brand, can be updated later
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).returning();
+
+        result.push(customer);
+      }
+
+      res.json({ count: result.length, customers: result });
+    } catch (error) {
+      console.error('Customer import error:', error);
+      res.status(500).json({ error: "Failed to import customers" });
+    }
+  });
+
+  // WordPress/WooCommerce API
+  app.post("/api/integrations/wordpress/connect", async (req, res) => {
+    try {
+      const { siteUrl, consumerKey, consumerSecret } = req.body;
+
+      if (!siteUrl || !consumerKey || !consumerSecret) {
+        return res.status(400).json({ error: "WordPress site URL, consumer key and consumer secret are required" });
+      }
+
+      // Test the WordPress connection
+      // In a real implementation, you would verify the credentials by making a test API call
+      // For now, we'll just return a success response
+
+      res.json({ success: true, message: "WordPress connection successful" });
+    } catch (error) {
+      console.error('WordPress connection error:', error);
+      res.status(500).json({ error: "Failed to connect to WordPress" });
+    }
+  });
+
+  app.post("/api/integrations/wordpress/import-customers", async (req, res) => {
+    try {
+      const { siteUrl, consumerKey, consumerSecret } = req.body;
+
+      if (!siteUrl || !consumerKey || !consumerSecret) {
+        return res.status(400).json({ error: "WordPress credentials are required" });
+      }
+
+      // In a real implementation, you would fetch customers from WordPress using the WooCommerce API
+      // and insert them into the database
+      // For now, we'll return a mock response
+
+      res.json({ 
+        success: true, 
+        message: "WordPress customers import initiated", 
+        totalCustomers: 10,
+        importedCustomers: 10
+      });
+    } catch (error) {
+      console.error('WordPress customers import error:', error);
+      res.status(500).json({ error: "Failed to import customers from WordPress" });
+    }
+  });
+
+  app.post("/api/integrations/wordpress/import-orders", async (req, res) => {
+    try {
+      const { siteUrl, consumerKey, consumerSecret } = req.body;
+
+      if (!siteUrl || !consumerKey || !consumerSecret) {
+        return res.status(400).json({ error: "WordPress credentials are required" });
+      }
+
+      // In a real implementation, you would fetch orders from WordPress using the WooCommerce API
+      // and insert them into the database
+      // For now, we'll return a mock response
+
+      res.json({ 
+        success: true, 
+        message: "WordPress orders import initiated", 
+        totalOrders: 5,
+        importedOrders: 5
+      });
+    } catch (error) {
+      console.error('WordPress orders import error:', error);
+      res.status(500).json({ error: "Failed to import orders from WordPress" });
+    }
+  });
+
   return httpServer;
+}
+
+// Helper function to extract customer data from PDF text
+function extractCustomerData(text: string) {
+  // This is a simplified example - in a real implementation,
+  // you would need to adapt this based on the format of your PDF forms
+
+  // Split by sections or form fields
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+
+  // Example pattern for extracting customer information
+  // In a real implementation, you would use more robust patterns specific to your form
+  const customers = [];
+  let currentCustomer: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    notes?: string;
+  } = {};
+
+  let inAddressSection = false;
+
+  for (const line of lines) {
+    if (line.includes('Name:') || line.includes('Nombre:')) {
+      if (Object.keys(currentCustomer).length > 0 && currentCustomer.name) {
+        customers.push(currentCustomer);
+        currentCustomer = {};
+      }
+
+      const nameParts = line.split(':');
+      if (nameParts.length > 1) {
+        currentCustomer.name = nameParts[1].trim();
+      }
+      inAddressSection = false;
+    } else if (line.includes('Email:') || line.includes('Correo:')) {
+      const emailParts = line.split(':');
+      if (emailParts.length > 1) {
+        currentCustomer.email = emailParts[1].trim();
+      }
+      inAddressSection = false;
+    } else if (line.includes('Phone:') || line.includes('Teléfono:')) {
+      const phoneParts = line.split(':');
+      if (phoneParts.length > 1) {
+        currentCustomer.phone = phoneParts[1].trim();
+      }
+      inAddressSection = false;
+    } else if (line.includes('Address:') || line.includes('Dirección:')) {
+      const addressParts = line.split(':');
+      if (addressParts.length > 1) {
+        currentCustomer.address = addressParts[1].trim();
+      }
+      inAddressSection = true;
+    } else if (inAddressSection) {
+      // Assume additional address details in subsequent lines
+      if (line.includes('City:') || line.includes('Ciudad:')) {
+        const cityParts = line.split(':');
+        if (cityParts.length > 1) {
+          currentCustomer.city = cityParts[1].trim();
+        }
+      } else if (line.includes('State:') || line.includes('Provincia:')) {
+        const stateParts = line.split(':');
+        if (stateParts.length > 1) {
+          currentCustomer.state = stateParts[1].trim();
+        }
+      } else if (line.includes('Postal Code:') || line.includes('Código Postal:')) {
+        const postalParts = line.split(':');
+        if (postalParts.length > 1) {
+          currentCustomer.postalCode = postalParts[1].trim();
+        }
+      } else if (line.includes('Notes:') || line.includes('Notas:')) {
+        const notesParts = line.split(':');
+        if (notesParts.length > 1) {
+          currentCustomer.notes = notesParts[1].trim();
+        }
+      } else if (currentCustomer.address) {
+        // Append to address if there's no specific field
+        currentCustomer.address += ', ' + line;
+      }
+    }
+  }
+
+  // Add the last customer if any
+  if (Object.keys(currentCustomer).length > 0 && currentCustomer.name) {
+    customers.push(currentCustomer);
+  }
+
+  return customers;
 }

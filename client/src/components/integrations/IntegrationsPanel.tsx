@@ -8,12 +8,31 @@ import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { type Webhook } from "@db/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { SiSlack, SiWhatsapp, SiZapier } from "react-icons/si";
+import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PdfImportComponent } from "./PdfImportComponent";
+import { WordPressIntegration } from "./WordPressIntegration";
+
+// Define extracted customer data type
+type ExtractedCustomerData = {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  notes?: string;
+};
 
 export function IntegrationsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newWebhook, setNewWebhook] = useState({ name: "", url: "", event: "new_sale" });
+  //Removed unnecessary state variables
 
   const { data: webhooks } = useQuery<Webhook[]>({
     queryKey: ["/api/webhooks"],
@@ -60,97 +79,127 @@ export function IntegrationsPanel() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SiWhatsapp className="h-5 w-5" />
-            WhatsApp Business
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Conecta con WhatsApp Business API para enviar notificaciones automáticas.
-          </p>
-          <Button variant="outline" onClick={handleWhatsAppConfigure}>{t("integrations.configure")}</Button>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="integrations">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="integrations">Integraciones</TabsTrigger>
+          <TabsTrigger value="import">Importación de datos</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SiSlack className="h-5 w-5" />
-            Slack
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Recibe notificaciones de ventas en tu canal de Slack.
-          </p>
-          <Button variant="outline" onClick={handleSlackConfigure}>{t("integrations.configure")}</Button>
-        </CardContent>
-      </Card>
+        <TabsContent value="integrations" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiWhatsapp className="h-5 w-5" />
+                WhatsApp Business
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Conecta con WhatsApp Business API para enviar notificaciones automáticas.
+              </p>
+              <Button variant="outline" onClick={handleWhatsAppConfigure}>{t("integrations.configure")}</Button>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SiZapier className="h-5 w-5" />
-            Zapier
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label>Nombre</Label>
-              <Input
-                value={newWebhook.name}
-                onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>URL</Label>
-              <Input
-                value={newWebhook.url}
-                onChange={(e) => setNewWebhook({ ...newWebhook, url: e.target.value })}
-              />
-            </div>
-            <Button
-              onClick={() => {
-                if (!newWebhook.name || !newWebhook.url) {
-                  toast({
-                    title: "Error",
-                    description: "Por favor, complete todos los campos",
-                    variant: "destructive"
-                  });
-                  return;
-                }
-                createWebhook.mutate(newWebhook);
-              }}
-              disabled={createWebhook.isPending}
-            >
-              {t("integrations.addWebhook")}
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiSlack className="h-5 w-5" />
+                Slack
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Recibe notificaciones de ventas en tu canal de Slack.
+              </p>
+              <Button variant="outline" onClick={handleSlackConfigure}>{t("integrations.configure")}</Button>
+            </CardContent>
+          </Card>
 
-          <div className="mt-4 space-y-2">
-            {webhooks?.map((webhook) => (
-              <div key={webhook.id} className="flex items-center justify-between p-2 bg-muted rounded">
+          {/* Include WordPress integration component */}
+          <WordPressIntegration />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiZapier className="h-5 w-5" />
+                Zapier
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
                 <div>
-                  <div className="font-medium">{webhook.name}</div>
-                  <div className="text-sm text-muted-foreground">{webhook.url}</div>
+                  <Label>Nombre</Label>
+                  <Input
+                    value={newWebhook.name}
+                    onChange={(e) => setNewWebhook({ ...newWebhook, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>URL</Label>
+                  <Input
+                    value={newWebhook.url}
+                    onChange={(e) => setNewWebhook({ ...newWebhook, url: e.target.value })}
+                  />
                 </div>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteWebhook.mutate(webhook.id)}
-                  disabled={deleteWebhook.isPending}
+                  onClick={() => {
+                    if (!newWebhook.name || !newWebhook.url) {
+                      toast({
+                        title: "Error",
+                        description: "Por favor, complete todos los campos",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    createWebhook.mutate(newWebhook);
+                  }}
+                  disabled={createWebhook.isPending}
                 >
-                  {t("common.delete")}
+                  {t("integrations.addWebhook")}
                 </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+
+              <div className="mt-4 space-y-2">
+                {webhooks?.map((webhook) => (
+                  <div key={webhook.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                    <div>
+                      <div className="font-medium">{webhook.name}</div>
+                      <div className="text-sm text-muted-foreground">{webhook.url}</div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteWebhook.mutate(webhook.id)}
+                      disabled={deleteWebhook.isPending}
+                    >
+                      {t("common.delete")}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="import" className="space-y-6">
+          {/* Include PDF import component */}
+          <PdfImportComponent />
+
+          {/* WordPress integration import section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiWordpress className="h-5 w-5" />
+                Importar desde WordPress/WooCommerce
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WordPressIntegration />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
