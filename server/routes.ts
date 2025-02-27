@@ -5,8 +5,10 @@ import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
 import { eq, desc, like } from "drizzle-orm";
 import { Router } from "express";
 import multer from "multer";
-import * as pdfjsLib from "pdfjs-dist";
 import fileUpload from "express-fileupload";
+import * as csv from 'csv-parser';
+import * as XLSX from 'xlsx';
+import { Readable } from 'stream';
 
 const router = Router();
 
@@ -467,81 +469,152 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // PDF Import API
-  app.post("/api/integrations/pdf/extract", async (req, res) => {
+  // Spreadsheet Import API
+  app.post("/api/configuration/spreadsheet/preview", async (req, res) => {
     try {
-      if (!req.files || Object.keys(req.files).length === 0 || !('pdf' in req.files)) {
-        return res.status(400).json({ error: "No PDF file uploaded" });
+      if (!req.files || Object.keys(req.files).length === 0 || !('file' in req.files)) {
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Type assertion for express-fileupload
-      const pdfFile = req.files.pdf as fileUpload.UploadedFile;
+      const file = req.files.file as fileUpload.UploadedFile;
+      const importType = req.body.type || 'customers';
 
-      // Load the PDF file
-      const arrayBuffer = pdfFile.data;
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
+      // Get the file extension
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
-      // Extract text from the PDF
-      let extractedText = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map((item: any) => item.str);
-        extractedText += strings.join(' ') + '\n';
+      let data: any[] = [];
+
+      if (fileExtension === 'csv') {
+        // Parse CSV file
+        data = await parseCSV(file.data);
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Parse Excel file
+        data = parseExcel(file.data);
+      } else {
+        return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
       }
 
-      // Parse the text to extract customer information
-      const extractedCustomers = extractCustomerData(extractedText);
+      // Validate data based on import type
+      const validationResult = validateImportData(data, importType);
+      if (!validationResult.valid) {
+        return res.status(400).json({ 
+          error: "Invalid data format", 
+          message: validationResult.message 
+        });
+      }
 
-      res.json(extractedCustomers);
+      // Return preview data (limited to 100 records)
+      res.json({ data: data.slice(0, 100) });
     } catch (error) {
-      console.error('PDF extraction error:', error);
-      res.status(500).json({ error: "Failed to extract data from PDF" });
+      console.error('Spreadsheet preview error:', error);
+      res.status(500).json({ error: "Failed to process spreadsheet" });
     }
   });
 
-  app.post("/api/integrations/pdf/import", async (req, res) => {
+  app.post("/api/configuration/spreadsheet/import", async (req, res) => {
     try {
-      const { customers: customersData } = req.body;
-
-      if (!customersData || !Array.isArray(customersData) || customersData.length === 0) {
-        return res.status(400).json({ error: "No customer data provided" });
+      if (!req.files || Object.keys(req.files).length === 0 || !('file' in req.files)) {
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Insert the customers into the database
-      const result = [];
-      for (const customerData of customersData) {
-        // Format address if individual components are provided
-        let address = null;
-        if (customerData.street) {
-          address = `${customerData.street}, ${customerData.city || ''}, ${customerData.state || ''}${customerData.postalCode ? ' ' + customerData.postalCode : ''}`;
-          if (customerData.deliveryInstructions) {
-            address += `\n${customerData.deliveryInstructions}`;
+      const file = req.files.file as fileUpload.UploadedFile;
+      const importType = req.body.type || 'customers';
+
+      // Get the file extension
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      let data: any[] = [];
+
+      if (fileExtension === 'csv') {
+        // Parse CSV file
+        data = await parseCSV(file.data);
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Parse Excel file
+        data = parseExcel(file.data);
+      } else {
+        return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
+      }
+
+      // Validate data based on import type
+      const validationResult = validateImportData(data, importType);
+      if (!validationResult.valid) {
+        return res.status(400).json({ 
+          error: "Invalid data format", 
+          message: validationResult.message 
+        });
+      }
+
+      // Import data based on type
+      let importedCount = 0;
+      switch (importType) {
+        case 'customers':
+          // Import customers
+          for (const item of data) {
+            await db.insert(customers).values({
+              name: item.name,
+              email: item.email || null,
+              phone: item.phone || null,
+              address: item.address || null,
+              source: item.source || 'import',
+              brand: item.brand || 'sleepwear',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            importedCount++;
           }
-        } else if (customerData.address) {
-          address = customerData.address;
-        }
+          break;
+        case 'leads':
+          // Import leads
+          for (const item of data) {
+            await db.insert(leads).values({
+              name: item.name,
+              email: item.email || null,
+              phone: item.phone || null,
+              status: item.status || 'new',
+              source: item.source || 'import',
+              notes: item.notes || null,
+              brand: item.brand || 'sleepwear',
+              customerLifecycleStage: 'lead',
+              convertedToCustomer: false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            importedCount++;
+          }
+          break;
+        case 'sales':
+          // Import sales
+          for (const item of data) {
+            // Ensure customer exists
+            const customerExists = await db.query.customers.findFirst({
+              where: eq(customers.id, parseInt(item.customerId))
+            });
 
-        // Insert the customer
-        const [customer] = await db.insert(customers).values({
-          name: customerData.name,
-          email: customerData.email || null,
-          phone: customerData.phone || null,
-          address: address,
-          source: 'pdf_import',
-          brand: 'sleepwear', // Default brand, can be updated later
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }).returning();
-
-        result.push(customer);
+            if (customerExists) {
+              await db.insert(sales).values({
+                customerId: parseInt(item.customerId),
+                amount: item.amount,
+                status: item.status || 'completed',
+                notes: item.notes || null,
+                productName: item.product || null,
+                brand: item.brand || 'sleepwear',
+                createdAt: item.date ? new Date(item.date) : new Date(),
+                updatedAt: new Date()
+              });
+              importedCount++;
+            }
+          }
+          break;
       }
 
-      res.json({ count: result.length, customers: result });
+      res.json({ 
+        success: true, 
+        count: importedCount,
+        message: `Successfully imported ${importedCount} ${importType}`
+      });
     } catch (error) {
-      console.error('Customer import error:', error);
-      res.status(500).json({ error: "Failed to import customers" });
+      console.error('Spreadsheet import error:', error);
+      res.status(500).json({ error: "Failed to import spreadsheet data" });
     }
   });
 
@@ -616,94 +689,59 @@ export function registerRoutes(app: Express): Server {
   return httpServer;
 }
 
-// Helper function to extract customer data from PDF text
-function extractCustomerData(text: string) {
-  // This is a simplified example - in a real implementation,
-  // you would need to adapt this based on the format of your PDF forms
+// Helper function to parse CSV data
+async function parseCSV(buffer: Buffer): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const results: any[] = [];
+    const readableStream = new Readable();
+    readableStream.push(buffer);
+    readableStream.push(null);
 
-  // Split by sections or form fields
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    readableStream
+      .pipe(csv())
+      .on('data', (data) => results.push(data))
+      .on('end', () => resolve(results))
+      .on('error', (error) => reject(error));
+  });
+}
 
-  // Example pattern for extracting customer information
-  // In a real implementation, you would use more robust patterns specific to your form
-  const customers = [];
-  let currentCustomer: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-    notes?: string;
-  } = {};
+// Helper function to parse Excel data
+function parseExcel(buffer: Buffer): any[] {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  return XLSX.utils.sheet_to_json(worksheet);
+}
 
-  let inAddressSection = false;
-
-  for (const line of lines) {
-    if (line.includes('Name:') || line.includes('Nombre:')) {
-      if (Object.keys(currentCustomer).length > 0 && currentCustomer.name) {
-        customers.push(currentCustomer);
-        currentCustomer = {};
-      }
-
-      const nameParts = line.split(':');
-      if (nameParts.length > 1) {
-        currentCustomer.name = nameParts[1].trim();
-      }
-      inAddressSection = false;
-    } else if (line.includes('Email:') || line.includes('Correo:')) {
-      const emailParts = line.split(':');
-      if (emailParts.length > 1) {
-        currentCustomer.email = emailParts[1].trim();
-      }
-      inAddressSection = false;
-    } else if (line.includes('Phone:') || line.includes('Teléfono:')) {
-      const phoneParts = line.split(':');
-      if (phoneParts.length > 1) {
-        currentCustomer.phone = phoneParts[1].trim();
-      }
-      inAddressSection = false;
-    } else if (line.includes('Address:') || line.includes('Dirección:')) {
-      const addressParts = line.split(':');
-      if (addressParts.length > 1) {
-        currentCustomer.address = addressParts[1].trim();
-      }
-      inAddressSection = true;
-    } else if (inAddressSection) {
-      // Assume additional address details in subsequent lines
-      if (line.includes('City:') || line.includes('Ciudad:')) {
-        const cityParts = line.split(':');
-        if (cityParts.length > 1) {
-          currentCustomer.city = cityParts[1].trim();
-        }
-      } else if (line.includes('State:') || line.includes('Provincia:')) {
-        const stateParts = line.split(':');
-        if (stateParts.length > 1) {
-          currentCustomer.state = stateParts[1].trim();
-        }
-      } else if (line.includes('Postal Code:') || line.includes('Código Postal:')) {
-        const postalParts = line.split(':');
-        if (postalParts.length > 1) {
-          currentCustomer.postalCode = postalParts[1].trim();
-        }
-      } else if (line.includes('Notes:') || line.includes('Notas:')) {
-        const notesParts = line.split(':');
-        if (notesParts.length > 1) {
-          currentCustomer.notes = notesParts[1].trim();
-        }
-      } else if (currentCustomer.address) {
-        // Append to address if there's no specific field
-        currentCustomer.address += ', ' + line;
-      }
-    }
+// Helper function to validate import data
+function validateImportData(data: any[], type: string): { valid: boolean, message?: string } {
+  if (!data || data.length === 0) {
+    return { valid: false, message: "No data found in file" };
   }
 
-  // Add the last customer if any
-  if (Object.keys(currentCustomer).length > 0 && currentCustomer.name) {
-    customers.push(currentCustomer);
+  // Basic validation based on import type
+  switch (type) {
+    case 'customers':
+      // Check if 'name' field exists in all records
+      if (!data.every(item => item.name)) {
+        return { valid: false, message: "All customer records must have a 'name' field" };
+      }
+      break;
+    case 'leads':
+      // Check if 'name' field exists in all records
+      if (!data.every(item => item.name)) {
+        return { valid: false, message: "All lead records must have a 'name' field" };
+      }
+      break;
+    case 'sales':
+      // Check if 'customerId' and 'amount' fields exist in all records
+      if (!data.every(item => item.customerId && item.amount)) {
+        return { valid: false, message: "All sale records must have 'customerId' and 'amount' fields" };
+      }
+      break;
+    default:
+      return { valid: false, message: "Invalid import type" };
   }
 
-  return customers;
+  return { valid: true };
 }

@@ -1,4 +1,4 @@
-import { FileDown, LayoutDashboard, Users, DollarSign, AppWindow, Menu } from "lucide-react";
+import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -26,9 +26,9 @@ const navigation = [
     icon: DollarSign
   },
   {
-    href: "/integrations",
-    label: "Integraciones",
-    icon: AppWindow
+    href: "/configuration",
+    label: "Configuración",
+    icon: Settings
   }
 ];
 
