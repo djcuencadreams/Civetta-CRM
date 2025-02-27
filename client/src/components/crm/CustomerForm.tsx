@@ -18,6 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
@@ -78,6 +80,7 @@ export function CustomerForm({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isViewMode, setIsViewMode] = useState(!!customer);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -128,6 +131,35 @@ export function CustomerForm({
     }
   });
 
+  // New mutation for converting a customer back to a lead
+  const convertToLeadMutation = useMutation({
+    mutationFn: async () => {
+      if (!customer?.id) return;
+      const res = await apiRequest("POST", `/api/customers/${customer.id}/convert-to-lead`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || `HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ 
+        title: "Cliente convertido a Lead",
+        description: "El cliente ha sido convertido a lead exitosamente"
+      });
+      onComplete();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error al convertir cliente",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const form = useForm({
     defaultValues: customer ? {
       firstName: customer.name?.split(' ')[0] || '',
@@ -165,198 +197,34 @@ export function CustomerForm({
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => {
-        if (!data.firstName?.trim() || !data.lastName?.trim()) {
-          toast({ 
-            title: "Error",
-            description: "Nombres y apellidos son requeridos",
-            variant: "destructive"
-          });
-          return;
-        }
-        const formattedData = {
-          name: `${data.firstName.trim()} ${data.lastName.trim()}`,
-          email: data.email?.trim() || null,
-          phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
-          address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
-          source: data.source,
-          brand: data.brand
-        };
-        mutation.mutate(formattedData);
-      })} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombres</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly={isViewMode} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Apellidos</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly={isViewMode} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-            control={form.control}
-            name="brand"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Marca</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isViewMode} 
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brandOptions.map(brand => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        {brand.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-        <FormField
-            control={form.control}
-            name="source"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fuente</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isViewMode} 
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"].map(source => (
-                      <SelectItem key={source} value={source}>
-                        {source}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-            <FormItem>
-              <FormLabel>Correo Electrónico</FormLabel>
-              <FormControl>
-                <Input type="email" {...field} readOnly={isViewMode} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-12 gap-4">
-          <FormField
-            control={form.control}
-            name="phoneCountry"
-            render={({ field }) => (
-              <FormItem className="col-span-5">
-                <FormLabel>País</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isViewMode} 
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countryCodes.map(({code, country}) => (
-                      <SelectItem key={code} value={code}>
-                        {country}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="phoneNumber"
-            render={({ field }) => (
-              <FormItem className="col-span-7">
-                <FormLabel>Teléfono celular</FormLabel>
-                <FormControl>
-                  <Input 
-                    maxLength={10} 
-                    {...field} 
-                    readOnly={isViewMode}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
-                      if (value.length <= 10) {
-                        field.onChange(value);
-                      }
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="font-medium">Dirección de Entrega</h3>
-
-          <FormField
-            control={form.control}
-            name="street"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Calle, Intersección y Número de Casa</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly={isViewMode} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((data) => {
+          if (!data.firstName?.trim() || !data.lastName?.trim()) {
+            toast({ 
+              title: "Error",
+              description: "Nombres y apellidos son requeridos",
+              variant: "destructive"
+            });
+            return;
+          }
+          const formattedData = {
+            name: `${data.firstName.trim()} ${data.lastName.trim()}`,
+            email: data.email?.trim() || null,
+            phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
+            address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
+            source: data.source,
+            brand: data.brand
+          };
+          mutation.mutate(formattedData);
+        })} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="city"
+              name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ciudad</FormLabel>
+                  <FormLabel>Nombres</FormLabel>
                   <FormControl>
                     <Input {...field} readOnly={isViewMode} />
                   </FormControl>
@@ -367,10 +235,25 @@ export function CustomerForm({
 
             <FormField
               control={form.control}
-              name="province"
+              name="lastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Provincia</FormLabel>
+                  <FormLabel>Apellidos</FormLabel>
+                  <FormControl>
+                    <Input {...field} readOnly={isViewMode} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+              control={form.control}
+              name="brand"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Marca</FormLabel>
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
@@ -380,9 +263,9 @@ export function CustomerForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {provinces.map(province => (
-                        <SelectItem key={province} value={province}>
-                          {province}
+                      {brandOptions.map(brand => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -390,55 +273,238 @@ export function CustomerForm({
                 </FormItem>
               )}
             />
-          </div>
 
           <FormField
-            control={form.control}
-            name="deliveryInstructions"
-            render={({ field }) => (
+              control={form.control}
+              name="source"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fuente</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isViewMode} 
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"].map(source => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
               <FormItem>
-                <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
+                <FormLabel>Correo Electrónico</FormLabel>
                 <FormControl>
-                  <Textarea {...field} readOnly={isViewMode} />
+                  <Input type="email" {...field} readOnly={isViewMode} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onComplete}
-          >
-            {t("common.cancel")}
-          </Button>
-          {customer && isViewMode && (
-            <>
-              <Button type="button" onClick={() => setIsViewMode(false)}>
-                Editar Cliente
-              </Button>
-              <Button 
-                type="button" 
-                onClick={() => {
-                  if (window.confirm('¿Está seguro de eliminar este cliente?')) {
-                    deleteMutation.mutate();
-                  }
-                }} 
-                disabled={deleteMutation.isPending} 
-                style={{backgroundColor: 'red'}}
-              >
-                Eliminar Cliente
-              </Button>
-            </>
-          )}
-          {!isViewMode && <Button type="submit" disabled={mutation.isPending}>
-            {t("common.save")}
-          </Button>}
-        </div>
-      </form>
-    </Form>
+          <div className="grid grid-cols-12 gap-4">
+            <FormField
+              control={form.control}
+              name="phoneCountry"
+              render={({ field }) => (
+                <FormItem className="col-span-5">
+                  <FormLabel>País</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isViewMode} 
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map(({code, country}) => (
+                        <SelectItem key={code} value={code}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem className="col-span-7">
+                  <FormLabel>Teléfono celular</FormLabel>
+                  <FormControl>
+                    <Input 
+                      maxLength={10} 
+                      {...field} 
+                      readOnly={isViewMode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 10) {
+                          field.onChange(value);
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="font-medium">Dirección de Entrega</h3>
+
+            <FormField
+              control={form.control}
+              name="street"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Calle, Intersección y Número de Casa</FormLabel>
+                  <FormControl>
+                    <Input {...field} readOnly={isViewMode} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ciudad</FormLabel>
+                    <FormControl>
+                      <Input {...field} readOnly={isViewMode} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provincia</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={isViewMode} 
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {provinces.map(province => (
+                          <SelectItem key={province} value={province}>
+                            {province}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="deliveryInstructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} readOnly={isViewMode} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onComplete}
+            >
+              {t("common.cancel")}
+            </Button>
+            {customer && isViewMode && (
+              <>
+                <Button type="button" onClick={() => setIsViewMode(false)}>
+                  Editar Cliente
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => setShowConvertDialog(true)}
+                  variant="secondary"
+                  disabled={convertToLeadMutation.isPending}
+                >
+                  Convertir a Lead
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    if (window.confirm('¿Está seguro de eliminar este cliente?')) {
+                      deleteMutation.mutate();
+                    }
+                  }} 
+                  disabled={deleteMutation.isPending} 
+                  style={{backgroundColor: 'red'}}
+                >
+                  Eliminar Cliente
+                </Button>
+              </>
+            )}
+            {!isViewMode && <Button type="submit" disabled={mutation.isPending}>
+              {t("common.save")}
+            </Button>}
+          </div>
+        </form>
+      </Form>
+
+      {/* Confirmation dialog for converting customer to lead */}
+      <AlertDialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convertir Cliente a Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Está seguro de convertir este cliente a lead? 
+              Esta acción no afectará las ventas existentes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                convertToLeadMutation.mutate();
+                setShowConvertDialog(false);
+              }}
+            >
+              Convertir a Lead
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

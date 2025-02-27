@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { 
@@ -46,18 +46,24 @@ export interface FilterState {
 interface SearchFilterBarProps {
   searchPlaceholder?: string;
   filterOptions: FilterOption[];
-  onChange: (searchText: string, filters: FilterState) => void;
-  onReset: () => void;
+  // Original props for internal filter management
+  onChange?: (searchText: string, filters: FilterState) => void;
+  onReset?: () => void;
+  // New props for external filter management
+  filters?: FilterState;
+  setFilters?: (filters: FilterState) => void;
 }
 
 export function SearchFilterBar({
   searchPlaceholder = "Buscar...",
   filterOptions,
   onChange,
-  onReset
+  onReset,
+  filters: externalFilters,
+  setFilters: setExternalFilters
 }: SearchFilterBarProps) {
+  // Internal state for backward compatibility
   const [searchText, setSearchText] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [filters, setFilters] = useState<FilterState>(() => {
     // Initialize with default values if they exist
     const defaultFilters: FilterState = {};
@@ -70,10 +76,19 @@ export function SearchFilterBar({
   });
 
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Sync with external filters if provided
+  useEffect(() => {
+    if (externalFilters) {
+      setFilters(externalFilters);
+      updateActiveFiltersCount(externalFilters);
+    }
+  }, [externalFilters]);
 
   // Update active filters count
-  const updateActiveFiltersCount = (newFilters: FilterState) => {
-    const count = Object.values(newFilters).filter(value => {
+  const updateActiveFiltersCount = (filtersToCount: FilterState) => {
+    const count = Object.values(filtersToCount).filter(value => {
       if (Array.isArray(value)) return value.length > 0;
       return value !== null && value !== '';
     }).length;
@@ -84,15 +99,29 @@ export function SearchFilterBar({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearchText = e.target.value;
     setSearchText(newSearchText);
-    onChange(newSearchText, filters);
+
+    // Use external or internal handler based on what's provided
+    if (setExternalFilters) {
+      // When using external state management
+      setExternalFilters({ ...externalFilters, _searchText: newSearchText });
+    } else if (onChange) {
+      // When using internal state management with callback
+      onChange(newSearchText, filters);
+    }
   };
 
   // Handle filter change
   const handleFilterChange = (id: string, value: FilterValue) => {
     const newFilters = { ...filters, [id]: value };
-    setFilters(newFilters);
-    updateActiveFiltersCount(newFilters);
-    onChange(searchText, newFilters);
+
+    // Use external or internal state management based on what's provided
+    if (setExternalFilters) {
+      setExternalFilters(newFilters);
+    } else {
+      setFilters(newFilters);
+      updateActiveFiltersCount(newFilters);
+      if (onChange) onChange(searchText, newFilters);
+    }
   };
 
   // Reset all filters
@@ -104,9 +133,15 @@ export function SearchFilterBar({
         defaultFilters[option.id] = option.defaultValue;
       }
     });
-    setFilters(defaultFilters);
-    setActiveFiltersCount(0);
-    onReset();
+
+    // Use external or internal state management based on what's provided
+    if (setExternalFilters) {
+      setExternalFilters(defaultFilters);
+    } else {
+      setFilters(defaultFilters);
+      setActiveFiltersCount(0);
+      if (onReset) onReset();
+    }
   };
 
   return (
@@ -125,7 +160,11 @@ export function SearchFilterBar({
               className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground cursor-pointer hover:text-foreground"
               onClick={() => {
                 setSearchText("");
-                onChange("", filters);
+                if (setExternalFilters) {
+                  setExternalFilters({ ...externalFilters, _searchText: "" });
+                } else if (onChange) {
+                  onChange("", filters);
+                }
               }}
             />
           )}
@@ -212,7 +251,7 @@ export function SearchFilterBar({
           <CardContent className="py-2 px-3">
             <div className="flex flex-wrap gap-1">
               {Object.entries(filters).map(([key, value]) => {
-                if (!value || (Array.isArray(value) && value.length === 0)) return null;
+                if (!value || (Array.isArray(value) && value.length === 0) || key === '_searchText') return null;
 
                 const option = filterOptions.find(opt => opt.id === key);
                 if (!option) return null;
@@ -244,9 +283,14 @@ export function SearchFilterBar({
                         } else {
                           delete newFilters[key];
                         }
-                        setFilters(newFilters);
-                        updateActiveFiltersCount(newFilters);
-                        onChange(searchText, newFilters);
+
+                        if (setExternalFilters) {
+                          setExternalFilters(newFilters);
+                        } else {
+                          setFilters(newFilters);
+                          updateActiveFiltersCount(newFilters);
+                          if (onChange) onChange(searchText, newFilters);
+                        }
                       }}
                     />
                   </Badge>

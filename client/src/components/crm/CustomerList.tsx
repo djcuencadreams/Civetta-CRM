@@ -16,17 +16,29 @@ type CustomerWithMode = Customer & {
 
 export function CustomerList({
   onSelect,
-  brand
+  brand,
+  filters: externalFilters
 }: {
   onSelect: (customer: CustomerWithMode) => void;
   brand?: string;
+  filters?: FilterState; // Add external filters prop
 }) {
   const [searchText, setSearchText] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
 
+  // Merge external filters when provided
+  useEffect(() => {
+    if (externalFilters) {
+      setFilters(prevFilters => ({
+        ...prevFilters,
+        ...externalFilters
+      }));
+    }
+  }, [externalFilters]);
+
   const { data: customers, isLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers", brand],
+    queryKey: ["/api/customers", brand, filters], // Add filters to queryKey
     queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => {
       // Filter customers by name (non-empty) and brand if specified

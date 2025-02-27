@@ -97,6 +97,66 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // New endpoint to convert a customer back to a lead
+  app.post("/api/customers/:id/convert-to-lead", async (req, res) => {
+    try {
+      const customerId = parseInt(req.params.id);
+
+      // Get the customer by ID
+      const [customer] = await db.select()
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      // Parse name into parts (assuming format is "First Last")
+      const nameParts = customer.name.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Parse address if available (assuming format is "street, city, province\ndeliveryInstructions")
+      let street = '', city = '', province = '', deliveryInstructions = '';
+      if (customer.address) {
+        const parts = customer.address.split('\n');
+        const addressParts = parts[0]?.split(',') || [];
+
+        street = addressParts[0]?.trim() || '';
+        city = addressParts[1]?.trim() || '';
+        province = addressParts[2]?.trim() || '';
+        deliveryInstructions = parts[1]?.trim() || '';
+      }
+
+      // Create a new lead from the customer data
+      const [lead] = await db.insert(leads).values({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        phoneCountry: customer.phone?.split(/[0-9]/)[0] || null,
+        street,
+        city,
+        province,
+        deliveryInstructions,
+        status: 'new', // Default status for converted leads
+        source: customer.source || 'website',
+        brand: customer.brand,
+        notes: `Converted from customer ID ${customerId} on ${new Date().toISOString()}`,
+        customerLifecycleStage: 'lead',
+        convertedToCustomer: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      // Return the new lead
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error('Error converting customer to lead:', error);
+      res.status(500).json({ error: "Failed to convert customer to lead" });
+    }
+  });
+
   // Sales API
   app.get("/api/sales", async (_req, res) => {
     try {

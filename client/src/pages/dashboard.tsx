@@ -10,6 +10,7 @@ import { es } from "date-fns/locale";
 import { FunnelChart } from "@/components/crm/FunnelChart";
 import { type Lead, type Sale, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
+import { SearchFilterBar, FilterState } from "@/components/crm/SearchFilterBar";
 
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
@@ -18,6 +19,11 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState<Date>(() => subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
+
+  // Add filters for dashboard search
+  const [leadFilters, setLeadFilters] = useState<FilterState>({});
+  const [saleFilters, setSaleFilters] = useState<FilterState>({});
+  const [customerFilters, setCustomerFilters] = useState<FilterState>({});
 
   const getDateRange = () => {
     const now = new Date();
@@ -31,7 +37,7 @@ export default function DashboardPage() {
   };
 
   const { data: leads } = useQuery<Lead[]>({
-    queryKey: ["/api/leads", selectedBrand],
+    queryKey: ["/api/leads", selectedBrand, leadFilters],
     queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => data.filter(lead => {
       const leadDate = new Date(lead.createdAt);
@@ -41,7 +47,7 @@ export default function DashboardPage() {
   });
 
   const { data: sales } = useQuery<Sale[]>({
-    queryKey: ["/api/sales", startDate, endDate, selectedBrand],
+    queryKey: ["/api/sales", startDate, endDate, selectedBrand, saleFilters],
     queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => data.filter(sale => {
       const saleDate = new Date(sale.createdAt);
@@ -62,11 +68,44 @@ export default function DashboardPage() {
     }
   };
 
+  // Filter options for the dashboard search
+  const dashboardFilterOptions = [
+    {
+      id: "status",
+      label: "Estado",
+      type: "select" as const,
+      options: [
+        { value: "new", label: "Nuevo" },
+        { value: "contacted", label: "Contactado" },
+        { value: "qualified", label: "Calificado" },
+        { value: "proposal", label: "Propuesta" },
+        { value: "negotiation", label: "Negociación" },
+        { value: "won", label: "Ganado" },
+        { value: "lost", label: "Perdido" }
+      ],
+    },
+    {
+      id: "brand",
+      label: "Marca",
+      type: "select" as const,
+      options: [
+        { value: "sleepwear", label: "Civetta Sleepwear" },
+        { value: "bride", label: "Civetta Bride" },
+      ],
+    }
+  ];
+
   return (
     <div className="space-y-6 p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">Panel de Control</h1>
         <div className="flex flex-col sm:flex-row gap-4">
+          <SearchFilterBar 
+            searchPlaceholder="Buscar leads..."
+            filterOptions={dashboardFilterOptions} 
+            filters={leadFilters} 
+            setFilters={setLeadFilters} 
+          />
           <Select value={selectedBrand} onValueChange={setSelectedBrand}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Marca" />
@@ -167,7 +206,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-medium">Ventas Recientes</h2>
               <div className="text-sm font-medium text-muted-foreground">{getBrandDisplayName(selectedBrand)}</div>
             </div>
-            <SalesList brand={selectedBrand === "all" ? undefined : selectedBrand} />
+            <SalesList brand={selectedBrand === "all" ? undefined : selectedBrand} filters={saleFilters}/>
           </CardContent>
         </Card>
 
@@ -180,7 +219,7 @@ export default function DashboardPage() {
             <CustomerList 
               onSelect={() => {}} 
               brand={selectedBrand === "all" ? undefined : selectedBrand} 
-            />
+              filters={customerFilters} />
           </CardContent>
         </Card>
       </div>

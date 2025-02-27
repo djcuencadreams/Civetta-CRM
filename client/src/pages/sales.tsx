@@ -5,6 +5,7 @@ import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SalesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -21,7 +22,14 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      <SalesList />
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Ventas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SalesList />
+        </CardContent>
+      </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
