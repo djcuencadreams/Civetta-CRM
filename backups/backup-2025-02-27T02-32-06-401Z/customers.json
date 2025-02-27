@@ -1,0 +1,211 @@
+[
+  {
+    "id": 1,
+    "name": "",
+    "email": "",
+    "phone": "",
+    "address": "",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-03T12:11:33.667Z",
+    "updatedAt": "2025-02-03T12:11:33.667Z"
+  },
+  {
+    "id": 2,
+    "name": "Danny Jara",
+    "email": "jaradanny@gmail.com",
+    "phone": "2880106",
+    "address": "1ro mayo",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-03T19:51:42.640Z",
+    "updatedAt": "2025-02-03T19:51:42.640Z"
+  },
+  {
+    "id": 3,
+    "name": "Migue Jara",
+    "email": "djcuenca@hotmail.com",
+    "phone": "+593",
+    "address": ", , \n",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-03T23:50:52.419Z",
+    "updatedAt": "2025-02-03T23:50:52.419Z"
+  },
+  {
+    "id": 4,
+    "name": "Milly Jara",
+    "email": "djcuencas@hotmail.com",
+    "phone": "undefined",
+    "address": "undefined, undefined, undefined\nundefined",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T00:00:57.786Z",
+    "updatedAt": "2025-02-04T00:00:57.786Z"
+  },
+  {
+    "id": 5,
+    "name": "Juana Patricia leon",
+    "email": "djcuenca@hotmail.com",
+    "phone": "undefined",
+    "address": "undefined, undefined, undefined\nundefined",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T00:01:51.389Z",
+    "updatedAt": "2025-02-04T00:01:51.389Z"
+  },
+  {
+    "id": 6,
+    "name": "Milena Rios",
+    "email": "djcuenca@hotmail.com",
+    "phone": "+593",
+    "address": ", , \n",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T00:08:19.486Z",
+    "updatedAt": "2025-02-04T00:08:19.486Z"
+  },
+  {
+    "id": 8,
+    "name": "Milena Rios",
+    "email": "djcuenca@hotmail.com",
+    "phone": "++",
+    "address": ", Carchi, Imbabura\n",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T04:32:01.516Z",
+    "updatedAt": "2025-02-04T04:32:01.516Z"
+  },
+  {
+    "id": 10,
+    "name": "Milena Rios",
+    "email": "djcuenca@hotmail.com",
+    "phone": "+593++342342342",
+    "address": null,
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T04:55:14.876Z",
+    "updatedAt": "2025-02-04T04:55:14.876Z"
+  },
+  {
+    "id": 9,
+    "name": "Milena Rios",
+    "email": "djcuenca@hotmail.com",
+    "phone": "+1_US342342342",
+    "address": "2, Carchi, Imbabura",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T04:32:25.985Z",
+    "updatedAt": "2025-02-04T05:14:49.551Z"
+  },
+  {
+    "id": 12,
+    "name": "Milena Riofrio",
+    "email": "mily@hotmail.com",
+    "phone": "+5931223232432",
+    "address": "Calle sin retorno1, Carchi, Imbabura",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T04:56:32.088Z",
+    "updatedAt": "2025-02-04T05:35:26.021Z"
+  },
+  {
+    "id": 13,
+    "name": "Pongo Longui",
+    "email": "ponguilongui@gmail.com",
+    "phone": "+593995815626",
+    "address": "Patio trasero de la residencia Jara en Pasaje 1ro mayo, Cuenca, Azuay\ntimbren en el ring y pregunten por Ponguito :D",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-04T05:36:59.343Z",
+    "updatedAt": "2025-02-05T00:33:47.125Z"
+  },
+  {
+    "id": 14,
+    "name": "Juan Aluma",
+    "email": "djcuenca321@hotmail.com",
+    "phone": null,
+    "address": null,
+    "source": "Cold Call",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-05T02:09:07.272Z",
+    "updatedAt": "2025-02-05T02:09:07.272Z"
+  },
+  {
+    "id": 15,
+    "name": "Juan Aluma",
+    "email": "djcuenca321@hotmail.com",
+    "phone": "+593987654321",
+    "address": "Calle Principal 123, Quito",
+    "source": "referral",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 16,
+    "name": "María González",
+    "email": "mariag@example.com",
+    "phone": "+593998765432",
+    "address": "Av. 10 de Agosto, Guayaquil",
+    "source": "website",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 17,
+    "name": "Carlos López",
+    "email": "carlosl@example.com",
+    "phone": "+593976543210",
+    "address": "Calle Roca 456, Cuenca",
+    "source": "social_media",
+    "brand": "bride",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 18,
+    "name": "Ana Jiménez",
+    "email": "anaj@example.com",
+    "phone": "+593965432109",
+    "address": "Av. 6 de Diciembre, Quito",
+    "source": "event",
+    "brand": "bride",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 19,
+    "name": "Pedro Martínez",
+    "email": "pedrom@example.com",
+    "phone": "+593954321098",
+    "address": "Calle Colón 789, Ambato",
+    "source": "cold_call",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-27T01:56:51.217Z",
+    "updatedAt": "2025-02-27T01:56:51.217Z"
+  },
+  {
+    "id": 20,
+    "name": "Maria Pasa",
+    "email": null,
+    "phone": "+5939873424234",
+    "address": null,
+    "source": "Cold Call",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-27T02:18:51.949Z",
+    "updatedAt": "2025-02-27T02:18:51.949Z"
+  },
+  {
+    "id": 21,
+    "name": "Palillo Lituma",
+    "email": null,
+    "phone": "099765444221212121",
+    "address": null,
+    "source": "social_media",
+    "brand": "sleepwear",
+    "createdAt": "2025-02-27T02:19:04.312Z",
+    "updatedAt": "2025-02-27T02:19:04.312Z"
+  }
+]

@@ -8,7 +8,7 @@ import { type Lead } from "@db/schema";
 
 export default function LeadsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | undefined>(undefined);
 
   return (
     <div className="space-y-6">
@@ -38,7 +38,7 @@ export default function LeadsPage() {
             lead={selectedLead}
             onClose={() => {
               setDialogOpen(false);
-              setSelectedLead(null);
+              setSelectedLead(undefined);
             }}
           />
         </DialogContent>

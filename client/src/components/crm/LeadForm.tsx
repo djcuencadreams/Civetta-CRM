@@ -74,7 +74,19 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
     },
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      toast({ title: "Lead guardado exitosamente" });
+
+      // If the lead status is 'won', also invalidate the customers query
+      // to ensure the newly created customer appears in customer lists
+      if (form.getValues().status === 'won') {
+        await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+        toast({ 
+          title: "Lead convertido a cliente",
+          description: "El lead ha sido convertido exitosamente a cliente"
+        });
+      } else {
+        toast({ title: "Lead guardado exitosamente" });
+      }
+
       onClose();
     },
     onError: (error: Error) => {

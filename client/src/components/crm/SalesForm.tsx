@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertSaleSchema, type Customer, brandEnum } from "@db/schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +67,8 @@ export function SalesForm({
   const queryClient = useQueryClient();
 
   const { data: customers, isLoading: isLoadingCustomers } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"]
+    queryKey: ["/api/customers"],
+    queryFn: getQueryFn({ on401: "throw" })
   });
 
   const form = useForm({
@@ -92,7 +93,7 @@ export function SalesForm({
     if (customerId && customers) {
       const customer = customers.find(c => c.id === parseInt(customerId));
       if (customer && customer.brand) {
-        form.setValue("brand", customer.brand);
+        form.setValue("brand", customer.brand as "sleepwear" | "bride");
         setSelectedBrand(customer.brand);
       }
     }

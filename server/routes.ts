@@ -219,7 +219,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const { name, email, phone, status, source, notes,
         lastContact, nextFollowUp, phoneCountry, street, city,
-        province, deliveryInstructions } = req.body;
+        province, deliveryInstructions, brand } = req.body;
 
       if (!name?.trim()) {
         return res.status(400).json({ error: "El nombre es requerido" });
@@ -240,7 +240,8 @@ export function registerRoutes(app: Express): Server {
         lastContact: lastContact ? new Date(lastContact) : null,
         nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null,
         customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
-        convertedToCustomer: status === 'won'
+        convertedToCustomer: status === 'won',
+        brand: brand || null
       }).returning();
 
       res.json(lead[0]);
@@ -254,7 +255,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const {
         name, email, phone, status, source, notes,
-        lastContact, nextFollowUp
+        lastContact, nextFollowUp, brand
       } = req.body;
 
       if (!name?.trim()) {
@@ -277,10 +278,12 @@ export function registerRoutes(app: Express): Server {
             name: name.trim(),
             email: email?.trim() || null,
             phone: phone?.trim() || null,
-            source: source || 'website'
+            source: source || 'website',
+            brand: existingLead.brand || brand || 'sleepwear' // Include brand information
           })
           .returning();
         convertedCustomerId = customer.id;
+        console.log(`Created new customer (id: ${customer.id}) from lead ${existingLead.id}`);
       }
 
       // Update lead
@@ -291,6 +294,7 @@ export function registerRoutes(app: Express): Server {
           phone: phone?.trim() || null,
           status,
           source: source || 'website',
+          brand: brand || existingLead.brand, // Ensure brand is preserved
           notes: notes?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
