@@ -3,18 +3,44 @@ import { User, Phone, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { t } from "@/lib/i18n";
-import { type Customer } from "@db/schema";
+import { type Customer, brandEnum } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Extended Customer type with optional mode for view/edit
+type CustomerWithMode = Customer & {
+  mode?: 'view' | 'edit';
+};
+
 export function CustomerList({
-  onSelect
+  onSelect,
+  brand
 }: {
-  onSelect: (customer: Customer) => void;
+  onSelect: (customer: CustomerWithMode) => void;
+  brand?: string;
 }) {
   const { data: customers, isLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    select: (data) => data?.filter(customer => customer.name?.trim())
+    queryKey: ["/api/customers", brand],
+    select: (data) => {
+      // Filter customers by name (non-empty) and brand if specified
+      let filtered = data?.filter(customer => customer.name?.trim());
+
+      // Apply brand filter if specified
+      if (brand) {
+        filtered = filtered.filter(customer => customer.brand === brand);
+      }
+
+      return filtered;
+    }
   });
+
+  // Get brand display name
+  const getBrandDisplayName = (brandValue: string | null) => {
+    switch(brandValue) {
+      case brandEnum.BRIDE: return "Bride";
+      case brandEnum.SLEEPWEAR: return "Sleepwear";
+      default: return "";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -39,7 +65,14 @@ export function CustomerList({
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <User className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-medium">{customer.name}</h3>
+              <div className="flex flex-col">
+                <h3 className="font-medium">{customer.name}</h3>
+                {brand ? null : (
+                  <span className="text-xs text-muted-foreground">
+                    {getBrandDisplayName(customer.brand)}
+                  </span>
+                )}
+              </div>
             </div>
             {customer.phone && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">

@@ -3,6 +3,12 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import * as z from 'zod';
 
+// Define the brand enum values
+export const brandEnum = {
+  SLEEPWEAR: 'sleepwear',
+  BRIDE: 'bride',
+} as const;
+
 // Define base tables first
 export const webhooks = pgTable("webhooks", {
   id: serial("id").primaryKey(),
@@ -20,6 +26,7 @@ export const customers = pgTable("customers", {
   phone: text("phone"),
   address: text("address"),
   source: varchar("source", { length: 50 }).default('website'),
+  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -36,6 +43,7 @@ export const leads = pgTable("leads", {
   deliveryInstructions: text("delivery_instructions"),
   status: varchar("status", { length: 50 }).notNull().default('new'),
   source: varchar("source", { length: 50 }).notNull().default('website'),
+  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   notes: text("notes"),
   convertedToCustomer: boolean("converted_to_customer").default(false),
   convertedCustomerId: integer("converted_customer_id").references(() => customers.id),
@@ -60,9 +68,18 @@ export const sales = pgTable("sales", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull(),
   paymentMethod: text("payment_method"),
+  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Define product categories table
+export const productCategories = pgTable("product_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
+  createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
 // Define relations
@@ -105,6 +122,7 @@ export const insertLeadSchema = z.object({
   deliveryInstructions: z.string().optional().nullable(),
   status: z.enum(['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost']).default('new'),
   source: z.enum(['website', 'referral', 'social_media', 'email', 'cold_call', 'event', 'other']).default('website'),
+  brand: z.enum([brandEnum.SLEEPWEAR, brandEnum.BRIDE]).default(brandEnum.SLEEPWEAR),
   notes: z.string().optional().nullable(),
   lastContact: z.string().optional().nullable().transform(val => val ? new Date(val) : null),
   nextFollowUp: z.string().optional().nullable().transform(val => val ? new Date(val) : null)

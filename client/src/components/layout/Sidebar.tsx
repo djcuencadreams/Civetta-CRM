@@ -50,7 +50,7 @@ export function Sidebar({ className }: { className?: string }) {
 
   return (
     <aside className={cn("h-screen w-64 border-r bg-background", 
-      isMobile && "shadow-lg",
+      isMobile && "shadow-lg fixed z-50",
       className
     )}>
       <div className="p-4 border-b flex justify-between items-center">

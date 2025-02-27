@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertSaleSchema, type Customer } from "@db/schema";
+import { insertSaleSchema, type Customer, brandEnum } from "@db/schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
@@ -38,14 +38,23 @@ const paymentMethods = [
   { id: "otros", name: "Otros" }
 ];
 
-const productCategories = [
-  "Ropa",
-  "Accesorios",
-  "Calzado",
-  "Servicios",
-  "Joyería",
-  "Otros"
-];
+// Product categories by brand
+const productCategoriesByBrand = {
+  [brandEnum.SLEEPWEAR]: [
+    "Pijamas",
+    "Ropa Interior",
+    "Batas",
+    "Conjuntos",
+    "Accesorios"
+  ],
+  [brandEnum.BRIDE]: [
+    "Velos",
+    "Tocados",
+    "Accesorios de Cabello",
+    "Joyería",
+    "Ligas"
+  ]
+};
 
 export function SalesForm({
   onComplete
@@ -53,6 +62,7 @@ export function SalesForm({
   onComplete: () => void;
 }) {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState<string>(brandEnum.SLEEPWEAR);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,7 +75,8 @@ export function SalesForm({
       customerId: "",
       products: [{ name: "", category: "", amount: "", quantity: "1" }],
       paymentMethod: "efectivo",
-      notes: ""
+      notes: "",
+      brand: brandEnum.SLEEPWEAR
     },
     resolver: zodResolver(insertSaleSchema)
   });
@@ -74,6 +85,18 @@ export function SalesForm({
     control: form.control,
     name: "products"
   });
+
+  // Update brand when customer changes
+  useEffect(() => {
+    const customerId = form.watch("customerId");
+    if (customerId && customers) {
+      const customer = customers.find(c => c.id === parseInt(customerId));
+      if (customer && customer.brand) {
+        form.setValue("brand", customer.brand);
+        setSelectedBrand(customer.brand);
+      }
+    }
+  }, [form.watch("customerId"), customers, form]);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -110,6 +133,7 @@ export function SalesForm({
         amount: totalAmount,
         status: "completed",
         paymentMethod: values.paymentMethod,
+        brand: values.brand,
         notes: values.products.map((p: any) => 
           `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`
         ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
@@ -144,6 +168,15 @@ export function SalesForm({
   if (isLoadingCustomers) {
     return <div>Cargando clientes...</div>;
   }
+
+  // Get product categories based on selected brand
+  const productCategories = productCategoriesByBrand[selectedBrand as keyof typeof productCategoriesByBrand] || 
+                           productCategoriesByBrand[brandEnum.SLEEPWEAR];
+
+  // Get brand display name
+  const getBrandDisplayName = (brandValue: string) => {
+    return brandValue === brandEnum.BRIDE ? "Civetta Bride" : "Civetta Sleepwear";
+  };
 
   return (
     <>
@@ -181,7 +214,7 @@ export function SalesForm({
                     <SelectContent>
                       {customers?.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id.toString()}>
-                          {customer.name}
+                          {customer.name} ({getBrandDisplayName(customer.brand || brandEnum.SLEEPWEAR)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -189,6 +222,21 @@ export function SalesForm({
                   <Button type="button" onClick={() => setShowNewCustomer(true)}>
                     <Plus className="h-4 w-4" />
                   </Button>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="brand"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Marca</FormLabel>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm font-medium">{getBrandDisplayName(field.value)}</p>
+                  <p className="text-xs text-muted-foreground">La marca se determina automáticamente según el cliente seleccionado</p>
                 </div>
                 <FormMessage />
               </FormItem>

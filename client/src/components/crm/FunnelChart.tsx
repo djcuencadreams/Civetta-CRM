@@ -7,7 +7,7 @@ import {
   LabelList,
   Tooltip,
 } from "recharts";
-import { type Lead } from "@db/schema";
+import { type Lead, brandEnum } from "@db/schema";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#9F7AEA', '#48BB78', '#F56565'];
 
@@ -16,9 +16,16 @@ type FunnelDataItem = {
   value: number;
 };
 
-export function FunnelChart() {
+export function FunnelChart({ brand }: { brand?: string }) {
   const { data: leads } = useQuery<Lead[]>({ 
-    queryKey: ["/api/leads"],
+    queryKey: ["/api/leads", brand],
+    select: (data) => {
+      // Filter leads by brand if specified
+      if (brand) {
+        return data.filter(lead => lead.brand === brand);
+      }
+      return data;
+    },
     placeholderData: [] 
   });
 
@@ -40,7 +47,11 @@ export function FunnelChart() {
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-medium mb-4">Pipeline de Ventas</h2>
+      <h2 className="text-lg font-medium mb-4">
+        Pipeline de Ventas
+        {brand === brandEnum.BRIDE ? " (Civetta Bride)" : 
+         brand === brandEnum.SLEEPWEAR ? " (Civetta Sleepwear)" : ""}
+      </h2>
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <RechartsChart>

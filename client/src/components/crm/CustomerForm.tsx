@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertCustomerSchema, type Customer } from "@db/schema";
+import { insertCustomerSchema, type Customer, brandEnum } from "@db/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
@@ -60,6 +60,12 @@ const provinces = [
   "Los Ríos", "Manabí", "Morona Santiago", "Napo", "Orellana", 
   "Pastaza", "Pichincha", "Santa Elena", "Santo Domingo", 
   "Sucumbíos", "Tungurahua", "Zamora Chinchipe"
+];
+
+// Brand options for the form
+const brandOptions = [
+  { id: brandEnum.SLEEPWEAR, name: "Civetta Sleepwear" },
+  { id: brandEnum.BRIDE, name: "Civetta Bride" }
 ];
 
 export function CustomerForm({
@@ -133,7 +139,8 @@ export function CustomerForm({
       city: customer.address?.split(',')[1]?.trim() || '',
       province: customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
       deliveryInstructions: customer.address?.split('\n')[1]?.trim() || '',
-      source: customer.source || 'website'  // Default source value
+      source: customer.source || 'website',
+      brand: customer.brand || brandEnum.SLEEPWEAR
     } : {
       firstName: "",
       lastName: "",
@@ -144,7 +151,8 @@ export function CustomerForm({
       city: "",
       province: "",
       deliveryInstructions: "",
-      source: "website"  // Default source value for new customers
+      source: "website",
+      brand: brandEnum.SLEEPWEAR
     }
   });
 
@@ -172,7 +180,8 @@ export function CustomerForm({
           email: data.email?.trim() || null,
           phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
           address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
-          source: data.source
+          source: data.source,
+          brand: data.brand
         };
         mutation.mutate(formattedData);
       })} className="space-y-4">
@@ -205,6 +214,32 @@ export function CustomerForm({
             )}
           />
         </div>
+
+        <FormField
+            control={form.control}
+            name="brand"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Marca</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={isViewMode} 
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brandOptions.map(brand => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )}
+          />
 
         <FormField
             control={form.control}
