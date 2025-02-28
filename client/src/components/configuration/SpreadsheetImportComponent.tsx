@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -7,9 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileSpreadsheet, Download, Loader2, CheckCircle, Info } from "lucide-react";
+import { 
+  FileSpreadsheet, Download, Loader2, CheckCircle, 
+  Info, HelpCircle, ArrowLeft, ArrowRight 
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
 
 // Define imported data types with the updated fields
@@ -49,12 +54,22 @@ type ImportedSaleData = {
   product?: string;
 };
 
+// Define field mapping type
+type FieldMapping = {
+  sourceField: string;
+  targetField: string;
+};
+
 export function SpreadsheetImportComponent() {
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importType, setImportType] = useState<string>("customers");
   const [importSuccess, setImportSuccess] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [showMappingInterface, setShowMappingInterface] = useState<boolean>(false);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,6 +79,39 @@ export function SpreadsheetImportComponent() {
       setImportSuccess(false);
     }
   };
+
+  // Effect to handle field mapping when preview data changes
+  useEffect(() => {
+    if (previewData.length > 0) {
+      // Extract headers from the first data item
+      const headers = Object.keys(previewData[0]);
+      setFileHeaders(headers);
+      
+      // Generate initial field mappings - try to match by name
+      const targetFields = getFieldsForImportType().map(field => field.name);
+      const initialMappings: FieldMapping[] = [];
+      
+      headers.forEach(header => {
+        // Try to find matching target field (case insensitive)
+        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matchingField = targetFields.find(field => 
+          field.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedHeader
+        );
+        
+        initialMappings.push({
+          sourceField: header,
+          targetField: matchingField || '' // Empty if no match found
+        });
+      });
+      
+      setFieldMappings(initialMappings);
+      setShowMappingInterface(true);
+    } else {
+      setFileHeaders([]);
+      setFieldMappings([]);
+      setShowMappingInterface(false);
+    }
+  }, [previewData]);
 
   // Process the spreadsheet file
   const processFileMutation = useMutation({
@@ -86,6 +134,7 @@ export function SpreadsheetImportComponent() {
     },
     onSuccess: (data) => {
       setPreviewData(data.data);
+      setCurrentStep(2); // Move to mapping step
       toast({ 
         title: "Archivo procesado", 
         description: `Se encontraron ${data.data.length} registros.`
@@ -100,14 +149,19 @@ export function SpreadsheetImportComponent() {
     }
   });
 
-  // Import the data to CRM
+  // Import the data to CRM with field mappings
   const importDataMutation = useMutation({
     mutationFn: async () => {
       const formData = new FormData();
       if (!selectedFile) throw new Error("No file selected");
 
+      // Apply field mappings to the preview data
+      const mappedData = applyMappings(previewData);
+      
       formData.append('file', selectedFile);
       formData.append('type', importType);
+      formData.append('mappedData', JSON.stringify(mappedData));
+      formData.append('mappings', JSON.stringify(fieldMappings));
 
       const res = await fetch("/api/configuration/spreadsheet/import", {
         method: "POST",
@@ -127,8 +181,10 @@ export function SpreadsheetImportComponent() {
         description: `Se importaron ${data.count} registros.`
       });
       setImportSuccess(true);
+      setCurrentStep(4); // Move to success step
       setPreviewData([]);
       setSelectedFile(null);
+      setShowMappingInterface(false);
     },
     onError: (error: Error) => {
       toast({ 
@@ -173,7 +229,7 @@ export function SpreadsheetImportComponent() {
     importDataMutation.mutate();
   };
 
-  // Download sample template - Implementing actual file download
+  // Download sample template - Implementing actual file download with browser-friendly approach
   const handleDownloadSample = () => {
     try {
       // Create sample data based on import type
@@ -273,20 +329,106 @@ export function SpreadsheetImportComponent() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
 
-      // Generate the Excel file
-      XLSX.writeFile(wb, filename);
+      // Generate the Excel file as array buffer
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      
+      // Convert array buffer to blob
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      
+      // Trigger download and clean up
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Plantilla descargada",
         description: "Se ha descargado la plantilla de ejemplo en formato Excel."
       });
     } catch (error) {
+      console.error("Error downloading template:", error);
       toast({
         title: "Error al descargar plantilla",
         description: "Ocurrió un error al generar la plantilla de ejemplo.",
         variant: "destructive"
       });
     }
+  };
+
+  // Update field mapping
+  const handleFieldMappingChange = (sourceField: string, targetField: string) => {
+    setFieldMappings(prev => 
+      prev.map(mapping => 
+        mapping.sourceField === sourceField 
+          ? { ...mapping, targetField } 
+          : mapping
+      )
+    );
+  };
+
+  // Handle step changes
+  const handleNextStep = () => {
+    if (currentStep === 2) {
+      // Validate mappings before going to the final step
+      const requiredFields = getFieldsForImportType()
+        .filter(field => field.required)
+        .map(field => field.name);
+      
+      const mappedRequiredFields = fieldMappings
+        .filter(mapping => mapping.targetField !== '' && requiredFields.includes(mapping.targetField))
+        .map(mapping => mapping.targetField);
+      
+      // Check if all required fields are mapped
+      const missingRequiredFields = requiredFields.filter(field => !mappedRequiredFields.includes(field));
+      
+      if (missingRequiredFields.length > 0) {
+        toast({
+          title: "Error en mapeo de campos",
+          description: `Faltan campos requeridos: ${missingRequiredFields.join(', ')}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setCurrentStep(3);
+    }
+  };
+  
+  const handlePreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Prepare data for import using mappings
+  const applyMappings = (data: any[]): any[] => {
+    return data.map(item => {
+      const mappedItem: Record<string, any> = {};
+      
+      fieldMappings.forEach(mapping => {
+        if (mapping.targetField && mapping.sourceField) {
+          // Special handling for brand field to support comma-separated values
+          if (mapping.targetField === 'brand' && item[mapping.sourceField]) {
+            // Ensure brands are normalized (lowercase, trimmed)
+            const brands = item[mapping.sourceField].toString().split(',')
+              .map((b: string) => b.trim().toLowerCase())
+              .filter((b: string) => b === 'sleepwear' || b === 'bride');
+            
+            mappedItem[mapping.targetField] = brands.join(',');
+          } else {
+            mappedItem[mapping.targetField] = item[mapping.sourceField];
+          }
+        }
+      });
+      
+      return mappedItem;
+    });
   };
 
   const getFieldsForImportType = () => {
@@ -427,20 +569,146 @@ export function SpreadsheetImportComponent() {
                   )}
                 </div>
 
-                <Button 
-                  onClick={handleImportData} 
-                  disabled={importDataMutation.isPending}
-                  className="w-full"
-                >
-                  {importDataMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Importando...
-                    </>
-                  ) : (
-                    "Importar a CRM"
-                  )}
-                </Button>
+                {/* Field Mapping UI - Show in Step 2 */}
+                {showMappingInterface && currentStep === 2 && (
+                  <div className="space-y-4 bg-muted/20 p-4 rounded-md border">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Mapeo de Columnas</h3>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <HelpCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p>Asigne cada columna de su archivo a un campo en el CRM. Las columnas marcadas como 'Requerido' deben ser asignadas.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    
+                    <div className="overflow-auto max-h-60 border rounded-md">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campo en Archivo</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campo en CRM</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {fieldMappings.map((mapping, idx) => (
+                            <tr key={idx}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                                {mapping.sourceField}
+                              </td>
+                              <td className="px-3 py-2">
+                                <Select 
+                                  value={mapping.targetField} 
+                                  onValueChange={(value) => handleFieldMappingChange(mapping.sourceField, value)}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Seleccionar campo" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">No importar</SelectItem>
+                                    {getFieldsForImportType().map((field) => (
+                                      <SelectItem key={field.name} value={field.name}>
+                                        <div className="flex items-center">
+                                          {field.name}
+                                          {field.required && (
+                                            <Badge variant="destructive" className="ml-2 text-xs">Requerido</Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div className="flex justify-between pt-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={handlePreviousStep}
+                        className="flex items-center gap-2"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Atrás
+                      </Button>
+                      <Button 
+                        onClick={handleNextStep}
+                        className="flex items-center gap-2"
+                      >
+                        Continuar
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Confirmation and Import Step - Show in Step 3 */}
+                {currentStep === 3 && (
+                  <div className="space-y-4">
+                    <Alert>
+                      <AlertTitle>Confirmar Importación</AlertTitle>
+                      <AlertDescription>
+                        Está a punto de importar {previewData.length} registros al CRM.
+                        Asegúrese de que el mapeo de campos es correcto antes de continuar.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        onClick={handlePreviousStep}
+                        className="flex items-center gap-2"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Volver al Mapeo
+                      </Button>
+                      <Button 
+                        onClick={handleImportData} 
+                        disabled={importDataMutation.isPending}
+                        className="flex items-center gap-2"
+                      >
+                        {importDataMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Importando...
+                          </>
+                        ) : (
+                          <>
+                            Importar a CRM
+                            <ArrowRight className="h-4 w-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Simple import button for Step 1 - for backward compatibility */}
+                {currentStep === 1 && (
+                  <Button 
+                    onClick={handleProcessFile} 
+                    disabled={!selectedFile || processFileMutation.isPending}
+                    className="w-full"
+                  >
+                    {processFileMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      "Verificar y Continuar"
+                    )}
+                  </Button>
+                )}
               </div>
             )}
 

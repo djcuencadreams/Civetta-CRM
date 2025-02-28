@@ -480,8 +480,8 @@ export function registerRoutes(app: Express): Server {
       const uploadedFile = req.files.file;
       // Cast to proper type to access required methods
       const file = Array.isArray(uploadedFile) 
-        ? (uploadedFile[0] as unknown) as fileUpload.UploadedFile 
-        : (uploadedFile as unknown) as fileUpload.UploadedFile;
+        ? uploadedFile[0] as fileUpload.UploadedFile 
+        : uploadedFile as fileUpload.UploadedFile;
       
       const importType = req.body.type || 'customers';
 
@@ -527,42 +527,24 @@ export function registerRoutes(app: Express): Server {
       const uploadedFile = req.files.file;
       // Cast to proper type to access required methods
       const file = Array.isArray(uploadedFile) 
-        ? (uploadedFile[0] as unknown) as fileUpload.UploadedFile 
-        : (uploadedFile as unknown) as fileUpload.UploadedFile;
+        ? uploadedFile[0] as fileUpload.UploadedFile 
+        : uploadedFile as fileUpload.UploadedFile;
       
       const importType = req.body.type || 'customers';
-      
-      // Process pre-mapped data if available
+
+      // Get the file extension
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
       let data: any[] = [];
-      
-      // If client has already mapped data, use it directly
-      if (req.body.mappedData) {
-        try {
-          data = JSON.parse(req.body.mappedData);
-          console.log(`Using client-mapped data (${data.length} items)`);
-        } catch (error) {
-          console.error("Error parsing mappedData JSON:", error);
-          return res.status(400).json({ error: "Invalid mapped data format" });
-        }
+
+      if (fileExtension === 'csv') {
+        // Parse CSV file
+        data = await parseCSV(file.data);
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Parse Excel file
+        data = parseExcel(file.data);
       } else {
-        // Otherwise parse the file as usual
-        const fileExtension = file.name.split('.').pop()?.toLowerCase();
-        
-        if (fileExtension === 'csv') {
-          // Parse CSV file
-          data = await parseCSV(file.data);
-        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-          // Parse Excel file
-          data = parseExcel(file.data);
-        } else {
-          return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
-        }
-      }
-      
-      // Validate data format
-      const validationResult = validateImportData(data, importType);
-      if (!validationResult.valid) {
-        return res.status(400).json({ error: validationResult.message });
+        return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
       }
 
       // Import data based on type
@@ -788,123 +770,28 @@ export function registerRoutes(app: Express): Server {
   return httpServer;
 }
 
-// Helper function to parse CSV data with improved error handling
+// Helper function to parse CSV data
 async function parseCSV(buffer: Buffer): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    try {
-      const results: any[] = [];
-      const readableStream = new Readable();
-      readableStream.push(buffer);
-      readableStream.push(null);
+    const results: any[] = [];
+    const readableStream = new Readable();
+    readableStream.push(buffer);
+    readableStream.push(null);
 
-      // Configure csv-parser with options for better handling
-      const parserOptions = {
-        trim: true,                  // Trim whitespace from values
-        skipLines: 0,                // Don't skip any lines
-        strict: false,               // Don't be too strict about column counts
-        columns: true,               // Auto-detect columns from first row
-        escape: '"',                 // Standard CSV escape character
-        comment: '#'                 // Ignore lines starting with #
-      };
-
-      readableStream
-        .pipe(csvParser(parserOptions))
-        .on('data', (data: any) => {
-          // Basic data cleaning for each row
-          const cleanedData: Record<string, any> = {};
-          
-          // Clean up keys and values
-          Object.keys(data).forEach(key => {
-            // Clean the key - remove BOM and whitespace
-            const cleanKey = key.replace(/^\uFEFF/, '').trim();
-            
-            // Clean the value - convert empty strings to null
-            let value = data[key];
-            if (typeof value === 'string') {
-              value = value.trim();
-              if (value === '') value = null;
-            }
-            
-            cleanedData[cleanKey] = value;
-          });
-          
-          results.push(cleanedData);
-        })
-        .on('end', () => resolve(results))
-        .on('error', (error: Error) => {
-          console.error('CSV parsing error:', error);
-          reject(new Error(`Error al procesar el archivo CSV: ${error.message}`));
-        });
-    } catch (error) {
-      console.error('CSV setup error:', error);
-      reject(new Error('Error al configurar el procesamiento de CSV'));
-    }
+    readableStream
+      .pipe(csvParser()) // csv-parser module is a function that returns a transform stream
+      .on('data', (data: any) => results.push(data))
+      .on('end', () => resolve(results))
+      .on('error', (error: Error) => reject(error));
   });
 }
 
-// Helper function to parse Excel data with enhanced options
+// Helper function to parse Excel data
 function parseExcel(buffer: Buffer): any[] {
-  try {
-    // Parse with more options for better compatibility
-    const workbook = XLSX.read(buffer, { 
-      type: 'buffer',
-      cellDates: true,      // Parse dates as Date objects
-      cellNF: false,        // Don't parse number formats
-      cellText: false       // Don't generate text versions of cells
-    });
-    
-    // Get the first sheet
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    
-    // Convert to JSON with options
-    const data = XLSX.utils.sheet_to_json(worksheet, {
-      header: 'A',        // Use first row as headers
-      range: 0,           // Start at the first row
-      raw: false,         // Don't return raw values
-      dateNF: 'YYYY-MM-DD', // Date format string
-      defval: null,       // Default value for empty cells
-      blankrows: false    // Don't include blank rows
-    });
-    
-    // Clean and transform the data
-    const cleanedData = data.slice(1).map((row: any) => {
-      const cleanedRow: Record<string, any> = {};
-      
-      // Skip fully empty rows
-      if (Object.values(row).every(val => val === null || val === '')) {
-        return null;
-      }
-      
-      // Convert headers (first row values) to proper field names and set cleaned values
-      Object.keys(row).forEach(cell => {
-        // Get the header name from the first row using the column letter (cell) as key
-        const headerRow = data[0] as Record<string, any>;
-        const headerName = headerRow[cell];
-        
-        if (headerName && typeof headerName === 'string') {
-          const cleanHeader = headerName.trim();
-          let value = row[cell];
-          
-          // Clean string values
-          if (typeof value === 'string') {
-            value = value.trim();
-            if (value === '') value = null;
-          }
-          
-          cleanedRow[cleanHeader] = value;
-        }
-      });
-      
-      return cleanedRow;
-    });
-    
-    // Filter out null rows (completely empty)
-    return cleanedData.filter(Boolean) as any[];
-  } catch (error) {
-    console.error("Error parsing Excel:", error);
-    throw new Error("Error al procesar archivo Excel. Verifique el formato y estructura del archivo.");
-  }
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  return XLSX.utils.sheet_to_json(worksheet);
 }
 
 // Helper function to validate import data
@@ -916,25 +803,15 @@ function validateImportData(data: any[], type: string): { valid: boolean, messag
   // Enhanced validation based on import type
   switch (type) {
     case 'customers':
-      // Required fields validation - we'll be more flexible with mapped data
-      // Allow both firstName+lastName format or just name if it was mapped that way
-      const invalidCustomers = data.filter(item => {
-        // Either firstName + lastName OR name must be present
-        return (!item.firstName || !item.lastName) && !item.name;
-      });
-      
-      if (invalidCustomers.length > 0) {
-        return { 
-          valid: false, 
-          message: `${invalidCustomers.length} registro(s) no tienen información de nombre válida. Asegúrese de que cada registro tenga firstName y lastName, o el campo name.` 
-        };
+      // Required fields validation
+      if (!data.every(item => item.firstName && item.lastName)) {
+        return { valid: false, message: "Todos los registros de clientes deben tener los campos 'firstName' y 'lastName'" };
       }
       
       // Brand validation if provided
       const invalidBrandCustomers = data.filter(item => {
         if (!item.brand) return false; // Skip empty brands
-        const brandStr = String(item.brand).toLowerCase();
-        return !['sleepwear', 'bride', 'sleepwear,bride', 'bride,sleepwear'].includes(brandStr);
+        return !['sleepwear', 'bride', 'sleepwear,bride', 'bride,sleepwear'].includes(item.brand.toLowerCase());
       });
       
       if (invalidBrandCustomers.length > 0) {
@@ -959,24 +836,15 @@ function validateImportData(data: any[], type: string): { valid: boolean, messag
       break;
       
     case 'leads':
-      // Required fields validation - we'll be more flexible with mapped data
-      const invalidLeads = data.filter(item => {
-        // Either firstName + lastName OR name must be present
-        return (!item.firstName || !item.lastName) && !item.name;
-      });
-      
-      if (invalidLeads.length > 0) {
-        return { 
-          valid: false, 
-          message: `${invalidLeads.length} registro(s) no tienen información de nombre válida. Asegúrese de que cada registro tenga firstName y lastName, o el campo name.` 
-        };
+      // Required fields validation
+      if (!data.every(item => item.firstName && item.lastName)) {
+        return { valid: false, message: "Todos los registros de leads deben tener los campos 'firstName' y 'lastName'" };
       }
       
       // Brand validation if provided
       const invalidBrandLeads = data.filter(item => {
         if (!item.brand) return false; // Skip empty brands
-        const brandStr = String(item.brand).toLowerCase();
-        return !['sleepwear', 'bride', 'sleepwear,bride', 'bride,sleepwear'].includes(brandStr);
+        return !['sleepwear', 'bride', 'sleepwear,bride', 'bride,sleepwear'].includes(item.brand.toLowerCase());
       });
       
       if (invalidBrandLeads.length > 0) {
@@ -990,7 +858,7 @@ function validateImportData(data: any[], type: string): { valid: boolean, messag
       const validStatuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
       const invalidStatusLeads = data.filter(item => {
         if (!item.status) return false; // Skip empty statuses
-        return !validStatuses.includes(String(item.status).toLowerCase());
+        return !validStatuses.includes(item.status.toLowerCase());
       });
       
       if (invalidStatusLeads.length > 0) {
@@ -1042,20 +910,6 @@ function validateImportData(data: any[], type: string): { valid: boolean, messag
         return { 
           valid: false, 
           message: `${invalidDateSales.length} registro(s) tienen fechas inválidas. Use el formato YYYY-MM-DD.` 
-        };
-      }
-      
-      // Brand validation for sales
-      const invalidBrandSales = data.filter(item => {
-        if (!item.brand) return false; // Skip empty brands
-        const brandStr = String(item.brand).toLowerCase();
-        return !['sleepwear', 'bride'].includes(brandStr);
-      });
-      
-      if (invalidBrandSales.length > 0) {
-        return { 
-          valid: false, 
-          message: `${invalidBrandSales.length} registro(s) tienen valores de marca inválidos. Para ventas, use 'sleepwear' o 'bride' (no ambos).` 
         };
       }
       break;

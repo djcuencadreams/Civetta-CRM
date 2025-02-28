@@ -22,11 +22,19 @@ export const webhooks = pgTable("webhooks", {
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   email: text("email"),
   phone: text("phone"),
-  address: text("address"),
+  phoneCountry: text("phone_country"),
+  street: text("street"),
+  city: text("city"),
+  province: text("province"),
+  deliveryInstructions: text("delivery_instructions"),
+  address: text("address"), // Keeping for backward compatibility
   source: varchar("source", { length: 50 }).default('website'),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
