@@ -1,7 +1,7 @@
 import { Express, Request, Response } from "express";
 import { db } from "@db";
-import { and, eq } from "drizzle-orm";
-import { customers, leads } from "@db/schema";
+import { and, eq, desc, gte, lte, like, sql } from "drizzle-orm";
+import { customers, leads, sales } from "@db/schema";
 import * as XLSX from 'xlsx';
 import multer from 'multer';
 import fs from 'fs';
@@ -31,6 +31,632 @@ const upload = multer({
 });
 
 export function registerAdditionalRoutes(app: Express) {
+  // Route for exporting customers data
+  app.get("/api/export/customers", async (req: Request, res: Response) => {
+    try {
+      const { 
+        dateStart, 
+        dateEnd, 
+        brand, 
+        province, 
+        city, 
+        source 
+      } = req.query;
+      
+      // Construct the query using SQL
+      let queryStr = `
+        SELECT id, name, first_name, last_name, email, phone, 
+               phone_country, phone_number, street, city, province, 
+               delivery_instructions, address, source, brand, notes,
+               created_at, updated_at
+        FROM customers
+        WHERE 1=1
+      `;
+      
+      const queryParams: any[] = [];
+      
+      // Apply filters
+      if (dateStart && dateEnd) {
+        queryStr += ` AND created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`;
+        queryParams.push(new Date(dateStart as string), new Date(dateEnd as string));
+      }
+      
+      if (brand) {
+        queryStr += ` AND brand = $${queryParams.length + 1}`;
+        queryParams.push(brand);
+      }
+      
+      if (province) {
+        queryStr += ` AND province = $${queryParams.length + 1}`;
+        queryParams.push(province);
+      }
+      
+      if (city) {
+        queryStr += ` AND city = $${queryParams.length + 1}`;
+        queryParams.push(city);
+      }
+      
+      if (source) {
+        queryStr += ` AND source = $${queryParams.length + 1}`;
+        queryParams.push(source);
+      }
+      
+      // Add order by clause
+      queryStr += ` ORDER BY created_at DESC`;
+      
+      // Execute the query
+      const result = await db.$client.query(queryStr, queryParams);
+      const data = result.rows;
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(data.map(customer => ({
+        ID: customer.id,
+        Nombre: customer.name,
+        'Nombre de pila': customer.first_name || '',
+        Apellido: customer.last_name || '',
+        Email: customer.email || '',
+        Teléfono: (customer.phone_country ? `${customer.phone_country} ` : '') + (customer.phone_number || customer.phone || ''),
+        Ciudad: customer.city || '',
+        Provincia: customer.province || '',
+        Dirección: customer.street || customer.address || '',
+        Marca: customer.brand || '',
+        Origen: customer.source || '',
+        'ID Número': customer.id_number || '',
+        'Instrucciones de entrega': customer.delivery_instructions || '',
+        Notas: customer.notes || '',
+        'Fecha Creación': new Date(customer.created_at).toISOString().split('T')[0] || ''
+      })));
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
+      
+      // Convert to binary
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', 'attachment; filename=clientes.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error exporting customers:', error);
+      res.status(500).json({ error: "Error al exportar clientes" });
+    }
+  });
+  
+  // Route for exporting sales data
+  app.get("/api/export/sales", async (req: Request, res: Response) => {
+    try {
+      const { 
+        dateStart, 
+        dateEnd, 
+        brand, 
+        status 
+      } = req.query;
+      
+      // Construct the query using SQL
+      let queryStr = `
+        SELECT s.id, s.customer_id, c.name as customer_name, s.amount, 
+               s.status, s.payment_method, s.brand, s.notes, 
+               s.created_at, s.updated_at
+        FROM sales s
+        LEFT JOIN customers c ON s.customer_id = c.id
+        WHERE 1=1
+      `;
+      
+      const queryParams: any[] = [];
+      
+      // Apply filters
+      if (dateStart && dateEnd) {
+        queryStr += ` AND s.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`;
+        queryParams.push(new Date(dateStart as string), new Date(dateEnd as string));
+      }
+      
+      if (brand) {
+        queryStr += ` AND s.brand = $${queryParams.length + 1}`;
+        queryParams.push(brand);
+      }
+      
+      if (status) {
+        queryStr += ` AND s.status = $${queryParams.length + 1}`;
+        queryParams.push(status);
+      }
+      
+      // Add order by clause
+      queryStr += ` ORDER BY s.created_at DESC`;
+      
+      // Execute the query
+      const result = await db.$client.query(queryStr, queryParams);
+      const data = result.rows;
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(data.map(sale => ({
+        ID: sale.id,
+        'ID Cliente': sale.customer_id,
+        'Nombre Cliente': sale.customer_name || '',
+        Monto: sale.amount,
+        Estado: sale.status || '',
+        'Método de Pago': sale.payment_method || '',
+        Marca: sale.brand || '',
+        Notas: sale.notes || '',
+        'Fecha Creación': new Date(sale.created_at).toISOString().split('T')[0] || ''
+      })));
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
+      
+      // Convert to binary
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', 'attachment; filename=ventas.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error exporting sales:', error);
+      res.status(500).json({ error: "Error al exportar ventas" });
+    }
+  });
+  
+  // Route for exporting leads data
+  app.get("/api/export/leads", async (req: Request, res: Response) => {
+    try {
+      const { 
+        dateStart, 
+        dateEnd, 
+        brand, 
+        status, 
+        source 
+      } = req.query;
+      
+      // Construct the query using SQL
+      let queryStr = `
+        SELECT id, name, first_name, last_name, email, phone, 
+               phone_country, phone_number, street, city, province, 
+               delivery_instructions, status, source, brand, notes,
+               converted_to_customer, converted_customer_id, 
+               last_contact, next_follow_up, customer_lifecycle_stage,
+               created_at, updated_at
+        FROM leads
+        WHERE 1=1
+      `;
+      
+      const queryParams: any[] = [];
+      
+      // Apply filters
+      if (dateStart && dateEnd) {
+        queryStr += ` AND created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`;
+        queryParams.push(new Date(dateStart as string), new Date(dateEnd as string));
+      }
+      
+      if (brand) {
+        queryStr += ` AND brand = $${queryParams.length + 1}`;
+        queryParams.push(brand);
+      }
+      
+      if (status) {
+        queryStr += ` AND status = $${queryParams.length + 1}`;
+        queryParams.push(status);
+      }
+      
+      if (source) {
+        queryStr += ` AND source = $${queryParams.length + 1}`;
+        queryParams.push(source);
+      }
+      
+      // Add order by clause
+      queryStr += ` ORDER BY created_at DESC`;
+      
+      // Execute the query
+      const result = await db.$client.query(queryStr, queryParams);
+      const data = result.rows;
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(data.map(lead => ({
+        ID: lead.id,
+        Nombre: lead.name,
+        'Nombre de pila': lead.first_name || '',
+        Apellido: lead.last_name || '',
+        Email: lead.email || '',
+        Teléfono: (lead.phone_country ? `${lead.phone_country} ` : '') + (lead.phone_number || lead.phone || ''),
+        Ciudad: lead.city || '',
+        Provincia: lead.province || '',
+        Dirección: lead.street || '',
+        Marca: lead.brand || '',
+        Origen: lead.source || '',
+        Estado: lead.status || '',
+        'Etapa': lead.customer_lifecycle_stage || '',
+        'Convertido a Cliente': lead.converted_to_customer ? 'Sí' : 'No',
+        'ID Cliente convertido': lead.converted_customer_id || '',
+        'Fecha Último Contacto': lead.last_contact ? new Date(lead.last_contact).toISOString().split('T')[0] : '',
+        'Fecha Próximo Seguimiento': lead.next_follow_up ? new Date(lead.next_follow_up).toISOString().split('T')[0] : '',
+        'Fecha Creación': new Date(lead.created_at).toISOString().split('T')[0] || ''
+      })));
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+      
+      // Convert to binary
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', 'attachment; filename=leads.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      res.status(500).json({ error: "Error al exportar leads" });
+    }
+  });
+  
+  // Route for exporting all data (complete report)
+  app.get("/api/export/all", async (req: Request, res: Response) => {
+    try {
+      // Gather all data using SQL queries
+      
+      // Customers data
+      const customersQuery = `
+        SELECT id, name, first_name, last_name, email, phone, 
+               phone_country, phone_number, street, city, province, 
+               delivery_instructions, address, source, brand, notes,
+               created_at, updated_at
+        FROM customers
+        ORDER BY created_at DESC
+      `;
+      const customersResult = await db.$client.query(customersQuery);
+      const customersData = customersResult.rows;
+      
+      // Sales data
+      const salesQuery = `
+        SELECT s.id, s.customer_id, c.name as customer_name, s.amount, 
+               s.status, s.payment_method, s.brand, s.notes, 
+               s.created_at, s.updated_at
+        FROM sales s
+        LEFT JOIN customers c ON s.customer_id = c.id
+        ORDER BY s.created_at DESC
+      `;
+      const salesResult = await db.$client.query(salesQuery);
+      const salesData = salesResult.rows;
+      
+      // Leads data
+      const leadsQuery = `
+        SELECT id, name, first_name, last_name, email, phone, 
+               phone_country, phone_number, street, city, province, 
+               delivery_instructions, status, source, brand, notes,
+               converted_to_customer, converted_customer_id, 
+               last_contact, next_follow_up, customer_lifecycle_stage,
+               created_at, updated_at
+        FROM leads
+        ORDER BY created_at DESC
+      `;
+      const leadsResult = await db.$client.query(leadsQuery);
+      const leadsData = leadsResult.rows;
+      
+      // Create workbook with multiple sheets
+      const workbook = XLSX.utils.book_new();
+      
+      // Customers worksheet
+      const customersWorksheet = XLSX.utils.json_to_sheet(customersData.map(customer => ({
+        ID: customer.id,
+        Nombre: customer.name,
+        'Nombre de pila': customer.first_name || '',
+        Apellido: customer.last_name || '',
+        Email: customer.email || '',
+        Teléfono: (customer.phone_country ? `${customer.phone_country} ` : '') + (customer.phone_number || customer.phone || ''),
+        Ciudad: customer.city || '',
+        Provincia: customer.province || '',
+        Dirección: customer.street || customer.address || '',
+        Marca: customer.brand || '',
+        Origen: customer.source || '',
+        'ID Número': customer.id_number || '',
+        'Instrucciones de entrega': customer.delivery_instructions || '',
+        Notas: customer.notes || '',
+        'Fecha Creación': new Date(customer.created_at).toISOString().split('T')[0] || ''
+      })));
+      XLSX.utils.book_append_sheet(workbook, customersWorksheet, "Clientes");
+      
+      // Sales worksheet
+      const salesWorksheet = XLSX.utils.json_to_sheet(salesData.map(sale => ({
+        ID: sale.id,
+        'ID Cliente': sale.customer_id,
+        'Nombre Cliente': sale.customer_name || '',
+        Monto: sale.amount,
+        Estado: sale.status || '',
+        'Método de Pago': sale.payment_method || '',
+        Marca: sale.brand || '',
+        Notas: sale.notes || '',
+        'Fecha Creación': new Date(sale.created_at).toISOString().split('T')[0] || ''
+      })));
+      XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Ventas");
+      
+      // Leads worksheet
+      const leadsWorksheet = XLSX.utils.json_to_sheet(leadsData.map(lead => ({
+        ID: lead.id,
+        Nombre: lead.name,
+        'Nombre de pila': lead.first_name || '',
+        Apellido: lead.last_name || '',
+        Email: lead.email || '',
+        Teléfono: (lead.phone_country ? `${lead.phone_country} ` : '') + (lead.phone_number || lead.phone || ''),
+        Ciudad: lead.city || '',
+        Provincia: lead.province || '',
+        Dirección: lead.street || '',
+        Marca: lead.brand || '',
+        Origen: lead.source || '',
+        Estado: lead.status || '',
+        'Etapa': lead.customer_lifecycle_stage || '',
+        'Convertido a Cliente': lead.converted_to_customer ? 'Sí' : 'No',
+        'ID Cliente convertido': lead.converted_customer_id || '',
+        'Fecha Último Contacto': lead.last_contact ? new Date(lead.last_contact).toISOString().split('T')[0] : '',
+        'Fecha Próximo Seguimiento': lead.next_follow_up ? new Date(lead.next_follow_up).toISOString().split('T')[0] : '',
+        'Fecha Creación': new Date(lead.created_at).toISOString().split('T')[0] || ''
+      })));
+      XLSX.utils.book_append_sheet(workbook, leadsWorksheet, "Leads");
+      
+      // Convert to binary
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_completo.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error exporting all data:', error);
+      res.status(500).json({ error: "Error al exportar todos los datos" });
+    }
+  });
+  
+  // Route for exporting custom report
+  app.post("/api/export/custom", async (req: Request, res: Response) => {
+    try {
+      const { 
+        reportType,
+        dateRange,
+        filters,
+        fields,
+        customSettings
+      } = req.body;
+      
+      // Initialize an empty workbook
+      const workbook = XLSX.utils.book_new();
+      let worksheetData: any[] = [];
+      let sheetName = "Reporte";
+      
+      // Handle different report types
+      switch (reportType) {
+        case 'customers-by-province':
+          // Query for customers grouped by province
+          const provinceQuery = `
+            SELECT province, COUNT(*) as count
+            FROM customers
+            WHERE province IS NOT NULL
+            GROUP BY province
+            ORDER BY count DESC
+          `;
+          const provinceResult = await db.$client.query(provinceQuery);
+          
+          worksheetData = provinceResult.rows.map(item => ({
+            Provincia: item.province || 'Sin provincia',
+            'Cantidad de Clientes': item.count
+          }));
+          sheetName = "Clientes por Provincia";
+          break;
+          
+        case 'sales-by-brand':
+          // Query for sales grouped by brand
+          const brandQuery = `
+            SELECT brand, SUM(amount) as total, COUNT(*) as count
+            FROM sales
+            WHERE brand IS NOT NULL
+            GROUP BY brand
+            ORDER BY total DESC
+          `;
+          const brandResult = await db.$client.query(brandQuery);
+          
+          worksheetData = brandResult.rows.map(item => ({
+            Marca: item.brand || 'Sin marca',
+            'Total Ventas': parseFloat(item.total) || 0,
+            'Cantidad Ventas': parseInt(item.count)
+          }));
+          sheetName = "Ventas por Marca";
+          break;
+          
+        case 'sales-by-city':
+          // Join customers and sales to get city info
+          const cityQuery = `
+            SELECT c.city, SUM(s.amount) as total, COUNT(s.*) as count
+            FROM sales s
+            LEFT JOIN customers c ON s.customer_id = c.id
+            WHERE c.city IS NOT NULL
+            GROUP BY c.city
+            ORDER BY total DESC
+          `;
+          const cityResult = await db.$client.query(cityQuery);
+          
+          worksheetData = cityResult.rows.map(item => ({
+            Ciudad: item.city || 'Sin ciudad',
+            'Total Ventas': parseFloat(item.total) || 0,
+            'Cantidad Ventas': parseInt(item.count)
+          }));
+          sheetName = "Ventas por Ciudad";
+          break;
+          
+        case 'leads-by-source':
+          // Query for leads grouped by source
+          const sourceQuery = `
+            SELECT source, COUNT(*) as count
+            FROM leads
+            WHERE source IS NOT NULL
+            GROUP BY source
+            ORDER BY count DESC
+          `;
+          const sourceResult = await db.$client.query(sourceQuery);
+          
+          worksheetData = sourceResult.rows.map(item => ({
+            Origen: item.source || 'Sin origen',
+            'Cantidad de Leads': parseInt(item.count)
+          }));
+          sheetName = "Leads por Origen";
+          break;
+          
+        case 'sales-over-time':
+          // Process time-based data using created_at field
+          const timeQuery = `
+            SELECT 
+              to_char(created_at, 'YYYY-MM') as year_month,
+              SUM(amount) as total,
+              COUNT(*) as count
+            FROM sales
+            GROUP BY year_month
+            ORDER BY year_month ASC
+          `;
+          const timeResult = await db.$client.query(timeQuery);
+          
+          worksheetData = timeResult.rows.map(item => ({
+            'Año-Mes': item.year_month,
+            'Total Ventas': parseFloat(item.total) || 0,
+            'Cantidad Ventas': parseInt(item.count)
+          }));
+          sheetName = "Ventas por Tiempo";
+          break;
+          
+        case 'customers-by-brand':
+          // Count customers by brand
+          const customersBrandQuery = `
+            SELECT brand, COUNT(*) as count
+            FROM customers
+            WHERE brand IS NOT NULL
+            GROUP BY brand
+            ORDER BY count DESC
+          `;
+          const customersBrandResult = await db.$client.query(customersBrandQuery);
+          
+          worksheetData = customersBrandResult.rows.map(item => ({
+            Marca: item.brand || 'Sin marca',
+            'Cantidad de Clientes': parseInt(item.count)
+          }));
+          sheetName = "Clientes por Marca";
+          break;
+        
+        case 'leads-by-status':
+          // Count leads by status
+          const statusQuery = `
+            SELECT status, COUNT(*) as count
+            FROM leads
+            GROUP BY status
+            ORDER BY count DESC
+          `;
+          const statusResult = await db.$client.query(statusQuery);
+          
+          worksheetData = statusResult.rows.map(item => ({
+            Estado: item.status || 'Sin estado',
+            'Cantidad de Leads': parseInt(item.count)
+          }));
+          sheetName = "Leads por Estado";
+          break;
+          
+        default:
+          // Custom report - apply filters based on request
+          if (filters && Object.keys(filters).length > 0) {
+            // Build a dynamic query based on the filters
+            let queryText = '';
+            const queryParams: any[] = [];
+            
+            if (filters.type === 'customers') {
+              queryText = 'SELECT * FROM customers WHERE 1=1';
+              
+              if (filters.province) {
+                queryText += ` AND province = $${queryParams.length + 1}`;
+                queryParams.push(filters.province);
+              }
+              
+              if (filters.brand) {
+                queryText += ` AND brand = $${queryParams.length + 1}`;
+                queryParams.push(filters.brand);
+              }
+              
+              if (filters.city) {
+                queryText += ` AND city = $${queryParams.length + 1}`;
+                queryParams.push(filters.city);
+              }
+              
+              if (filters.dateStart && filters.dateEnd) {
+                queryText += ` AND created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`;
+                queryParams.push(new Date(filters.dateStart), new Date(filters.dateEnd));
+              }
+              
+              queryText += ' ORDER BY created_at DESC';
+              
+              const result = await db.$client.query(queryText, queryParams);
+              worksheetData = result.rows;
+              sheetName = "Reporte Personalizado - Clientes";
+            } else if (filters.type === 'sales') {
+              queryText = `
+                SELECT s.*, c.name as customer_name 
+                FROM sales s 
+                LEFT JOIN customers c ON s.customer_id = c.id 
+                WHERE 1=1
+              `;
+              
+              if (filters.brand) {
+                queryText += ` AND s.brand = $${queryParams.length + 1}`;
+                queryParams.push(filters.brand);
+              }
+              
+              if (filters.status) {
+                queryText += ` AND s.status = $${queryParams.length + 1}`;
+                queryParams.push(filters.status);
+              }
+              
+              if (filters.dateStart && filters.dateEnd) {
+                queryText += ` AND s.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`;
+                queryParams.push(new Date(filters.dateStart), new Date(filters.dateEnd));
+              }
+              
+              queryText += ' ORDER BY s.created_at DESC';
+              
+              const result = await db.$client.query(queryText, queryParams);
+              worksheetData = result.rows;
+              sheetName = "Reporte Personalizado - Ventas";
+            } else {
+              worksheetData = [{ message: "Tipo de filtro no soportado" }];
+            }
+          } else {
+            worksheetData = [{ message: "No se especificaron filtros para el reporte personalizado" }];
+          }
+          if (!sheetName.includes("Personalizado")) {
+            sheetName = "Reporte Personalizado";
+          }
+      }
+      
+      // Create worksheet from the data
+      const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      
+      // Convert to binary
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+      
+      // Set headers
+      res.setHeader('Content-Disposition', `attachment; filename=${sheetName.toLowerCase().replace(/ /g, '_')}.xlsx`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      // Send file
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error('Error exporting custom report:', error);
+      res.status(500).json({ error: "Error al exportar reporte personalizado" });
+    }
+  });
+  
   // New endpoint to process CSV data directly without file upload
   app.post("/api/configuration/csv/process", async (req, res) => {
     try {

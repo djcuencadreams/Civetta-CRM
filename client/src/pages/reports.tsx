@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TabsList, TabsTrigger, Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,13 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from "recharts";
+import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from "recharts";
 import { TimeSeriesChart } from "@/components/reportChart";
 import { DataExportOptions } from "@/components/DataExportOptions";
-import { ReportTypeSelector } from "@/components/ReportTypeSelector";
-import { DownloadCloud, BarChart2, PieChart as PieChartIcon, LineChart as LineChartIcon, Calendar, Filter } from "lucide-react";
+import { DownloadCloud, BarChart2, PieChart as PieChartIcon, LineChart as LineChartIcon, Calendar, Filter, Sliders, Table, Save, Share, FileText, Clock, ArrowUpDown, Layers, Star, Download, RefreshCw, CalendarDays, BellDot, ArrowDownToLine } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Switch } from "@/components/ui/switch";
 import * as XLSX from 'xlsx';
 
 // Tipos para los datos
@@ -61,8 +66,63 @@ const COLORS = [
   "#d0ed57", "#ffc658", "#ff8042", "#ff6361", "#bc5090"
 ];
 
+// Tipos de reportes
+const REPORT_TYPES = {
+  SALES_BY_CITY: "sales-by-city",
+  CUSTOMERS_BY_PROVINCE: "customers-by-province",
+  SALES_BY_BRAND: "sales-by-brand",
+  LEADS_BY_SOURCE: "leads-by-source",
+  SALES_OVER_TIME: "sales-over-time",
+  CUSTOM: "custom"
+};
+
+// Tipo para informes guardados
+type SavedReport = {
+  id: string;
+  name: string;
+  type: string;
+  dateRange: string;
+  brandFilter: string;
+  customSettings?: Record<string, any>;
+  createdAt: string;
+};
+
+// Función auxiliar para formatear dinero
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('es-EC', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2
+  }).format(amount);
+};
+
+// Función auxiliar para formatear fechas
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return new Intl.DateTimeFormat('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+};
+
+// Función auxiliar para obtener el periodo actual
+const getPeriodLabel = (timeRange: string) => {
+  switch (timeRange) {
+    case "30days": return "Últimos 30 días";
+    case "90days": return "Últimos 90 días";
+    case "year": return "Último año";
+    case "custom": return "Periodo personalizado";
+    default: return "Todo el tiempo";
+  }
+};
+
 export default function ReportsPage() {
-  const [reportType, setReportType] = useState<string>("sales-by-city");
+  // Estado para la vista activa
+  const [activeView, setActiveView] = useState<string>("dashboard");
+  
+  // Estados para filtros y configuración de reportes
+  const [reportType, setReportType] = useState<string>(REPORT_TYPES.SALES_BY_CITY);
   const [timeRange, setTimeRange] = useState<string>("all");
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [showExportDialog, setShowExportDialog] = useState<boolean>(false);
@@ -71,6 +131,68 @@ export default function ReportsPage() {
     sales: true,
     leads: true
   });
+  
+  // Estados para fechas personalizadas
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  
+  // Estados para reportes personalizados
+  const [dataSource, setDataSource] = useState<string>("customers");
+  const [groupBy, setGroupBy] = useState<string>("province");
+  const [aggregateBy, setAggregateBy] = useState<string>("count");
+  const [filterField, setFilterField] = useState<string>("");
+  const [filterOperator, setFilterOperator] = useState<string>("equals");
+  const [filterValue, setFilterValue] = useState<string>("");
+  const [showData, setShowData] = useState<boolean>(false);
+  const [chartType, setChartType] = useState<string>("bar");
+  
+  // Estados para comparación
+  const [compareMode, setCompareMode] = useState<boolean>(false);
+  const [compareTimeRange, setCompareTimeRange] = useState<string>("previous");
+  
+  // Estados para planificación y programación de reportes
+  const [scheduleEnabled, setScheduleEnabled] = useState<boolean>(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState<string>("weekly");
+  const [scheduleDay, setScheduleDay] = useState<string>("monday");
+  const [scheduleRecipients, setScheduleRecipients] = useState<string>("");
+  
+  // Estados para guardar y cargar reportes
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([
+    {
+      id: "1",
+      name: "Ventas por Provincia (Último Mes)",
+      type: REPORT_TYPES.CUSTOMERS_BY_PROVINCE,
+      dateRange: "30days",
+      brandFilter: "all",
+      createdAt: "2025-02-15T12:00:00Z"
+    },
+    {
+      id: "2",
+      name: "Rendimiento de Leads por Origen",
+      type: REPORT_TYPES.LEADS_BY_SOURCE,
+      dateRange: "90days",
+      brandFilter: "all",
+      createdAt: "2025-02-20T14:30:00Z"
+    },
+    {
+      id: "3",
+      name: "Análisis de Ventas por Tiempo",
+      type: REPORT_TYPES.SALES_OVER_TIME,
+      dateRange: "year",
+      brandFilter: "Civetta Sleepwear",
+      customSettings: {
+        compareMode: true,
+        compareTimeRange: "previous"
+      },
+      createdAt: "2025-02-25T09:15:00Z"
+    }
+  ]);
+  const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
+  const [reportName, setReportName] = useState<string>("");
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
+  
+  // Información de KPIs y resumen
+  const [showKpis, setShowKpis] = useState<boolean>(true);
   
   // Cargar datos de clientes
   const customersQuery = useQuery<Customer[]>({
@@ -480,6 +602,106 @@ export default function ReportsPage() {
     }
   };
   
+  // Obtener las marcas disponibles
+  const getBrands = () => {
+    const brandsSet = new Set<string>();
+    
+    // Recopilar marcas de clientes
+    if (customersQuery.data) {
+      customersQuery.data.forEach(customer => {
+        if (customer.brand) brandsSet.add(customer.brand);
+      });
+    }
+    
+    // Recopilar marcas de ventas
+    if (salesQuery.data) {
+      salesQuery.data.forEach(sale => {
+        if (sale.brand) brandsSet.add(sale.brand);
+      });
+    }
+    
+    // Recopilar marcas de leads
+    if (leadsQuery.data) {
+      leadsQuery.data.forEach(lead => {
+        if (lead.brand) brandsSet.add(lead.brand);
+      });
+    }
+    
+    return Array.from(brandsSet);
+  };
+  
+  // Calcular KPIs para el dashboard
+  const getKpis = () => {
+    const sales = getFilteredSales();
+    const customers = customersQuery.data || [];
+    const leads = leadsQuery.data || [];
+    
+    const totalSales = sales.reduce((sum, sale) => sum + sale.amount, 0);
+    const totalCustomers = customers.length;
+    const totalLeads = leads.length;
+    const avgSaleValue = totalSales / (sales.length || 1);
+    
+    // Calcular tasa de conversión (leads a clientes)
+    const conversionRate = totalLeads > 0 ? (totalCustomers / totalLeads) * 100 : 0;
+    
+    return {
+      totalSales,
+      totalCustomers,
+      totalLeads,
+      avgSaleValue,
+      conversionRate,
+      salesCount: sales.length,
+      topCity: getSalesByCity()[0]?.city || "N/A",
+      topProvince: getCustomersByProvince()[0]?.province || "N/A"
+    };
+  };
+  
+  // Guardar un informe
+  const saveReport = () => {
+    if (!reportName.trim()) return;
+    
+    const newReport: SavedReport = {
+      id: Date.now().toString(),
+      name: reportName,
+      type: reportType,
+      dateRange: timeRange,
+      brandFilter: brandFilter,
+      customSettings: compareMode ? { compareMode, compareTimeRange } : undefined,
+      createdAt: new Date().toISOString()
+    };
+    
+    setSavedReports([...savedReports, newReport]);
+    setReportName("");
+    setShowSaveDialog(false);
+  };
+  
+  // Cargar un informe guardado
+  const loadReport = (report: SavedReport) => {
+    setReportType(report.type);
+    setTimeRange(report.dateRange);
+    setBrandFilter(report.brandFilter);
+    
+    if (report.customSettings) {
+      if (report.customSettings.compareMode !== undefined) {
+        setCompareMode(report.customSettings.compareMode);
+      }
+      
+      if (report.customSettings.compareTimeRange) {
+        setCompareTimeRange(report.customSettings.compareTimeRange);
+      }
+    }
+    
+    setSelectedReport(report);
+  };
+  
+  // Eliminar un informe guardado
+  const deleteReport = (id: string) => {
+    setSavedReports(savedReports.filter(report => report.id !== id));
+    if (selectedReport?.id === id) {
+      setSelectedReport(null);
+    }
+  };
+  
   // Renderizar contenido del informe seleccionado
   const renderReportContent = () => {
     if (isLoading) {
@@ -702,29 +924,7 @@ export default function ReportsPage() {
     }
   };
   
-  // Obtener lista de marcas únicas para el filtro
-  const getBrands = () => {
-    const brands = new Set<string>();
-    
-    // Añadir marcas de ejemplo
-    brands.add("Civetta Sleepwear");
-    brands.add("Civetta Bride");
-    
-    // Añadir marcas de los datos reales
-    customersQuery.data?.forEach(customer => {
-      if (customer.brand) brands.add(customer.brand);
-    });
-    
-    salesQuery.data?.forEach(sale => {
-      if (sale.brand) brands.add(sale.brand);
-    });
-    
-    leadsQuery.data?.forEach(lead => {
-      if (lead.brand) brands.add(lead.brand);
-    });
-    
-    return Array.from(brands);
-  };
+  // Los métodos getBrands y getKpis ya fueron declarados arriba
   
   return (
     <div className="space-y-6">
@@ -736,10 +936,59 @@ export default function ReportsPage() {
           </p>
           
           {/* Selector de tipos de reporte */}
-          <ReportTypeSelector 
-            currentType={reportType}
-            onSelectType={setReportType}
-          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button 
+              variant={reportType === REPORT_TYPES.SALES_BY_CITY ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportType(REPORT_TYPES.SALES_BY_CITY)}
+            >
+              <BarChart2 className="mr-2 h-4 w-4" />
+              Ventas por Ciudad
+            </Button>
+            <Button 
+              variant={reportType === REPORT_TYPES.CUSTOMERS_BY_PROVINCE ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportType(REPORT_TYPES.CUSTOMERS_BY_PROVINCE)}
+            >
+              <PieChartIcon className="mr-2 h-4 w-4" />
+              Clientes por Provincia
+            </Button>
+            <Button 
+              variant={reportType === REPORT_TYPES.SALES_BY_BRAND ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportType(REPORT_TYPES.SALES_BY_BRAND)}
+            >
+              <BarChart2 className="mr-2 h-4 w-4" />
+              Ventas por Marca
+            </Button>
+            <Button 
+              variant={reportType === REPORT_TYPES.LEADS_BY_SOURCE ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportType(REPORT_TYPES.LEADS_BY_SOURCE)}
+            >
+              <PieChartIcon className="mr-2 h-4 w-4" />
+              Leads por Origen
+            </Button>
+            <Button 
+              variant={reportType === REPORT_TYPES.SALES_OVER_TIME ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportType(REPORT_TYPES.SALES_OVER_TIME)}
+            >
+              <LineChartIcon className="mr-2 h-4 w-4" />
+              Ventas en el Tiempo
+            </Button>
+            <Button 
+              variant={reportType === REPORT_TYPES.CUSTOM ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setReportType(REPORT_TYPES.CUSTOM);
+                setActiveView("wizard");
+              }}
+            >
+              <Sliders className="mr-2 h-4 w-4" />
+              Informe Personalizado
+            </Button>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -907,10 +1156,30 @@ export default function ReportsPage() {
             />
             
             <div className="hidden sm:block">
-              <ReportTypeSelector 
-                currentType={reportType}
-                onSelectType={setReportType}
-              />
+              <div className="flex flex-wrap gap-2">
+                {Object.values(REPORT_TYPES).map((type) => (
+                  <Button 
+                    key={type}
+                    variant={reportType === type ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setReportType(type)}
+                  >
+                    {type === REPORT_TYPES.SALES_BY_CITY && <BarChart2 className="mr-1 h-3 w-3" />}
+                    {type === REPORT_TYPES.CUSTOMERS_BY_PROVINCE && <PieChartIcon className="mr-1 h-3 w-3" />}
+                    {type === REPORT_TYPES.SALES_BY_BRAND && <BarChart2 className="mr-1 h-3 w-3" />}
+                    {type === REPORT_TYPES.LEADS_BY_SOURCE && <PieChartIcon className="mr-1 h-3 w-3" />}
+                    {type === REPORT_TYPES.SALES_OVER_TIME && <LineChartIcon className="mr-1 h-3 w-3" />}
+                    {type === REPORT_TYPES.CUSTOM && <Sliders className="mr-1 h-3 w-3" />}
+                    
+                    {type === REPORT_TYPES.SALES_BY_CITY && "Ventas por Ciudad"}
+                    {type === REPORT_TYPES.CUSTOMERS_BY_PROVINCE && "Clientes por Provincia"}
+                    {type === REPORT_TYPES.SALES_BY_BRAND && "Ventas por Marca"}
+                    {type === REPORT_TYPES.LEADS_BY_SOURCE && "Leads por Origen"}
+                    {type === REPORT_TYPES.SALES_OVER_TIME && "Ventas en el Tiempo"}
+                    {type === REPORT_TYPES.CUSTOM && "Personalizado"}
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardFooter>
         </Card>
