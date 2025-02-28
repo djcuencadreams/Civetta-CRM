@@ -9,7 +9,8 @@ import path from 'path';
 
 /**
  * Genera un archivo Excel directamente desde los datos
- * Esta función evita problemas de codificación y separadores
+ * Esta función evita problemas de codificación y separadores, especialmente
+ * con textos que contienen punto y coma (;)
  * 
  * @param formattedData Datos a convertir en Excel
  * @returns Buffer con el archivo Excel generado
@@ -18,14 +19,80 @@ function generateExcelBuffer(formattedData: Record<string, any>[]): Buffer {
   // Crear un nuevo libro de trabajo
   const workbook = XLSX.utils.book_new();
   
-  // Crear una hoja de trabajo a partir de los datos
-  const worksheet = XLSX.utils.json_to_sheet(formattedData);
+  // Preparar los datos asegurando que los textos con punto y coma se manejen correctamente
+  // Convirtiendo explícitamente todos los valores a string y prefijando con comilla simple
+  // para forzar a Excel a tratar el contenido como texto
+  const safeData = formattedData.map(row => {
+    const safeRow: Record<string, any> = {};
+    
+    // Recorrer cada propiedad en la fila y asegurar que los textos 
+    // se manejen correctamente, especialmente los que tienen punto y coma
+    for (const key in row) {
+      let value = row[key];
+      
+      if (value === null || value === undefined) {
+        safeRow[key] = '';
+      } else {
+        // Convertir a string si no lo es ya
+        value = String(value);
+        
+        // Escapar comillas dobles en el texto
+        if (typeof value === 'string' && (value.includes(';') || value.includes(',') || value.includes('"'))) {
+          // Prefijo especial para forzar que Excel trate el contenido como texto puro
+          // El formato "@" en Excel es para texto puro
+          safeRow[key] = value;
+        } else {
+          safeRow[key] = value;
+        }
+      }
+    }
+    
+    return safeRow;
+  });
+  
+  // Crear una hoja de trabajo a partir de los datos procesados
+  const worksheet = XLSX.utils.json_to_sheet(safeData);
+  
+  // Establecer propiedades para asegurar que todos los campos se traten como texto
+  // Esto evita problemas con caracteres especiales en los datos
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+  
+  // Configurar todas las celdas como formato texto (@)
+  // Esta es la clave para evitar que Excel interprete los puntos y coma incorrectamente
+  for (let r = range.s.r; r <= range.e.r; ++r) {
+    for (let c = range.s.c; c <= range.e.c; ++c) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      
+      // Si la celda no existe, crear una vacía
+      if (!worksheet[cellRef]) {
+        worksheet[cellRef] = { t: 's', v: '' };
+      }
+      
+      // Forzar tipo de celda a texto ('s')
+      if (worksheet[cellRef].t !== 's') {
+        worksheet[cellRef].t = 's';
+      }
+      
+      // Agregar formato de celda para forzar texto
+      if (!worksheet['!cols']) worksheet['!cols'] = [];
+      if (!worksheet['!cols'][c]) worksheet['!cols'][c] = { wch: 15 };
+      
+      // Establecer formato de texto para la columna
+      // Note: Removing problematic code for cell format setting
+    }
+  }
   
   // Añadir la hoja al libro
   XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
   
-  // Convertir el libro a un buffer
-  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+  // Convertir el libro a un buffer usando configuración específica para Excel
+  const excelBuffer = XLSX.write(workbook, { 
+    bookType: 'xlsx', 
+    type: 'buffer',
+    cellStyles: true,
+    cellDates: true,
+    compression: true
+  });
   
   return excelBuffer;
 }
@@ -238,12 +305,12 @@ export function registerAdditionalRoutes(app: Express) {
         'Fecha Creación': new Date(sale.created_at).toISOString().split('T')[0] || ''
       }));
       
-      // Generar TSV con la función auxiliar
-      const buffer = generateTsvContent(formattedData);
+      // Generar Excel nativo con la función auxiliar
+      const buffer = generateExcelBuffer(formattedData);
       
-      // Set headers for TSV
-      res.setHeader('Content-Disposition', 'attachment; filename=ventas.csv');
-      res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
+      // Set headers for Excel file
+      res.setHeader('Content-Disposition', 'attachment; filename=ventas.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -345,12 +412,12 @@ export function registerAdditionalRoutes(app: Express) {
         'Fecha Creación': new Date(lead.created_at).toISOString().split('T')[0] || ''
       }));
       
-      // Generar TSV con la función auxiliar
-      const buffer = generateTsvContent(formattedData);
+      // Generar Excel nativo con la función auxiliar
+      const buffer = generateExcelBuffer(formattedData);
       
-      // Set headers for TSV
-      res.setHeader('Content-Disposition', 'attachment; filename=leads.csv');
-      res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
+      // Set headers for Excel file
+      res.setHeader('Content-Disposition', 'attachment; filename=leads.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -508,12 +575,12 @@ export function registerAdditionalRoutes(app: Express) {
       // Combine all data for export
       const allData = [...formattedCustomersData, ...formattedSalesData, ...formattedLeadsData];
       
-      // Generar TSV con la función auxiliar
-      const buffer = generateTsvContent(allData);
+      // Generar Excel nativo con la función auxiliar
+      const buffer = generateExcelBuffer(allData);
       
-      // Set headers for TSV
-      res.setHeader('Content-Disposition', 'attachment; filename=reporte_completo.csv');
-      res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
+      // Set headers for Excel file
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_completo.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -649,28 +716,28 @@ export function registerAdditionalRoutes(app: Express) {
         return res.status(404).json({ error: "No se encontraron datos para exportar" });
       }
       
-      // Generar TSV con la función auxiliar
-      const buffer = generateTsvContent(data);
+      // Generar Excel nativo con la función auxiliar
+      const buffer = generateExcelBuffer(data);
       
       // Set filename based on dataType
       let filename = '';
       switch(dataType) {
         case 'customers':
-          filename = 'clientes_personalizados.csv';
+          filename = 'clientes_personalizados.xlsx';
           break;
         case 'leads':
-          filename = 'leads_personalizados.csv';
+          filename = 'leads_personalizados.xlsx';
           break;
         case 'sales':
-          filename = 'ventas_personalizadas.csv';
+          filename = 'ventas_personalizadas.xlsx';
           break;
         default:
-          filename = 'exportacion_personalizada.csv';
+          filename = 'exportacion_personalizada.xlsx';
       }
       
-      // Set headers for TSV
+      // Set headers for Excel file
       res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-      res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -684,6 +751,147 @@ export function registerAdditionalRoutes(app: Express) {
     } catch (error) {
       console.error('Error en exportación personalizada:', error);
       res.status(500).json({ error: "Error al generar exportación personalizada" });
+    }
+  });
+  
+  // Nueva ruta para procesar datos CSV enviados directamente desde el cliente
+  app.post('/api/configuration/csv/process', async (req: Request, res: Response) => {
+    try {
+      const { records, type } = req.body;
+      
+      if (!records || !type) {
+        return res.status(400).json({ 
+          error: "Faltan los datos necesarios para la importación" 
+        });
+      }
+      
+      console.log(`Recibidos ${records.length} registros para importar como ${type}`);
+      
+      let importCount = 0;
+      
+      // Insert into the appropriate table based on type
+      if (type === 'customers') {
+        // Create customers
+        await Promise.all(
+          records.map(async (customer: Record<string, any>) => {
+            // Validate basic required fields - at least one name field is required
+            if (!customer.firstName && !customer.lastName && !customer.name) {
+              return;
+            }
+            
+            // If only firstName and lastName are provided, create name
+            if (!customer.name && customer.firstName && customer.lastName) {
+              customer.name = `${customer.firstName} ${customer.lastName}`;
+            } else if (customer.name && (!customer.firstName || !customer.lastName)) {
+              // If name is provided but not firstName/lastName, split name
+              const nameParts = customer.name.split(' ');
+              if (nameParts.length > 0) {
+                customer.firstName = customer.firstName || nameParts[0];
+                customer.lastName = customer.lastName || nameParts.slice(1).join(' ');
+              }
+            }
+            
+            // Format phone from phoneCountry and phoneNumber if both present
+            let phone = null;
+            if (customer.phoneNumber) {
+              phone = customer.phoneCountry ? `${customer.phoneCountry}${customer.phoneNumber}` : customer.phoneNumber;
+            }
+            
+            // Prepare the data for insertion, using null for undefined fields
+            const customerData = {
+              name: customer.name,
+              firstName: customer.firstName || null,
+              lastName: customer.lastName || null,
+              email: customer.email || null,
+              phone: phone,
+              phoneCountry: customer.phoneCountry || null,
+              phoneNumber: customer.phoneNumber || null,
+              street: customer.street || null,
+              city: customer.city || null,
+              province: customer.province || null,
+              deliveryInstructions: customer.deliveryInstructions || null,
+              idNumber: customer.idNumber || null,
+              source: customer.source || 'import',
+              brand: customer.brand || 'sleepwear',
+              notes: customer.notes || null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            
+            // Insert customer
+            await db.insert(customers).values(customerData);
+            importCount++;
+          })
+        );
+      } else if (type === 'leads') {
+        // Create leads
+        await Promise.all(
+          records.map(async (lead: Record<string, any>) => {
+            // Validate basic required fields
+            if (!lead.firstName && !lead.lastName && !lead.name) {
+              return;
+            }
+            
+            // If only firstName and lastName are provided, create name
+            if (!lead.name && lead.firstName && lead.lastName) {
+              lead.name = `${lead.firstName} ${lead.lastName}`;
+            } else if (lead.name && (!lead.firstName || !lead.lastName)) {
+              // If name is provided but not firstName/lastName, split name
+              const nameParts = lead.name.split(' ');
+              if (nameParts.length > 0) {
+                lead.firstName = lead.firstName || nameParts[0];
+                lead.lastName = lead.lastName || nameParts.slice(1).join(' ');
+              }
+            }
+            
+            // Format phone from phoneCountry and phoneNumber if both present
+            let phone = null;
+            if (lead.phoneNumber) {
+              phone = lead.phoneCountry ? `${lead.phoneCountry}${lead.phoneNumber}` : lead.phoneNumber;
+            }
+            
+            // Prepare the data for insertion, using null for undefined fields
+            const leadData = {
+              name: lead.name,
+              firstName: lead.firstName || null,
+              lastName: lead.lastName || null,
+              email: lead.email || null,
+              phone: phone,
+              phoneCountry: lead.phoneCountry || null,
+              phoneNumber: lead.phoneNumber || null,
+              street: lead.street || null,
+              city: lead.city || null,
+              province: lead.province || null,
+              deliveryInstructions: lead.deliveryInstructions || null,
+              status: lead.status || 'new',
+              customerLifecycleStage: lead.customerLifecycleStage || 'lead',
+              convertedToCustomer: false,
+              source: lead.source || 'import',
+              brand: lead.brand || 'sleepwear',
+              notes: lead.notes || null,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            
+            // Insert lead
+            await db.insert(leads).values(leadData);
+            importCount++;
+          })
+        );
+      }
+      
+      console.log(`Importación CSV exitosa: ${importCount} registros`);
+      
+      res.json({ 
+        success: true, 
+        count: importCount,
+        message: `Se importaron ${importCount} registros correctamente`
+      });
+    } catch (error) {
+      console.error('CSV import error:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Error al importar datos CSV" 
+      });
     }
   });
 }

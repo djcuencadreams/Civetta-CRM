@@ -24,7 +24,7 @@ export function SimpleSpreadsheetImporter() {
   const [importResult, setImportResult] = useState<{ count: number; message: string } | null>(null);
   const { toast } = useToast();
 
-  // Helper function to parse CSV
+  // Helper function to parse CSV with proper handling of quoted fields containing separators
   function parseCSV(csvText: string) {
     // Detect CSV separator by examining the first few lines
     const sampleLines = csvText.split(/\r?\n/).slice(0, 3).join('\n');
@@ -41,8 +41,8 @@ export function SimpleSpreadsheetImporter() {
     // Split text into lines
     const lines = csvText.split(/\r?\n/);
     
-    // Get headers from first line
-    const headers = lines[0].split(separator).map(h => h.trim());
+    // Get headers from first line using careful parsing
+    const headers = parseCSVLine(lines[0], separator).map(h => h.trim());
     console.log("Headers detected:", headers);
     
     // Process data rows
@@ -51,7 +51,8 @@ export function SimpleSpreadsheetImporter() {
       const line = lines[i].trim();
       if (!line) continue; // Skip empty lines
       
-      const values = line.split(separator);
+      // Parse line respecting quotes
+      const values = parseCSVLine(line, separator);
       const record: Record<string, string> = {};
       
       // Map values to headers
@@ -114,6 +115,44 @@ export function SimpleSpreadsheetImporter() {
     
     console.log("Sample record:", records.length > 0 ? records[0] : "No records found");
     return records;
+  }
+
+  // Helper function to properly parse a CSV line respecting quotes
+  function parseCSVLine(line: string, delimiter: string): string[] {
+    const fields: string[] = [];
+    let currentField = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = i < line.length - 1 ? line[i + 1] : '';
+      
+      // Handle quotes
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Double quote inside quotes - escaped quote
+          currentField += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
+      } 
+      // If delimiter and not in quotes, end current field
+      else if (char === delimiter && !inQuotes) {
+        fields.push(currentField);
+        currentField = '';
+      } 
+      // Otherwise add to current field
+      else {
+        currentField += char;
+      }
+    }
+    
+    // Add the last field
+    fields.push(currentField);
+    
+    return fields;
   }
 
   // Mutation for processing file directly

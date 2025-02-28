@@ -971,59 +971,163 @@ async function parseCSV(buffer: Buffer): Promise<any[]> {
   return new Promise((resolve, reject) => {
     try {
       const results: any[] = [];
-      const readableStream = new Readable();
-      readableStream.push(buffer);
-      readableStream.push(null);
-
-      // Configure csv-parser with options for better handling
-      const parserOptions = {
-        trim: true,                  // Trim whitespace from values
-        skipLines: 0,                // Don't skip any lines
-        strict: false,               // Don't be too strict about column counts
-        columns: true,               // Auto-detect columns from first row
-        escape: '"',                 // Standard CSV escape character
-        comment: '#'                 // Ignore lines starting with #
-      };
-
-      readableStream
-        .pipe(csvParser(parserOptions))
-        .on('data', (data: any) => {
-          // Basic data cleaning for each row
-          const cleanedData: Record<string, any> = {};
+      
+      // Convertir el buffer a texto para análisis manual avanzado
+      const csvText = buffer.toString('utf8');
+      
+      // Detectar el delimitador: verificamos si el archivo usa punto y coma (;) o coma (,)
+      // Analizar primera línea para determinarlo
+      const firstLineEnd = csvText.indexOf('\n');
+      const firstLine = firstLineEnd > 0 ? csvText.substring(0, firstLineEnd) : csvText;
+      
+      // Contar ocurrencias de posibles delimitadores
+      const semicolonCount = (firstLine.match(/;/g) || []).length;
+      const commaCount = (firstLine.match(/,/g) || []).length;
+      
+      // Determinar delimitador basado en frecuencia
+      const delimiter = semicolonCount >= commaCount ? ';' : ',';
+      
+      console.log(`Delimitador detectado: "${delimiter}" (${semicolonCount} punto y coma vs ${commaCount} comas en encabezados)`);
+      
+      // Dividir el texto en líneas
+      const lines = csvText.split(/\r?\n/);
+      
+      // Asegurarse de que hay líneas para procesar
+      if (lines.length === 0) {
+        console.warn("El archivo CSV está vacío o no tiene líneas válidas");
+        return resolve([]);
+      }
+      
+      // Procesar encabezados (primera línea)
+      const headerLine = lines[0].replace(/^\uFEFF/, ''); // Eliminar BOM si existe
+      
+      // Extraer encabezados con manejo cuidadoso de comillas
+      const headers = parseCSVLine(headerLine, delimiter);
+      
+      console.log("Encabezados detectados:", headers);
+      
+      // Iterar sobre cada línea de datos (omitir encabezados)
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Omitir líneas vacías
+        if (!line) continue;
+        
+        // Parsear la línea en campos individuales respetando comillas y delimitadores
+        const values = parseCSVLine(line, delimiter);
+        
+        // Crear objeto con los valores mapeados a encabezados
+        const rowObj: Record<string, any> = {};
+        
+        // Asegurarse de que los valores correspondan a encabezados
+        const maxFields = Math.min(headers.length, values.length);
+        
+        for (let j = 0; j < maxFields; j++) {
+          const header = headers[j];
+          let value = values[j];
           
-          // Clean up keys and values
-          Object.keys(data).forEach(key => {
-            // Clean the key - remove BOM and whitespace
-            const cleanKey = key.replace(/^\uFEFF/, '').trim();
-            
-            // Clean the value - convert empty strings to null
-            let value = data[key];
-            if (typeof value === 'string') {
-              value = value.trim();
-              if (value === '') value = null;
-            }
-            
-            cleanedData[cleanKey] = value;
-          });
+          // Convertir valores vacíos a cadena vacía
+          if (value === '') {
+            value = '';
+          }
           
-          results.push(cleanedData);
-        })
-        .on('end', () => resolve(results))
-        .on('error', (error: Error) => {
-          console.error('CSV parsing error:', error);
-          reject(new Error(`Error al procesar el archivo CSV: ${error.message}`));
-        });
+          rowObj[header] = value;
+        }
+        
+        // Convertir encabezados a formato camelCase para compatibilidad
+        const normalizedRow = normalizeObjectKeys(rowObj);
+        
+        results.push(normalizedRow);
+      }
+      
+      // Registrar resultados para depuración
+      if (results.length > 0) {
+        console.log("Primer registro procesado:", results[0]);
+      }
+      
+      console.log(`Total registros leídos: ${results.length}`);
+      resolve(results);
     } catch (error) {
       console.error('CSV setup error:', error);
-      reject(new Error('Error al configurar el procesamiento de CSV'));
+      reject(new Error('Error al configurar el procesamiento de CSV: ' + (error instanceof Error ? error.message : String(error))));
     }
   });
+}
+
+// Función para parsear una línea de CSV respetando comillas y delimitadores
+function parseCSVLine(line: string, delimiter: string): string[] {
+  const fields: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = i < line.length - 1 ? line[i + 1] : '';
+    
+    // Manejar comillas
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Doble comilla dentro de comillas - se escapa como una sola comilla
+        currentField += '"';
+        i++; // Saltar la siguiente comilla
+      } else {
+        // Alternar estado de comillas
+        inQuotes = !inQuotes;
+      }
+    } 
+    // Si es un delimitador y no estamos dentro de comillas, finalizar el campo actual
+    else if (char === delimiter && !inQuotes) {
+      fields.push(currentField);
+      currentField = '';
+    } 
+    // Para cualquier otro carácter, añadirlo al campo actual
+    else {
+      currentField += char;
+    }
+  }
+  
+  // Añadir el último campo
+  fields.push(currentField);
+  
+  return fields;
+}
+
+// Función para normalizar las claves de un objeto (convertir a camelCase)
+function normalizeObjectKeys(obj: Record<string, any>): Record<string, any> {
+  const normalizedObj: Record<string, any> = {};
+  
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      // Convertir "first name" o "First Name" a "firstName"
+      let normalizedKey = key.toLowerCase()
+        .replace(/[\s-_]+(\w)/g, (_, p1) => p1.toUpperCase());
+      
+      // Manejar casos especiales
+      if (normalizedKey === 'id' || normalizedKey === 'idnumber') {
+        normalizedKey = 'idNumber';
+      } else if (normalizedKey === 'firstname') {
+        normalizedKey = 'firstName';
+      } else if (normalizedKey === 'lastname') {
+        normalizedKey = 'lastName';
+      } else if (normalizedKey === 'phonecountry') {
+        normalizedKey = 'phoneCountry';
+      } else if (normalizedKey === 'phonenumber') {
+        normalizedKey = 'phoneNumber';
+      } else if (normalizedKey === 'deliveryinstructions') {
+        normalizedKey = 'deliveryInstructions';
+      }
+      
+      normalizedObj[normalizedKey] = obj[key];
+    }
+  }
+  
+  return normalizedObj;
 }
 
 // Helper function to parse Excel data with enhanced options
 function parseExcel(buffer: Buffer): any[] {
   try {
-    console.log("Analizando archivo Excel...");
+    console.log("Analizando archivo Excel (versión mejorada)...");
     
     // Parse with more options for better compatibility
     const workbook = XLSX.read(buffer, { 
@@ -1032,7 +1136,8 @@ function parseExcel(buffer: Buffer): any[] {
       cellNF: false,        // Don't parse number formats
       cellText: false,      // Don't generate text versions of cells
       cellStyles: false,    // Don't parse styles
-      codepage: 65001       // UTF-8
+      codepage: 65001,      // UTF-8
+      raw: false            // Don't use raw values
     });
     
     console.log("Hojas disponibles:", workbook.SheetNames);
@@ -1058,12 +1163,32 @@ function parseExcel(buffer: Buffer): any[] {
     
     console.log("Excel sheet range:", worksheet['!ref']);
     
+    // Ensure all string cells are treated as text to preserve special characters
+    // especially semicolons (;)
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    if (range) {
+      for (let r = range.s.r; r <= range.e.r; ++r) {
+        for (let c = range.s.c; c <= range.e.c; ++c) {
+          const cell_ref = XLSX.utils.encode_cell({ r, c });
+          const cell = worksheet[cell_ref];
+          
+          if (cell && typeof cell.v === 'string') {
+            // Force the cell type to be string ('s')
+            cell.t = 's';
+          }
+        }
+      }
+    }
+    
     // Try method 1: Sheet to array of arrays, then manual conversion to objects
     const aoa = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,          // Use first row as headers
       raw: false,         // Don't return raw values
       defval: '',         // Default value for empty cells
-      blankrows: false    // Don't include blank rows
+      blankrows: false,   // Don't include blank rows
+      // Explicitly set how we want to handle string values
+      // This helps preserve text with semicolons
+      rawNumbers: false
     });
     
     console.log(`Método 1 - Filas obtenidas: ${aoa.length}`);
@@ -1083,7 +1208,12 @@ function parseExcel(buffer: Buffer): any[] {
         throw new Error("No se encontraron encabezados válidos en la primera fila");
       }
       
-      const jsonData = aoa.slice(1).map((row: unknown[]) => {
+      const jsonData = aoa.slice(1).map((row) => {
+        // Asegurar que row es un array
+        if (!Array.isArray(row)) {
+          return null;
+        }
+        
         const obj: Record<string, any> = {};
         
         // Skip rows that are completely empty
@@ -1095,10 +1225,10 @@ function parseExcel(buffer: Buffer): any[] {
           if (header && header !== '') {
             let value = row[idx];
             
-            // Clean string values
+            // Process string values specially to preserve semicolons
             if (typeof value === 'string') {
+              // Just trim, but don't convert empty to null to preserve structure
               value = value.trim();
-              if (value === '') value = null;
             }
             
             obj[header] = value !== undefined ? value : null;
@@ -1106,7 +1236,7 @@ function parseExcel(buffer: Buffer): any[] {
         });
         
         return obj;
-      }).filter(Boolean); // Remove null entries
+      }).filter(Boolean) as Record<string, any>[]; // Remove null entries
       
       console.log(`Procesados ${jsonData.length} registros válidos`);
       
@@ -1117,15 +1247,16 @@ function parseExcel(buffer: Buffer): any[] {
       }
     }
     
-    // If we got here, try method 2: direct sheet_to_json
-    console.log("Intentando método 2 de análisis...");
+    // If we got here, try method 2: direct sheet_to_json with improved options
+    console.log("Intentando método 2 de análisis mejorado...");
     
     try {
       const jsonData = XLSX.utils.sheet_to_json(worksheet, {
         raw: false,
         dateNF: 'YYYY-MM-DD',
         defval: null,
-        blankrows: false
+        blankrows: false,
+        rawNumbers: false
       });
       
       console.log(`Método 2 - Filas obtenidas: ${jsonData.length}`);
@@ -1133,23 +1264,23 @@ function parseExcel(buffer: Buffer): any[] {
       if (jsonData.length > 0) {
         console.log("Muestra de datos del método 2:", jsonData[0]);
         
-        // Clean the data - convert empty strings to null, etc.
+        // Process the data with special handling for text fields
         return jsonData.map((row: any) => {
-          const cleanedRow: Record<string, any> = {};
+          const processedRow: Record<string, any> = {};
           
           Object.entries(row).forEach(([key, value]) => {
-            let cleanValue = value;
+            const cleanKey = key.trim();
             
-            // Clean string values
-            if (typeof cleanValue === 'string') {
-              cleanValue = cleanValue.trim();
-              if (cleanValue === '') cleanValue = null;
+            // Special handling for string values with semicolons
+            if (typeof value === 'string') {
+              // Just trim to preserve all characters including semicolons
+              processedRow[cleanKey] = value.trim();
+            } else {
+              processedRow[cleanKey] = value === '' ? null : value;
             }
-            
-            cleanedRow[key.trim()] = cleanValue;
           });
           
-          return cleanedRow;
+          return processedRow;
         });
       }
     } catch (e) {

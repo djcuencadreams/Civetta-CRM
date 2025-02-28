@@ -1,0 +1,33 @@
+{
+  "records": [
+    {
+      "firstName": "Sandra Magdalena",
+      "lastName": "Agila Chinchay",
+      "idNumber": "1717685729",
+      "email": "sandrach1982@yahoo.es",
+      "phoneCountry": "+593",
+      "phoneNumber": "959920025",
+      "street": "Cumbaya, urbanización la católica calle de los cardenales y calle de los azulejos , lote 4 casa 2 , puerta gris junto a sede social",
+      "city": "Quito",
+      "province": "Pichincha",
+      "deliveryInstructions": "Indicar al guardia que va al lote 4 casa 2 donde familia Galitsyn",
+      "source": "Social Media",
+      "brand": "Civetta Sleepwear"
+    },
+    {
+      "firstName": "Jorge Adrián",
+      "lastName": "Humanante Vasconez",
+      "idNumber": "0931571202",
+      "email": "jorge_hv9@hotmail.com",
+      "phoneCountry": "+593",
+      "phoneNumber": "985100267",
+      "street": "Av. Francisco de Orellana, diagonal a la gasolinera primax; ciudadela Rosales 1 mz 8 villa 28. En total la principal antes de la panadería.",
+      "city": "Guayaquil",
+      "province": "Guayas",
+      "deliveryInstructions": "Indicar o llamar cuando esté afuera.",
+      "source": "Social Media",
+      "brand": "Civetta Sleepwear"
+    }
+  ],
+  "type": "customers"
+}

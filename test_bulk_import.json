@@ -1,0 +1,45 @@
+{
+  "records": [
+    {
+      "firstName": "Sandra Magdalena",
+      "lastName": "Agila Chinchay",
+      "idNumber": "1717685729",
+      "email": "sandrach1982@yahoo.es",
+      "phoneCountry": "+593",
+      "phoneNumber": "959920025",
+      "street": "Cumbaya, urbanización la católica calle de los cardenales y calle de los azulejos, lote 4 casa 2, puerta gris junto a sede social",
+      "city": "Quito",
+      "province": "Pichincha",
+      "deliveryInstructions": "Indicar al guardia que va al lote 4 casa 2 donde familia Galitsyn",
+      "source": "Social Media",
+      "brand": "Civetta Sleepwear"
+    },
+    {
+      "firstName": "Zully",
+      "lastName": "Camacho",
+      "idNumber": "0703116673",
+      "email": "michulys@hotmail.com",
+      "phoneCountry": "+593",
+      "phoneNumber": "990629423",
+      "street": "Oficina Servientrega Arenillas",
+      "city": "Arenillas",
+      "province": "El Oro",
+      "deliveryInstructions": "Entregar en oficina Servientrega",
+      "source": "Social Media",
+      "brand": "Civetta Sleepwear"
+    },
+    {
+      "firstName": "Martha",
+      "lastName": "Villagomez",
+      "idNumber": "1704788825",
+      "phoneCountry": "+593",
+      "phoneNumber": "999463349",
+      "street": "Av Pampite y Simón Valenzuela Urb la Comarca en el rincón de la comarca casa 7 familia Uquillas Por la Universidad SAN Francisco a lado del Yoo Cumbaya",
+      "city": "Quito/ Cumbaya",
+      "province": "Pichincha",
+      "source": "Social Media",
+      "brand": "Civetta Sleepwear"
+    }
+  ],
+  "type": "customers"
+}
