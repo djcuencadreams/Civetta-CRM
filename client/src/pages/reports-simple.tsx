@@ -6,7 +6,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DownloadCloud, Database, CalendarDays, RefreshCw } from "lucide-react";
+import { DownloadCloud, Database, CalendarDays, RefreshCw, Users, UserPlus, DollarSign, BarChart4 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
@@ -121,86 +121,141 @@ export default function SimpleReportsPage() {
   const filterByDate = <T extends { createdAt: string }>(data: T[] | undefined) => {
     if (!data) return [];
     
+    // Establecer la hora de inicio a las 00:00:00
+    const startDateTime = new Date(startDate);
+    startDateTime.setHours(0, 0, 0, 0);
+    
+    // Establecer la hora de fin a las 23:59:59
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(23, 59, 59, 999);
+    
     return data.filter(item => {
       const itemDate = new Date(item.createdAt);
-      return itemDate >= startDate && itemDate <= endDate;
+      return itemDate >= startDateTime && itemDate <= endDateTime;
     });
   };
 
-  // Funciones para exportar datos
-  const exportToExcel = (reportType: string) => {
+  // Función para exportar datos a CSV
+  const exportToCSV = (reportType: string) => {
     setIsLoading(true);
     
     // Construir los parámetros de filtro
     const dateStartParam = format(startDate, 'yyyy-MM-dd');
     const dateEndParam = format(endDate, 'yyyy-MM-dd');
-    const params = `dateStart=${dateStartParam}&dateEnd=${dateEndParam}`;
+    const params = new URLSearchParams();
+    params.append('dateStart', dateStartParam);
+    params.append('dateEnd', dateEndParam);
     
     // Seleccionar la URL basada en el tipo de reporte
-    let url = '';
+    let endpoint = '';
+    let fileName = '';
+    
     if (reportType === 'customers') {
-      url = `/api/export/customers?${params}`;
+      endpoint = '/api/export/customers';
+      fileName = `clientes_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     } else if (reportType === 'leads') {
-      url = `/api/export/leads?${params}`;
+      endpoint = '/api/export/leads';
+      fileName = `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     } else if (reportType === 'sales') {
-      url = `/api/export/sales?${params}`;
+      endpoint = '/api/export/sales';
+      fileName = `ventas_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     } else {
-      url = `/api/export/all?${params}`;
+      endpoint = '/api/export/all';
+      fileName = `reporte_completo_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     }
     
-    // Descargar el archivo
-    fetch(url)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Error en la exportación');
-        }
-        return response.blob();
-      })
-      .then(blob => {
-        // Crear un link temporal para la descarga
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        
-        // Establecer el nombre del archivo
-        switch (reportType) {
-          case 'customers':
-            a.download = `clientes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-            break;
-          case 'leads':
-            a.download = `leads_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-            break;
-          case 'sales':
-            a.download = `ventas_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-            break;
-          default:
-            a.download = `reporte_completo_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-        }
-        
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      })
-      .then(() => {
-        toast({
-          title: "Exportación exitosa",
-          description: "Los datos se han exportado correctamente",
-          variant: "default"
+    const url = `${endpoint}?${params.toString()}`;
+    
+    // Utilizar Fetch API en lugar de XMLHttpRequest para mejor manejo de datos binarios
+    try {
+      console.log('Iniciando descarga desde:', url);
+      
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+          }
+          
+          // Mostrar más detalle de las cabeceras para debug
+          console.log('Respuesta recibida: Headers completos', {
+            contentLength: response.headers.get('Content-Length'),
+            contentType: response.headers.get('Content-Type'),
+            contentDisposition: response.headers.get('Content-Disposition')
+          });
+          
+          // Obtener y manejar el blob
+          return response.blob().then(blob => {
+            console.log('Blob recibido:', blob.size, 'bytes', 'tipo:', blob.type);
+            return blob;
+          });
+        })
+        .then(blob => {
+          // Verificar que el blob no esté vacío
+          if (blob.size === 0) {
+            console.error('El archivo exportado está vacío');
+            toast({
+              title: "Error de exportación",
+              description: "El archivo generado está vacío. Intente nuevamente o contacte al soporte.",
+              variant: "destructive"
+            });
+            setIsLoading(false);
+            return;
+          }
+          
+          console.log('Tamaño del blob recibido:', blob.size, 'bytes');
+          console.log('Tipo MIME del blob:', blob.type);
+          
+          // Respetar el tipo MIME original para permitir tanto CSV como Excel
+          // Crear un objeto URL para el blob (sin cambiar el tipo)
+          const downloadUrl = window.URL.createObjectURL(blob);
+          
+          // Crear un enlace para la descarga
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = downloadUrl;
+          a.download = fileName;
+          
+          // Agregar el enlace al documento, hacer clic y luego eliminarlo
+          document.body.appendChild(a);
+          a.click();
+          
+          // Limpiar recursos después de un pequeño retraso
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
+            
+            // Notificar al usuario después de la descarga exitosa
+            toast({
+              title: "Exportación exitosa",
+              description: `Los datos de ${
+                reportType === 'customers' ? 'clientes' : 
+                reportType === 'leads' ? 'leads' : 
+                reportType === 'sales' ? 'ventas' : 'todos los módulos'
+              } se han exportado correctamente`,
+              variant: "default"
+            });
+            
+            setIsLoading(false);
+          }, 300);
+        })
+        .catch(error => {
+          console.error('Error en la exportación:', error);
+          toast({
+            title: "Error de exportación",
+            description: "Ocurrió un error al exportar. Por favor intente nuevamente o contacte al soporte.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
         });
-      })
-      .catch(error => {
-        console.error('Error al exportar:', error);
-        toast({
-          title: "Error de exportación",
-          description: "No se pudieron exportar los datos. Por favor intente nuevamente.",
-          variant: "destructive"
-        });
-      })
-      .finally(() => {
-        setIsLoading(false);
+    } catch (error) {
+      console.error('Error al iniciar la descarga:', error);
+      toast({
+        title: "Error de exportación",
+        description: "No se pudo iniciar la exportación. Por favor intente nuevamente.",
+        variant: "destructive"
       });
+      setIsLoading(false);
+    }
   };
   
   // Filtrar los datos por fecha
@@ -271,6 +326,61 @@ export default function SimpleReportsPage() {
         </CardContent>
       </Card>
       
+      {/* Resumen de datos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Clientes</CardTitle>
+            <CardDescription>Total en el período</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div className="text-3xl font-bold">{filteredCustomers.length}</div>
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Users className="h-8 w-8 text-blue-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-green-50 to-green-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Ventas</CardTitle>
+            <CardDescription>Total en el período</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div className="text-3xl font-bold">{filteredSales.length}</div>
+              <div className="p-2 bg-green-100 rounded-full">
+                <DollarSign className="h-8 w-8 text-green-700" />
+              </div>
+            </div>
+            {filteredSales.length > 0 && (
+              <div className="text-sm mt-2">
+                Valor total: {formatCurrency(
+                  filteredSales.reduce((sum, sale) => sum + sale.amount, 0)
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Leads</CardTitle>
+            <CardDescription>Total en el período</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div className="text-3xl font-bold">{filteredLeads.length}</div>
+              <div className="p-2 bg-yellow-100 rounded-full">
+                <UserPlus className="h-8 w-8 text-yellow-700" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
       <Tabs defaultValue="customers">
         <TabsList className="mb-4">
           <TabsTrigger value="customers">Clientes</TabsTrigger>
@@ -290,18 +400,18 @@ export default function SimpleReportsPage() {
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => exportToExcel('customers')}
+                onClick={() => exportToCSV('customers')}
                 disabled={isLoading || isLoadingCustomers || isErrorCustomers || !filteredCustomers.length}
               >
                 {isLoading ? (
                   <>
-                    <span className="animate-spin mr-2">⏳</span>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Exportando...
                   </>
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a Excel
+                    Exportar a CSV
                   </>
                 )}
               </Button>
@@ -367,7 +477,7 @@ export default function SimpleReportsPage() {
               )}
               {filteredCustomers.length > 10 && (
                 <div className="mt-4 text-center text-sm text-gray-500">
-                  Mostrando 10 de {filteredCustomers.length} clientes. Exporte a Excel para ver todos los registros.
+                  Mostrando 10 de {filteredCustomers.length} clientes. Exporte a CSV para ver todos los registros.
                 </div>
               )}
             </CardContent>
@@ -386,18 +496,18 @@ export default function SimpleReportsPage() {
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => exportToExcel('leads')}
+                onClick={() => exportToCSV('leads')}
                 disabled={isLoading || isLoadingLeads || isErrorLeads || !filteredLeads.length}
               >
                 {isLoading ? (
                   <>
-                    <span className="animate-spin mr-2">⏳</span>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Exportando...
                   </>
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a Excel
+                    Exportar a CSV
                   </>
                 )}
               </Button>
@@ -467,7 +577,7 @@ export default function SimpleReportsPage() {
               )}
               {filteredLeads.length > 10 && (
                 <div className="mt-4 text-center text-sm text-gray-500">
-                  Mostrando 10 de {filteredLeads.length} leads. Exporte a Excel para ver todos los registros.
+                  Mostrando 10 de {filteredLeads.length} leads. Exporte a CSV para ver todos los registros.
                 </div>
               )}
             </CardContent>
@@ -486,18 +596,18 @@ export default function SimpleReportsPage() {
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => exportToExcel('sales')}
+                onClick={() => exportToCSV('sales')}
                 disabled={isLoading || isLoadingSales || isErrorSales || !filteredSales.length}
               >
                 {isLoading ? (
                   <>
-                    <span className="animate-spin mr-2">⏳</span>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Exportando...
                   </>
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a Excel
+                    Exportar a CSV
                   </>
                 )}
               </Button>
@@ -538,18 +648,15 @@ export default function SimpleReportsPage() {
                         {filteredSales.slice(0, 10).map((sale) => (
                           <tr key={sale.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {sale.customer?.name || `Cliente #${sale.customerId}`}
-                              </div>
-                              <div className="text-sm text-gray-500">ID: {sale.customerId}</div>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {sale.customer?.name || `Cliente #${sale.customerId}`}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                               {formatCurrency(sale.amount)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                ${sale.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                ${sale.status === 'paid' ? 'bg-green-100 text-green-800' : 
                                 sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                                 sale.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
                                 'bg-gray-100 text-gray-800'}`}
@@ -557,9 +664,7 @@ export default function SimpleReportsPage() {
                                 {sale.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {sale.paymentMethod || "-"}
-                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.paymentMethod || "-"}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.brand || "-"}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(sale.createdAt)}</td>
                           </tr>
@@ -571,39 +676,37 @@ export default function SimpleReportsPage() {
               )}
               {filteredSales.length > 10 && (
                 <div className="mt-4 text-center text-sm text-gray-500">
-                  Mostrando 10 de {filteredSales.length} ventas. Exporte a Excel para ver todos los registros.
+                  Mostrando 10 de {filteredSales.length} ventas. Exporte a CSV para ver todos los registros.
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex justify-between">
-              {filteredSales.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  <strong>Total:</strong> {formatCurrency(
-                    filteredSales.reduce((acc, sale) => acc + Number(sale.amount), 0)
-                  )}
-                </div>
-              )}
-              <Button 
-                variant="default" 
-                onClick={() => exportToExcel('all')}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <span className="animate-spin mr-2">⏳</span>
-                    Exportando...
-                  </>
-                ) : (
-                  <>
-                    <Database className="mr-2 h-4 w-4" />
-                    Exportar Reporte Completo
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Botón para exportar todos los datos */}
+      <div className="flex justify-center mt-8">
+        <Button
+          onClick={() => exportToCSV('all')}
+          disabled={isLoading || 
+            (isLoadingCustomers || isLoadingSales || isLoadingLeads) || 
+            (isErrorCustomers && isErrorSales && isErrorLeads) ||
+            (!filteredCustomers.length && !filteredLeads.length && !filteredSales.length)}
+          className="w-full sm:w-auto"
+        >
+          {isLoading ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Exportando...
+            </>
+          ) : (
+            <>
+              <BarChart4 className="mr-2 h-4 w-4" />
+              Exportar Todos los Datos
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

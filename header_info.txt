@@ -1,0 +1,33 @@
+Note: Unnecessary use of -X or --request, GET is already inferred.
+* Host localhost:3000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:3000...
+* Immediate connect fail for ::1: Cannot assign requested address
+*   Trying 127.0.0.1:3000...
+* Connected to localhost (127.0.0.1) port 3000
+* using HTTP/1.x
+> GET /api/export/customers HTTP/1.1
+> Host: localhost:3000
+> User-Agent: curl/8.11.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/1.1 200 OK
+< X-Powered-By: Express
+< Content-Disposition: attachment; filename=clientes.xlsx
+< Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+< Content-Length: 36050
+< Cache-Control: no-cache, no-store, must-revalidate
+< Pragma: no-cache
+< Expires: 0
+< ETag: W/"8cd2-yfhl13aj4wcBOwPlTZsFYGUDoBI"
+< Date: Fri, 28 Feb 2025 18:18:04 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< 
+{ [36050 bytes data]
+100 36050  100 36050    0     0   183k      0 --:--:-- --:--:-- --:--:--  184k
+* Connection #0 to host localhost left intact
