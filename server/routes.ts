@@ -417,6 +417,73 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to fetch leads" });
     }
   });
+  
+  // Convert lead to customer with ID number (cédula/pasaporte/RUC)
+  app.put("/api/leads/:id/convert-with-id", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id);
+      const {
+        name, email, phone, status, source, notes, 
+        lastContact, nextFollowUp, brand, idNumber
+      } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "El nombre es requerido" });
+      }
+      
+      if (!idNumber?.trim()) {
+        return res.status(400).json({ error: "El número de identificación es requerido" });
+      }
+
+      const existingLead = await db.query.leads.findFirst({
+        where: eq(leads.id, leadId)
+      });
+
+      if (!existingLead) {
+        return res.status(404).json({ error: "Lead no encontrado" });
+      }
+
+      // First create the customer with ID number
+      const [customer] = await db.insert(customers)
+        .values({
+          name: name.trim(),
+          email: email?.trim() || null,
+          phone: phone?.trim() || null,
+          // Copy lead's address info to customer if available
+          street: existingLead.street || null,
+          city: existingLead.city || null,
+          province: existingLead.province || null,
+          deliveryInstructions: existingLead.deliveryInstructions || null,
+          // Add ID number from the conversion process
+          idNumber: idNumber?.trim() || null,
+          source: source || 'website',
+          brand: existingLead.brand || brand || 'sleepwear' // Include brand information
+        })
+        .returning();
+      
+      // Then update lead to mark as converted
+      await db.update(leads)
+        .set({
+          status: 'won',
+          customerLifecycleStage: 'customer',
+          convertedToCustomer: true,
+          convertedCustomerId: customer.id,
+          updatedAt: new Date()
+        })
+        .where(eq(leads.id, leadId));
+
+      console.log(`Converted lead ${existingLead.id} to customer ${customer.id} with ID number`);
+      
+      res.json({ 
+        lead: existingLead.id, 
+        customer: customer.id,
+        success: true
+      });
+    } catch (error: any) {
+      console.error('Error converting lead with ID number:', error);
+      res.status(500).json({ error: "Error al convertir lead: " + error.message });
+    }
+  });
 
   app.post("/api/leads", async (req, res) => {
     try {
@@ -558,7 +625,7 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/configuration/spreadsheet/preview", async (req, res) => {
     try {
       if (!req.files || Object.keys(req.files).length === 0 || !('file' in req.files)) {
-        return res.status(400).json({ error: "No file uploaded" });
+        return res.status(400).json({ error: "No se subió ningún archivo" });
       }
 
       // Handle the file properly based on express-fileupload
@@ -572,40 +639,48 @@ export function registerRoutes(app: Express): Server {
 
       // Get the file extension
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      console.log(`Processing ${fileExtension} file: ${file.name}, size: ${file.size} bytes`);
 
       let data: any[] = [];
 
       if (fileExtension === 'csv') {
         // Parse CSV file
         data = await parseCSV(file.data);
+        console.log(`Parsed ${data.length} records from CSV file`);
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
         // Parse Excel file
         data = parseExcel(file.data);
+        console.log(`Parsed ${data.length} records from Excel file`);
       } else {
-        return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
+        return res.status(400).json({ error: "Formato de archivo no soportado. Por favor use un archivo CSV o Excel." });
       }
 
       // Validate data based on import type
       const validationResult = validateImportData(data, importType);
       if (!validationResult.valid) {
+        console.error('Data validation failed:', validationResult.message);
         return res.status(400).json({ 
-          error: "Invalid data format", 
+          error: "Error al procesar el archivo", 
           message: validationResult.message 
         });
       }
 
       // Return preview data (limited to 100 records)
       res.json({ data: data.slice(0, 100) });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Spreadsheet preview error:', error);
-      res.status(500).json({ error: "Failed to process spreadsheet" });
+      res.status(500).json({ 
+        error: "Error al procesar el archivo", 
+        message: error.message || "Verifique el formato y estructura del archivo"
+      });
     }
   });
 
   app.post("/api/configuration/spreadsheet/import", async (req, res) => {
     try {
       if (!req.files || Object.keys(req.files).length === 0 || !('file' in req.files)) {
-        return res.status(400).json({ error: "No file uploaded" });
+        return res.status(400).json({ error: "No se subió ningún archivo" });
       }
 
       // Handle the file properly based on express-fileupload
@@ -627,20 +702,29 @@ export function registerRoutes(app: Express): Server {
           console.log(`Using client-mapped data (${data.length} items)`);
         } catch (error) {
           console.error("Error parsing mappedData JSON:", error);
-          return res.status(400).json({ error: "Invalid mapped data format" });
+          return res.status(400).json({ 
+            error: "Error al procesar datos mapeados", 
+            message: "El formato de los datos mapeados es inválido" 
+          });
         }
       } else {
         // Otherwise parse the file as usual
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        console.log(`Processing ${fileExtension} file for import: ${file.name}, size: ${file.size} bytes`);
         
         if (fileExtension === 'csv') {
           // Parse CSV file
           data = await parseCSV(file.data);
+          console.log(`Parsed ${data.length} records from CSV file for import`);
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
           // Parse Excel file
           data = parseExcel(file.data);
+          console.log(`Parsed ${data.length} records from Excel file for import`);
         } else {
-          return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
+          return res.status(400).json({ 
+            error: "Formato de archivo no soportado", 
+            message: "Por favor use un archivo CSV o Excel." 
+          });
         }
       }
       
@@ -939,72 +1023,235 @@ async function parseCSV(buffer: Buffer): Promise<any[]> {
 // Helper function to parse Excel data with enhanced options
 function parseExcel(buffer: Buffer): any[] {
   try {
+    console.log("Analizando archivo Excel...");
+    
     // Parse with more options for better compatibility
     const workbook = XLSX.read(buffer, { 
       type: 'buffer',
       cellDates: true,      // Parse dates as Date objects
       cellNF: false,        // Don't parse number formats
-      cellText: false       // Don't generate text versions of cells
+      cellText: false,      // Don't generate text versions of cells
+      cellStyles: false,    // Don't parse styles
+      codepage: 65001       // UTF-8
     });
+    
+    console.log("Hojas disponibles:", workbook.SheetNames);
     
     // Get the first sheet
     const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
+    if (!firstSheetName) {
+      console.error("No sheets found in Excel file");
+      throw new Error("No se encontraron hojas en el archivo Excel");
+    }
     
-    // Convert to JSON with options
-    const data = XLSX.utils.sheet_to_json(worksheet, {
-      header: 'A',        // Use first row as headers
-      range: 0,           // Start at the first row
+    const worksheet = workbook.Sheets[firstSheetName];
+    if (!worksheet) {
+      console.error("Worksheet is empty");
+      throw new Error("La hoja de cálculo está vacía");
+    }
+    
+    // Check if sheet is empty
+    if (worksheet['!ref'] === undefined) {
+      console.error("Worksheet has no data range");
+      return []; // Return empty array for empty sheet
+    }
+    
+    console.log("Excel sheet range:", worksheet['!ref']);
+    
+    // Try method 1: Sheet to array of arrays, then manual conversion to objects
+    const aoa = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,          // Use first row as headers
       raw: false,         // Don't return raw values
-      dateNF: 'YYYY-MM-DD', // Date format string
-      defval: null,       // Default value for empty cells
+      defval: '',         // Default value for empty cells
       blankrows: false    // Don't include blank rows
     });
     
-    // Clean and transform the data
-    const cleanedData = data.slice(1).map((row: any) => {
-      const cleanedRow: Record<string, any> = {};
+    console.log(`Método 1 - Filas obtenidas: ${aoa.length}`);
+    
+    if (aoa.length > 1) { // Need at least headers and one data row
+      // Log the first few rows for debugging
+      console.log("Headers:", aoa[0]);
+      console.log("First data row:", aoa[1]);
       
-      // Skip fully empty rows
-      if (Object.values(row).every(val => val === null || val === '')) {
-        return null;
+      // Convert array of arrays to array of objects using headers from first row
+      const headers = aoa[0] as Array<unknown>;
+      const headerStrings = headers.map(h => h !== null && h !== undefined ? String(h).trim() : '');
+      
+      // Check that we have valid headers
+      if (headerStrings.filter(Boolean).length === 0) {
+        console.error("No valid headers found in first row");
+        throw new Error("No se encontraron encabezados válidos en la primera fila");
       }
       
-      // Convert headers (first row values) to proper field names and set cleaned values
-      Object.keys(row).forEach(cell => {
-        // Get the header name from the first row using the column letter (cell) as key
-        const headerRow = data[0] as Record<string, any>;
-        const headerName = headerRow[cell];
+      const jsonData = aoa.slice(1).map((row: unknown[]) => {
+        const obj: Record<string, any> = {};
         
-        if (headerName && typeof headerName === 'string') {
-          const cleanHeader = headerName.trim();
-          let value = row[cell];
-          
-          // Clean string values
-          if (typeof value === 'string') {
-            value = value.trim();
-            if (value === '') value = null;
-          }
-          
-          cleanedRow[cleanHeader] = value;
+        // Skip rows that are completely empty
+        if (row.every(cell => cell === '' || cell === null || cell === undefined)) {
+          return null;
         }
+        
+        headerStrings.forEach((header: string, idx: number) => {
+          if (header && header !== '') {
+            let value = row[idx];
+            
+            // Clean string values
+            if (typeof value === 'string') {
+              value = value.trim();
+              if (value === '') value = null;
+            }
+            
+            obj[header] = value !== undefined ? value : null;
+          }
+        });
+        
+        return obj;
+      }).filter(Boolean); // Remove null entries
+      
+      console.log(`Procesados ${jsonData.length} registros válidos`);
+      
+      if (jsonData.length > 0) {
+        // Show sample of parsed data
+        console.log("Muestra de datos procesados:", jsonData[0]);
+        return jsonData;
+      }
+    }
+    
+    // If we got here, try method 2: direct sheet_to_json
+    console.log("Intentando método 2 de análisis...");
+    
+    try {
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        raw: false,
+        dateNF: 'YYYY-MM-DD',
+        defval: null,
+        blankrows: false
       });
       
-      return cleanedRow;
-    });
+      console.log(`Método 2 - Filas obtenidas: ${jsonData.length}`);
+      
+      if (jsonData.length > 0) {
+        console.log("Muestra de datos del método 2:", jsonData[0]);
+        
+        // Clean the data - convert empty strings to null, etc.
+        return jsonData.map((row: any) => {
+          const cleanedRow: Record<string, any> = {};
+          
+          Object.entries(row).forEach(([key, value]) => {
+            let cleanValue = value;
+            
+            // Clean string values
+            if (typeof cleanValue === 'string') {
+              cleanValue = cleanValue.trim();
+              if (cleanValue === '') cleanValue = null;
+            }
+            
+            cleanedRow[key.trim()] = cleanValue;
+          });
+          
+          return cleanedRow;
+        });
+      }
+    } catch (e) {
+      console.error("Método 2 falló:", e);
+    }
     
-    // Filter out null rows (completely empty)
-    return cleanedData.filter(Boolean) as any[];
+    // If we got here, try method 3: manually read cells
+    console.log("Intentando método 3 de análisis directo de celdas...");
+    
+    // Get all cell references
+    const keys = Object.keys(worksheet).filter(k => !k.startsWith('!'));
+    console.log(`Encontradas ${keys.length} celdas con datos`);
+    
+    if (keys.length > 0) {
+      // Find all column letters
+      const colLetters = Array.from(new Set(
+        keys.map(k => k.replace(/[0-9]/g, ''))
+      )).sort();
+      
+      // Find max row number
+      const maxRow = Math.max(...keys.map(k => {
+        const match = k.match(/[A-Z]+([0-9]+)/);
+        return match ? parseInt(match[1]) : 0;
+      }));
+      
+      console.log(`Columnas: ${colLetters.join(', ')}, Filas: ${maxRow}`);
+      
+      if (maxRow >= 2) { // Need at least headers and one data row
+        // Read headers from row 1
+        const headers: string[] = [];
+        
+        colLetters.forEach(col => {
+          const cellRef = `${col}1`;
+          if (worksheet[cellRef] && worksheet[cellRef].v) {
+            headers.push(String(worksheet[cellRef].v).trim());
+          }
+        });
+        
+        console.log(`Encabezados encontrados: ${headers.join(', ')}`);
+        
+        if (headers.length > 0) {
+          // Read data rows
+          const result = [];
+          
+          for (let row = 2; row <= maxRow; row++) {
+            const rowData: Record<string, any> = {};
+            let hasData = false;
+            
+            for (let i = 0; i < colLetters.length; i++) {
+              const col = colLetters[i];
+              const header = headers[i];
+              
+              if (header) {
+                const cellRef = `${col}${row}`;
+                
+                if (worksheet[cellRef]) {
+                  let value = worksheet[cellRef].v;
+                  
+                  // Clean string values
+                  if (typeof value === 'string') {
+                    value = value.trim();
+                    if (value === '') value = null;
+                  }
+                  
+                  rowData[header] = value;
+                  
+                  if (value !== null && value !== undefined && value !== '') {
+                    hasData = true;
+                  }
+                }
+              }
+            }
+            
+            if (hasData) {
+              result.push(rowData);
+            }
+          }
+          
+          console.log(`Método 3 - Filas obtenidas: ${result.length}`);
+          
+          if (result.length > 0) {
+            console.log("Muestra de datos del método 3:", result[0]);
+            return result;
+          }
+        }
+      }
+    }
+    
+    // If all methods failed
+    console.error("Todos los métodos de análisis fallaron");
+    throw new Error("No se pudieron extraer datos del archivo Excel. Verifique que el archivo contiene datos y que la primera fila tiene los nombres de columnas correctos.");
+    
   } catch (error) {
     console.error("Error parsing Excel:", error);
-    throw new Error("Error al procesar archivo Excel. Verifique el formato y estructura del archivo.");
+    throw new Error("Error al procesar archivo Excel. Verifique el formato y estructura del archivo: " + (error instanceof Error ? error.message : String(error)));
   }
 }
 
 // Helper function to validate import data
 function validateImportData(data: any[], type: string): { valid: boolean, message?: string } {
   if (!data || data.length === 0) {
-    return { valid: false, message: "No se encontraron datos en el archivo" };
+    return { valid: false, message: "No se encontraron datos en el archivo. Verifique que la hoja tiene datos y que la primera fila tiene encabezados." };
   }
 
   // Enhanced validation based on import type

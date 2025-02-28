@@ -272,7 +272,7 @@ export function CustomerForm({
             name="idNumber"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Número de Cédula / Pasaporte</FormLabel>
+                <FormLabel>Número de Cédula, Pasaporte o RUC</FormLabel>
                 <FormControl>
                   <Input {...field} readOnly={isViewMode} />
                 </FormControl>

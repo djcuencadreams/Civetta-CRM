@@ -1,0 +1,4 @@
+customerId,amount,status,date,notes,brand,product
+1,150.00,completed,2025-01-15,Pago con tarjeta de crédito,sleepwear,Pijama seda
+1,85.50,completed,2025-01-20,Descuento aplicado 10%,bride,Bata novia
+2,220.00,pending,2025-02-01,Pago pendiente,sleepwear,Set completo

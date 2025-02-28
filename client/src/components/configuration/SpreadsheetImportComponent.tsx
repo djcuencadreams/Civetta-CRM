@@ -16,12 +16,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from 'xlsx';
+import { generateExcelTemplate } from './TemplateUtils';
 
 // Define imported data types with the updated fields
 type ImportedCustomerData = {
   firstName: string;
   lastName: string;
-  idNumber?: string; // Cédula/Pasaporte for invoicing and shipping
+  idNumber?: string; // Cédula/Pasaporte/RUC for invoicing and shipping
   email?: string;
   phoneCountry?: string;
   phoneNumber?: string;
@@ -470,23 +471,43 @@ export function SpreadsheetImportComponent() {
     importDataMutation.mutate();
   };
 
-  // Download sample template - Implementing actual file download with browser-friendly approach
+  // Download sample template - Using the new template generator utility
   const handleDownloadSample = () => {
     try {
-      // Create sample data based on import type
-      let sampleData: any[] = [];
-      let filename = "";
-
-      switch (importType) {
-        case "customers":
-          filename = "plantilla_clientes_ejemplo.xlsx";
-          sampleData = [
-            {
-              Nombres: "Juan",
-              Apellidos: "Pérez",
-              "Cédula/Pasaporte": "1701234567",
-              Email: "juanperez@example.com",
-              "País Teléfono": "+593",
+      // Use the utility function for template generation
+      const success = generateExcelTemplate(importType);
+      
+      if (!success) {
+        toast({
+          title: "Error", 
+          description: "No se pudo generar la plantilla. Intente de nuevo.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error al generar plantilla:", error);
+      toast({
+        title: "Error", 
+        description: "Ocurrió un error al generar la plantilla.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Legacy sample data for reference
+  /* 
+  const createSampleData = () => {
+    let sampleData: any[] = [];
+    
+    switch (importType) {
+      case "customers":
+        sampleData = [
+          {
+            firstName: "Juan",
+            lastName: "Pérez",
+            idNumber: "1701234567",
+            email: "juanperez@example.com",
+            phoneCountry: "+593",
               "Número Teléfono": "987654321",
               Calle: "Calle Principal 123",
               Ciudad: "Quito",
@@ -736,7 +757,7 @@ export function SpreadsheetImportComponent() {
         return [
           { name: "firstName", required: true, description: "Nombre del cliente" },
           { name: "lastName", required: true, description: "Apellidos del cliente" },
-          { name: "idNumber", required: false, description: "Cédula o Pasaporte" },
+          { name: "idNumber", required: false, description: "Número de Cédula, Pasaporte o RUC" },
           { name: "email", required: false, description: "Correo electrónico" },
           { name: "phoneCountry", required: false, description: "Código de país (ej. +593)" },
           { name: "phoneNumber", required: false, description: "Número de teléfono sin código de país" },
@@ -1021,7 +1042,8 @@ export function SpreadsheetImportComponent() {
                 )}
               </div>
             )}
-
+            
+            {/* Success message */}
             {importSuccess && (
               <Alert className="bg-green-50 border-green-200">
                 <CheckCircle className="h-4 w-4 text-green-600" />

@@ -4,6 +4,7 @@ const translations = {
     customers: "Clientes",
     sales: "Ventas",
     integrations: "Integraciones",
+    configuration: "Configuración",
     save: "Guardar",
     cancel: "Cancelar",
     edit: "Editar",

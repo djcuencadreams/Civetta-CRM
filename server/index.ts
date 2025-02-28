@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { registerAdditionalRoutes } from "./routes-extension";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 
@@ -49,6 +50,7 @@ app.use((req, res, next) => {
   }
 
   const server = registerRoutes(app);
+  registerAdditionalRoutes(app);
 
   // Enhanced error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

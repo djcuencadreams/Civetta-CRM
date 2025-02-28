@@ -1,0 +1,3 @@
+firstName,lastName,idNumber,email,phoneCountry,phoneNumber,street,city,province,deliveryInstructions,source,brand,notes
+Juan,Pérez,1722334455,juan@ejemplo.com,+593,987654321,Av. Principal 123,Quito,Pichincha,Dejar en recepción,website,sleepwear,Cliente frecuente
+María,López,1799887766,maria@ejemplo.com,+593,998765432,Calle Secundaria 456,Guayaquil,Guayas,Llamar antes de entregar,referral,bride,Primera compra

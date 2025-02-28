@@ -52,162 +52,149 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       status: lead?.status || 'new',
       source: lead?.source || 'website',
       notes: lead?.notes || '',
+      lastContact: lead?.lastContact ? new Date(lead?.lastContact) : undefined,
+      nextFollowUp: lead?.nextFollowUp ? new Date(lead?.nextFollowUp) : undefined,
       brand: lead?.brand || brandEnum.SLEEPWEAR,
-      lastContact: lead?.lastContact ? new Date(lead.lastContact) : null,
-      nextFollowUp: lead?.nextFollowUp ? new Date(lead.nextFollowUp) : null,
     }
   });
 
+  // Mutation for creating/updating leads
   const mutation = useMutation({
-    mutationFn: async (values: any) => {
-      if (!values.firstName?.trim()) {
-        throw new Error("El nombre es requerido");
-      }
+    mutationFn: async (data: Record<string, any>) => {
+      const fullName = `${data.firstName} ${data.lastName}`.trim();
+      
+      // Handle brand-specific lead tracking
+      const brandValue = data.brand || brandEnum.SLEEPWEAR;
 
-      const formattedValues = {
-        name: `${values.firstName.trim()} ${values.lastName.trim()}`.trim(),
-        email: values.email?.trim() || null,
-        phone: values.phone?.trim() || null,
-        status: values.status,
-        source: values.source,
-        brand: values.brand,
-        notes: values.notes?.trim() || null,
-        lastContact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
-        nextFollowUp: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null
+      const payload = {
+        name: fullName,
+        email: data.email,
+        phone: data.phone,
+        status: data.status,
+        source: data.source,
+        notes: data.notes,
+        lastContact: data.lastContact,
+        nextFollowUp: data.nextFollowUp,
+        brand: brandValue
       };
 
-      const res = await apiRequest(
-        lead ? "PUT" : "POST",
-        `/api/leads${lead ? `/${lead.id}` : ''}`,
-        formattedValues
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
+      // Detect if status is 'won' (about to be converted to customer)
+      if (data.status === 'won' && (!lead || lead.status !== 'won')) {
+        // Show the prompt for ID number instead of proceeding with conversion
+        setShowIdNumberPrompt(true);
+        return null; // Don't complete the mutation yet
       }
 
-      return res.json();
-    },
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-
-      // If the lead status is 'won', also invalidate the customers query
-      // to ensure the newly created customer appears in customer lists
-      if (form.getValues().status === 'won') {
-        await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-        toast({ 
-          title: "Lead convertido a cliente",
-          description: "El lead ha sido convertido exitosamente a cliente"
-        });
+      if (lead) {
+        return apiRequest(`/api/leads/${lead.id}`, 'PUT', payload);
       } else {
-        toast({ title: "Lead guardado exitosamente" });
+        return apiRequest('/api/leads', 'POST', payload);
       }
-
-      onClose();
     },
     onError: (error: Error) => {
-      console.error('Lead update error:', error);
       toast({
-        title: "Error al guardar lead",
-        description: error.message,
-        variant: "destructive"
+        title: "Error",
+        description: `Failed to ${lead ? "update" : "create"} lead: ${error.message}`,
+        variant: "destructive",
       });
-    }
+    },
+    onSuccess: (data) => {
+      if (!data) return; // If we showed the ID prompt, there's no data yet
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: lead ? "Lead Actualizado" : "Lead Creado",
+        description: `El lead fue ${lead ? "actualizado" : "creado"} exitosamente.`,
+      });
+      onClose();
+    },
   });
 
-  // Add a new mutation for deleting leads
+  // Mutation for deleting leads
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (!lead) return;
-
-      const res = await apiRequest(
-        "DELETE",
-        `/api/leads/${lead.id}`,
-        undefined
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
-      }
-
-      return true;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      toast({ title: "Lead eliminado exitosamente" });
-      onClose();
+      if (!lead) return null;
+      return apiRequest(`/api/leads/${lead.id}`, 'DELETE');
     },
     onError: (error: Error) => {
-      console.error('Lead deletion error:', error);
       toast({
-        title: "Error al eliminar lead",
-        description: error.message,
-        variant: "destructive"
+        title: "Error",
+        description: `Failed to delete lead: ${error.message}`,
+        variant: "destructive",
       });
-    }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: "Lead Eliminado",
+        description: "El lead fue eliminado exitosamente.",
+      });
+      onClose();
+    },
   });
 
+  // Mutation for converting lead to customer with ID number
+  const convertWithIdNumberMutation = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      if (!lead) return null;
+      
+      const fullName = `${data.firstName} ${data.lastName}`.trim();
+      
+      // Include the ID number in the payload
+      const payload = {
+        name: fullName,
+        email: data.email,
+        phone: data.phone,
+        status: 'won', // Set explicitly to won
+        source: data.source,
+        notes: data.notes,
+        lastContact: data.lastContact,
+        nextFollowUp: data.nextFollowUp,
+        brand: data.brand || brandEnum.SLEEPWEAR,
+        idNumber: idNumber.trim() // Add the ID number from the dialog
+      };
+
+      return apiRequest(`/api/leads/${lead.id}/convert-with-id`, 'PUT', payload);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to convert lead to customer: ${error.message}`,
+        variant: "destructive",
+      });
+      setShowIdNumberPrompt(false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      toast({
+        title: "Lead Convertido",
+        description: "El lead fue convertido a cliente exitosamente.",
+      });
+      setShowIdNumberPrompt(false);
+      onClose();
+    },
+  });
+
+  const handleFormSubmit = (data: Record<string, any>) => {
+    mutation.mutate(data);
+  };
+
   const handleDelete = () => {
+    setShowDeleteDialog(false);
     deleteMutation.mutate();
   };
 
-  // New conversion mutation with ID number
-  const convertWithIdNumberMutation = useMutation({
-    mutationFn: async (values: any) => {
-      if (!lead) return;
-      
-      const formattedValues = {
-        ...values,
-        idNumber: idNumber.trim() || null,
-      };
-
-      const res = await apiRequest(
-        "PUT",
-        `/api/leads/${lead.id}/convert-with-id`,
-        formattedValues
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
-      }
-
-      return res.json();
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      toast({ 
-        title: "Lead convertido a cliente",
-        description: "El lead ha sido convertido a cliente con número de cédula/pasaporte"
-      });
-      onClose();
-    },
-    onError: (error: Error) => {
-      console.error('Lead conversion error:', error);
-      toast({
-        title: "Error al convertir lead",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Check if we're converting a lead to a customer
-  const handleFormSubmit = (data: any) => {
-    if (data.status === 'won' && !lead?.convertedToCustomer) {
-      // Show the ID number prompt
-      setShowIdNumberPrompt(true);
-    } else {
-      // Regular form submit
-      mutation.mutate(data);
-    }
-  };
-
-  // Handle ID number submission and lead conversion
   const handleIdNumberSubmit = () => {
+    if (!idNumber.trim()) {
+      toast({
+        title: "Error",
+        description: "El número de identificación es requerido para convertir el lead a cliente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const data = form.getValues();
     convertWithIdNumberMutation.mutate(data);
   };
@@ -218,14 +205,14 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       <Dialog open={showIdNumberPrompt} onOpenChange={setShowIdNumberPrompt}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ingrese el número de cédula/pasaporte</DialogTitle>
+            <DialogTitle>Ingrese el número de cédula, pasaporte o RUC</DialogTitle>
             <DialogDescription>
-              Para convertir un lead a cliente, por favor ingrese el número de cédula o pasaporte. 
+              Para convertir un lead a cliente, por favor ingrese el número de identificación. 
               Este dato es importante para facturación, despacho y procesamiento de pagos.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="idNumber">Número de Cédula/Pasaporte</Label>
+            <Label htmlFor="idNumber">Número de Cédula, Pasaporte o RUC</Label>
             <Input
               id="idNumber"
               value={idNumber}
@@ -514,5 +501,6 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
         </div>
       </form>
     </Form>
+    </>
   );
 }

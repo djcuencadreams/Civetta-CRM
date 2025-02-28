@@ -26,6 +26,11 @@ const navigation = [
     icon: DollarSign
   },
   {
+    href: "/reports",
+    label: "Informes",
+    icon: BarChart2
+  },
+  {
     href: "/configuration",
     label: "Configuración",
     icon: Settings

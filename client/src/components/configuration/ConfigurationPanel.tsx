@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SpreadsheetImportComponent } from "./SpreadsheetImportComponent";
+import { SimpleSpreadsheetImporter } from "./SimpleSpreadsheetImporter";
 import { WordPressIntegration } from "../integrations/WordPressIntegration";
 import { t } from "@/lib/i18n";
 
@@ -167,7 +167,7 @@ export function ConfigurationPanel() {
 
         <TabsContent value="import" className="space-y-6">
           {/* Include SpreadsheetImport component */}
-          <SpreadsheetImportComponent />
+          <SimpleSpreadsheetImporter />
 
           {/* WordPress integration import section */}
           <Card>

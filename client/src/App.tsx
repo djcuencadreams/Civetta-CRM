@@ -8,6 +8,7 @@ import Dashboard from './pages/dashboard'
 import Customers from './pages/customers'
 import Leads from './pages/leads'
 import Sales from './pages/sales'
+import Reports from './pages/reports'
 import Configuration from './pages/configuration'
 import NotFound from './pages/not-found'
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/customers" component={Customers} />
         <Route path="/leads" component={Leads} />
         <Route path="/sales" component={Sales} />
+        <Route path="/reports" component={Reports} />
         <Route path="/configuration" component={Configuration} />
         <Route component={NotFound} />
       </Switch>
