@@ -74,10 +74,10 @@ export function SalesForm({
   const form = useForm({
     defaultValues: {
       customerId: "",
-      products: [{ name: "", category: "", amount: "", quantity: "1" }],
+      products: [{ name: "", category: "", amount: "", quantity: "1", brand: brandEnum.SLEEPWEAR }],
       paymentMethod: "efectivo",
-      notes: "",
-      brand: brandEnum.SLEEPWEAR
+      notes: ""
+      // Brand is now stored at product level
     },
     resolver: zodResolver(insertSaleSchema)
   });
@@ -87,14 +87,15 @@ export function SalesForm({
     name: "products"
   });
 
-  // Update brand when customer changes
+  // Update default brand for new products when customer changes
   useEffect(() => {
     const customerId = form.watch("customerId");
     if (customerId && customers) {
       const customer = customers.find(c => c.id === parseInt(customerId));
       if (customer && customer.brand) {
-        form.setValue("brand", customer.brand as "sleepwear" | "bride");
-        setSelectedBrand(customer.brand);
+        // Set the brand for future product additions
+        const customerBrand = customer.brand as typeof brandEnum.SLEEPWEAR;
+        setSelectedBrand(customerBrand);
       }
     }
   }, [form.watch("customerId"), customers, form]);
@@ -129,14 +130,30 @@ export function SalesForm({
         }, 0
       );
 
+      // Calculate brand distribution for analytics
+      const brandCounts = values.products.reduce((acc: Record<string, number>, p: any) => {
+        const brand = p.brand || brandEnum.SLEEPWEAR;
+        acc[brand] = (acc[brand] || 0) + (Number(p.amount) * Number(p.quantity));
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Set the dominant brand (the one with highest total value)
+      const dominantBrand = Object.entries(brandCounts).reduce(
+        (max: {brand: string, amount: number}, [brand, amount]) => {
+          const numAmount = typeof amount === 'number' ? amount : 0;
+          return numAmount > max.amount ? { brand, amount: numAmount } : max;
+        }, 
+        { brand: brandEnum.SLEEPWEAR, amount: 0 }
+      ).brand;
+      
       const saleData = {
         customerId,
         amount: totalAmount,
         status: "completed",
         paymentMethod: values.paymentMethod,
-        brand: values.brand,
+        brand: dominantBrand, // The sale is recorded with the dominant brand
         notes: values.products.map((p: any) => 
-          `${p.name} (${p.category}) - $${p.amount} x ${p.quantity}`
+          `${p.name} (${p.category}) - $${p.amount} x ${p.quantity} - ${getBrandDisplayName(p.brand)}`
         ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
       };
 
@@ -229,20 +246,10 @@ export function SalesForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="brand"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Marca</FormLabel>
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-sm font-medium">{getBrandDisplayName(field.value)}</p>
-                  <p className="text-xs text-muted-foreground">La marca se determina automáticamente según el cliente seleccionado</p>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="p-3 bg-muted rounded-md">
+            <h3 className="text-sm font-medium">Preferencia de marca del cliente: {getBrandDisplayName(selectedBrand)}</h3>
+            <p className="text-xs text-muted-foreground">Los productos se añadirán con esta marca por defecto, pero puedes cambiarla en cada producto</p>
+          </div>
 
           {fields.map((field, index) => (
             <div key={field.id} className="space-y-4 p-4 border rounded-lg">
@@ -272,30 +279,62 @@ export function SalesForm({
 
                 <FormField
                   control={form.control}
-                  name={`products.${index}.category`}
+                  name={`products.${index}.brand`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Categoría</FormLabel>
+                      <FormLabel>Marca</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar categoría" />
+                            <SelectValue placeholder="Seleccionar marca" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {productCategories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value={brandEnum.SLEEPWEAR}>Civetta Sleepwear</SelectItem>
+                          <SelectItem value={brandEnum.BRIDE}>Civetta Bride</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name={`products.${index}.category`}
+                  render={({ field }) => {
+                    // Get product categories based on this product's brand
+                    const productBrand = form.watch(`products.${index}.brand`) || brandEnum.SLEEPWEAR;
+                    const categories = productCategoriesByBrand[productBrand as keyof typeof productCategoriesByBrand] || 
+                                      productCategoriesByBrand[brandEnum.SLEEPWEAR];
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>Categoría</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar categoría" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
@@ -360,7 +399,7 @@ export function SalesForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => append({ name: "", category: "", amount: "", quantity: "1" })}
+            onClick={() => append({ name: "", category: "", amount: "", quantity: "1", brand: selectedBrand })}
           >
             Agregar Producto
           </Button>

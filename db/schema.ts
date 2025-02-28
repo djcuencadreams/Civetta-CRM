@@ -24,9 +24,11 @@ export const customers = pgTable("customers", {
   name: text("name").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  idNumber: text("id_number"), // Cédula/Pasaporte for invoicing and shipping
   email: text("email"),
   phone: text("phone"),
   phoneCountry: text("phone_country"),
+  phoneNumber: text("phone_number"), // Store the phone number without country code
   street: text("street"),
   city: text("city"),
   province: text("province"),
@@ -42,9 +44,12 @@ export const customers = pgTable("customers", {
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   email: text("email"),
   phone: text("phone"),
   phoneCountry: text("phone_country"),
+  phoneNumber: text("phone_number"), // Adding phoneNumber to match customers schema
   street: text("street"),
   city: text("city"),
   province: text("province"),
@@ -121,9 +126,12 @@ export const salesRelations = relations(sales, ({ one }) => ({
 // Schemas for validation
 export const insertLeadSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
+  firstName: z.string().optional().nullable(),
+  lastName: z.string().optional().nullable(),
   email: z.string().email("Email inválido").optional().nullable(),
   phone: z.string().optional().nullable(),
   phoneCountry: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
   street: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   province: z.string().optional().nullable(),

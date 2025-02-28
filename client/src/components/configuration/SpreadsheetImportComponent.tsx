@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   FileSpreadsheet, Download, Loader2, CheckCircle, 
-  Info, HelpCircle, ArrowLeft, ArrowRight 
+  Info, HelpCircle, ArrowLeft, ArrowRight, Wand2
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +21,7 @@ import * as XLSX from 'xlsx';
 type ImportedCustomerData = {
   firstName: string;
   lastName: string;
+  idNumber?: string; // Cédula/Pasaporte for invoicing and shipping
   email?: string;
   phoneCountry?: string;
   phoneNumber?: string;
@@ -30,6 +31,7 @@ type ImportedCustomerData = {
   deliveryInstructions?: string;
   source?: string;
   brand?: string;
+  notes?: string;
 };
 
 type ImportedLeadData = {
@@ -42,6 +44,73 @@ type ImportedLeadData = {
   source?: string;
   notes?: string;
   brand?: string;
+  street?: string;
+  city?: string;
+  province?: string;
+  deliveryInstructions?: string;
+};
+
+// Default field mappings for various import types
+const defaultCustomerFieldMappings = [
+  { sourceField: "Nombres", targetField: "firstName" },
+  { sourceField: "Apellidos", targetField: "lastName" },
+  { sourceField: "Email", targetField: "email" },
+  { sourceField: "País Teléfono", targetField: "phoneCountry" },
+  { sourceField: "Número Teléfono", targetField: "phoneNumber" },
+  { sourceField: "Calle", targetField: "street" },
+  { sourceField: "Ciudad", targetField: "city" },
+  { sourceField: "Provincia", targetField: "province" },
+  { sourceField: "Instrucciones de Entrega", targetField: "deliveryInstructions" },
+  { sourceField: "Fuente", targetField: "source" },
+  { sourceField: "Marca", targetField: "brand" },
+  { sourceField: "Notas", targetField: "notes" }
+];
+
+const defaultLeadFieldMappings = [
+  { sourceField: "Nombres", targetField: "firstName" },
+  { sourceField: "Apellidos", targetField: "lastName" },
+  { sourceField: "Email", targetField: "email" },
+  { sourceField: "País Teléfono", targetField: "phoneCountry" },
+  { sourceField: "Número Teléfono", targetField: "phoneNumber" },
+  { sourceField: "Estado", targetField: "status" },
+  { sourceField: "Fuente", targetField: "source" },
+  { sourceField: "Notas", targetField: "notes" },
+  { sourceField: "Marca", targetField: "brand" },
+  { sourceField: "Calle", targetField: "street" },
+  { sourceField: "Ciudad", targetField: "city" },
+  { sourceField: "Provincia", targetField: "province" },
+  { sourceField: "Instrucciones de Entrega", targetField: "deliveryInstructions" }
+];
+
+const defaultSaleFieldMappings = [
+  { sourceField: "ClienteID", targetField: "customerId" },
+  { sourceField: "Monto", targetField: "amount" },
+  { sourceField: "Estado", targetField: "status" },
+  { sourceField: "Fecha", targetField: "date" },
+  { sourceField: "Notas", targetField: "notes" },
+  { sourceField: "Marca", targetField: "brand" },
+  { sourceField: "Producto", targetField: "product" }
+];
+
+// Alternative field names that might appear in imported files
+const alternativeFieldNames: Record<string, string[]> = {
+  firstName: ["Nombre", "First Name", "First", "Name", "NombreCliente"],
+  lastName: ["Apellido", "Last Name", "Last", "Surname", "ApellidoCliente"],
+  idNumber: ["Cédula", "Cedula", "Pasaporte", "Cédula/Pasaporte", "ID", "Identificación", "Identificacion", "NúmeroID", "NumeroID", "RUC"],
+  email: ["Correo", "Email", "E-mail", "EmailCliente", "CorreoElectrónico"],
+  phoneCountry: ["+Pais", "CountryCode", "Código de País", "CódigoPaís"],
+  phoneNumber: ["Telefono", "Phone", "Celular", "Mobile", "TelefonoCliente", "NumTelefono"],
+  street: ["Dirección", "Address", "Calle", "Domicilio", "DireccionCalle"],
+  city: ["Ciudad", "City", "Town", "Localidad", "Pueblo"],
+  province: ["Provincia", "State", "Region", "Región", "Estado", "Departamento"],
+  deliveryInstructions: ["Instrucciones", "Delivery Notes", "NotasEntrega", "Entrega"],
+  source: ["Fuente", "Source", "Origin", "Canal", "Origen"],
+  brand: ["Marca", "Brand", "Línea", "Line", "TipoProducto", "Tipo"],
+  notes: ["Notas", "Notes", "Comments", "Comentarios", "Observaciones"],
+  status: ["Estado", "Status", "Estatus", "Etapa", "Stage"],
+  customerId: ["IDCliente", "ClientID", "Customer", "CustomerID", "ID_Cliente"],
+  amount: ["Cantidad", "Amount", "Total", "Valor", "Precio", "Price"],
+  date: ["Fecha", "Date", "FechaVenta", "SaleDate", "Día"]
 };
 
 type ImportedSaleData = {
@@ -80,6 +149,93 @@ export function SpreadsheetImportComponent() {
     }
   };
 
+  // Define default field mappings for import types
+  const getDefaultFieldMappings = (type: string) => {
+    switch (type) {
+      case "customers":
+        return [
+          { sourceField: "Nombres", targetField: "firstName" },
+          { sourceField: "Apellidos", targetField: "lastName" },
+          { sourceField: "Email", targetField: "email" },
+          { sourceField: "País Teléfono", targetField: "phoneCountry" },
+          { sourceField: "Número Teléfono", targetField: "phoneNumber" },
+          { sourceField: "Calle", targetField: "street" },
+          { sourceField: "Ciudad", targetField: "city" },
+          { sourceField: "Provincia", targetField: "province" },
+          { sourceField: "Instrucciones de Entrega", targetField: "deliveryInstructions" },
+          { sourceField: "Fuente", targetField: "source" },
+          { sourceField: "Marca", targetField: "brand" },
+          { sourceField: "Notas", targetField: "notes" }
+        ];
+      case "leads":
+        return [
+          { sourceField: "Nombres", targetField: "firstName" },
+          { sourceField: "Apellidos", targetField: "lastName" },
+          { sourceField: "Email", targetField: "email" },
+          { sourceField: "País Teléfono", targetField: "phoneCountry" },
+          { sourceField: "Número Teléfono", targetField: "phoneNumber" },
+          { sourceField: "Estado", targetField: "status" },
+          { sourceField: "Fuente", targetField: "source" },
+          { sourceField: "Notas", targetField: "notes" },
+          { sourceField: "Marca", targetField: "brand" },
+          { sourceField: "Calle", targetField: "street" },
+          { sourceField: "Ciudad", targetField: "city" },
+          { sourceField: "Provincia", targetField: "province" },
+          { sourceField: "Instrucciones de Entrega", targetField: "deliveryInstructions" }
+        ];
+      case "sales":
+        return [
+          { sourceField: "ClienteID", targetField: "customerId" },
+          { sourceField: "Monto", targetField: "amount" },
+          { sourceField: "Estado", targetField: "status" },
+          { sourceField: "Fecha", targetField: "date" },
+          { sourceField: "Notas", targetField: "notes" },
+          { sourceField: "Marca", targetField: "brand" },
+          { sourceField: "Producto", targetField: "product" }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Define alternative field names that might appear in imported files
+  const getAlternativeFieldNames = () => {
+    return {
+      firstName: ["Nombre", "First Name", "First", "Name", "NombreCliente"],
+      lastName: ["Apellido", "Last Name", "Last", "Surname", "ApellidoCliente"],
+      email: ["Correo", "Email", "E-mail", "EmailCliente", "CorreoElectrónico"],
+      phoneCountry: ["+Pais", "CountryCode", "Código de País", "CódigoPaís"],
+      phoneNumber: ["Telefono", "Phone", "Celular", "Mobile", "TelefonoCliente", "NumTelefono"],
+      street: ["Dirección", "Address", "Calle", "Domicilio", "DireccionCalle"],
+      city: ["Ciudad", "City", "Town", "Localidad", "Pueblo"],
+      province: ["Provincia", "State", "Region", "Región", "Estado", "Departamento"],
+      deliveryInstructions: ["Instrucciones", "Delivery Notes", "NotasEntrega", "Entrega"],
+      source: ["Fuente", "Source", "Origin", "Canal", "Origen"],
+      brand: ["Marca", "Brand", "Línea", "Line", "TipoProducto", "Tipo"],
+      notes: ["Notas", "Notes", "Comments", "Comentarios", "Observaciones"],
+      status: ["Estado", "Status", "Estatus", "Etapa", "Stage"],
+      customerId: ["IDCliente", "ClientID", "Customer", "CustomerID", "ID_Cliente"],
+      amount: ["Cantidad", "Amount", "Total", "Valor", "Precio", "Price"],
+      date: ["Fecha", "Date", "FechaVenta", "SaleDate", "Día"]
+    };
+  };
+
+  // Function to find a matching field based on alternative names
+  const findMatchingTargetField = (headerName: string) => {
+    const alternativeNames = getAlternativeFieldNames();
+    const normalizedHeader = headerName.toLowerCase().trim();
+    
+    // Check each target field for a match with its alternative names
+    for (const [targetField, alternatives] of Object.entries(alternativeNames)) {
+      const lowerCaseAlternatives = alternatives.map(alt => alt.toLowerCase().trim());
+      if (lowerCaseAlternatives.includes(normalizedHeader)) {
+        return targetField;
+      }
+    }
+    
+    return '';
+  };
+
   // Effect to handle field mapping when preview data changes
   useEffect(() => {
     if (previewData.length > 0) {
@@ -92,11 +248,26 @@ export function SpreadsheetImportComponent() {
       const initialMappings: FieldMapping[] = [];
       
       headers.forEach(header => {
-        // Try to find matching target field (case insensitive)
-        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const matchingField = targetFields.find(field => 
-          field.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedHeader
+        // Try to find matching target field using different strategies
+        
+        // 1. Direct match (case insensitive)
+        const normalizedHeader = header.toLowerCase().trim();
+        let matchingField = targetFields.find(field => 
+          field.toLowerCase() === normalizedHeader
         );
+        
+        // 2. If no direct match, try alternative names
+        if (!matchingField) {
+          matchingField = findMatchingTargetField(header);
+        }
+        
+        // 3. As a last resort, try fuzzy matching by removing special chars
+        if (!matchingField) {
+          const simplifiedHeader = normalizedHeader.replace(/[^a-z0-9]/g, '');
+          matchingField = targetFields.find(field => 
+            field.toLowerCase().replace(/[^a-z0-9]/g, '') === simplifiedHeader
+          );
+        }
         
         initialMappings.push({
           sourceField: header,
@@ -195,6 +366,76 @@ export function SpreadsheetImportComponent() {
     }
   });
 
+  // Auto-map fields based on the import type and header names
+  const autoMapFields = () => {
+    if (fileHeaders.length === 0) return;
+    
+    // Get the default mappings for the current import type
+    const defaultMappings = getDefaultFieldMappings(importType);
+    const alternativeNames = getAlternativeFieldNames();
+    
+    // Create a new array of mappings
+    const newMappings: FieldMapping[] = [];
+    
+    fileHeaders.forEach(header => {
+      // Try exact match with default mappings first
+      const exactMatch = defaultMappings.find(mapping => 
+        mapping.sourceField.toLowerCase() === header.toLowerCase()
+      );
+      
+      if (exactMatch) {
+        newMappings.push({ sourceField: header, targetField: exactMatch.targetField });
+        return;
+      }
+      
+      // Try to match using alternative field names
+      const normalizedHeader = header.toLowerCase().trim();
+      
+      // Find if any target field has this header as an alternative name
+      let matchFound = false;
+      for (const [targetField, alternatives] of Object.entries(alternativeNames)) {
+        if (alternatives.some(alt => alt.toLowerCase() === normalizedHeader)) {
+          newMappings.push({ sourceField: header, targetField });
+          matchFound = true;
+          break;
+        }
+      }
+      
+      // If no match was found, try fuzzy matching
+      if (!matchFound) {
+        // Remove special characters and compare
+        const simplifiedHeader = normalizedHeader.replace(/[^a-z0-9]/g, '');
+        
+        for (const [targetField, alternatives] of Object.entries(alternativeNames)) {
+          // Try to find a fuzzy match in alternative names
+          const fuzzyMatch = alternatives.some(alt => 
+            alt.toLowerCase().replace(/[^a-z0-9]/g, '') === simplifiedHeader
+          );
+          
+          if (fuzzyMatch) {
+            newMappings.push({ sourceField: header, targetField });
+            matchFound = true;
+            break;
+          }
+        }
+        
+        // If still no match, leave it unmapped
+        if (!matchFound) {
+          newMappings.push({ sourceField: header, targetField: '' });
+        }
+      }
+    });
+    
+    // Update the field mappings state
+    setFieldMappings(newMappings);
+    
+    // Show a success message
+    toast({
+      title: "Campos mapeados automáticamente",
+      description: "Los campos han sido mapeados según nuestras recomendaciones. Revise y ajuste si es necesario."
+    });
+  };
+
   // Handle import type change
   const handleImportTypeChange = (value: string) => {
     setImportType(value);
@@ -241,30 +482,34 @@ export function SpreadsheetImportComponent() {
           filename = "plantilla_clientes_ejemplo.xlsx";
           sampleData = [
             {
-              firstName: "Juan",
-              lastName: "Pérez",
-              email: "juanperez@example.com",
-              phoneCountry: "+593",
-              phoneNumber: "987654321",
-              street: "Calle Principal 123",
-              city: "Quito",
-              province: "Pichincha",
-              deliveryInstructions: "Casa blanca con puerta azul",
-              source: "Website",
-              brand: "sleepwear,bride" // Example of a client who buys both brands
+              Nombres: "Juan",
+              Apellidos: "Pérez",
+              "Cédula/Pasaporte": "1701234567",
+              Email: "juanperez@example.com",
+              "País Teléfono": "+593",
+              "Número Teléfono": "987654321",
+              Calle: "Calle Principal 123",
+              Ciudad: "Quito",
+              Provincia: "Pichincha",
+              "Instrucciones de Entrega": "Casa blanca con puerta azul",
+              Fuente: "Website",
+              Marca: "sleepwear,bride", // Example of a client who buys both brands
+              Notas: "Cliente frecuente"
             },
             {
-              firstName: "María",
-              lastName: "González",
-              email: "mariag@example.com",
-              phoneCountry: "+593",
-              phoneNumber: "912345678",
-              street: "Av. Amazonas 456",
-              city: "Guayaquil",
-              province: "Guayas",
-              deliveryInstructions: "Edificio Central, Piso 3",
-              source: "Referral",
-              brand: "bride"
+              Nombres: "María",
+              Apellidos: "González",
+              "Cédula/Pasaporte": "0998765432",
+              Email: "mariag@example.com",
+              "País Teléfono": "+593",
+              "Número Teléfono": "912345678",
+              Calle: "Av. Amazonas 456",
+              Ciudad: "Guayaquil",
+              Provincia: "Guayas",
+              "Instrucciones de Entrega": "Edificio Central, Piso 3",
+              Fuente: "Referral",
+              Marca: "bride",
+              Notas: "Solicita envío urgente"
             }
           ];
           break;
@@ -272,26 +517,34 @@ export function SpreadsheetImportComponent() {
           filename = "plantilla_leads_ejemplo.xlsx";
           sampleData = [
             {
-              firstName: "Carlos",
-              lastName: "López",
-              email: "carlosl@example.com",
-              phoneCountry: "+593",
-              phoneNumber: "976543210",
-              status: "new",
-              source: "Social Media",
-              notes: "Interesado en pijamas de seda",
-              brand: "sleepwear"
+              Nombres: "Carlos",
+              Apellidos: "López",
+              Email: "carlosl@example.com",
+              "País Teléfono": "+593",
+              "Número Teléfono": "976543210",
+              Estado: "new",
+              Fuente: "Social Media",
+              Notas: "Interesado en pijamas de seda",
+              Marca: "sleepwear",
+              Calle: "Calle Quito 345",
+              Ciudad: "Cuenca",
+              Provincia: "Azuay",
+              "Instrucciones de Entrega": "Junto al parque central"
             },
             {
-              firstName: "Laura",
-              lastName: "Torres",
-              email: "laurat@example.com",
-              phoneCountry: "+593",
-              phoneNumber: "934567890",
-              status: "contacted",
-              source: "Event",
-              notes: "Boda programada para diciembre",
-              brand: "bride"
+              Nombres: "Laura",
+              Apellidos: "Torres",
+              Email: "laurat@example.com",
+              "País Teléfono": "+593",
+              "Número Teléfono": "934567890",
+              Estado: "contacted",
+              Fuente: "Event",
+              Notas: "Boda programada para diciembre",
+              Marca: "bride",
+              Calle: "Av. 6 de Diciembre",
+              Ciudad: "Quito",
+              Provincia: "Pichincha",
+              "Instrucciones de Entrega": "Edificio Mirador, apto 502"
             }
           ];
           break;
@@ -299,22 +552,22 @@ export function SpreadsheetImportComponent() {
           filename = "plantilla_ventas_ejemplo.xlsx";
           sampleData = [
             {
-              customerId: 1,
-              amount: 120.50,
-              status: "completed",
-              date: "2025-02-15",
-              notes: "Pago con tarjeta de crédito",
-              product: "Pijama de seda azul",
-              brand: "sleepwear"
+              ClienteID: 1,
+              Monto: 120.50,
+              Estado: "completed",
+              Fecha: "2025-02-15",
+              Notas: "Pago con tarjeta de crédito",
+              Producto: "Pijama de seda azul",
+              Marca: "sleepwear"
             },
             {
-              customerId: 2,
-              amount: 350.00,
-              status: "pending",
-              date: "2025-02-20",
-              notes: "Pendiente depósito bancario",
-              product: "Vestido de novia modelo Celestial",
-              brand: "bride"
+              ClienteID: 2,
+              Monto: 350.00,
+              Estado: "pending",
+              Fecha: "2025-02-20",
+              Notas: "Pendiente depósito bancario",
+              Producto: "Vestido de novia modelo Celestial",
+              Marca: "bride"
             }
           ];
           break;
@@ -416,16 +669,62 @@ export function SpreadsheetImportComponent() {
           // Special handling for brand field to support comma-separated values
           if (mapping.targetField === 'brand' && item[mapping.sourceField]) {
             // Ensure brands are normalized (lowercase, trimmed)
-            const brands = item[mapping.sourceField].toString().split(',')
-              .map((b: string) => b.trim().toLowerCase())
-              .filter((b: string) => b === 'sleepwear' || b === 'bride');
+            const brandInput = item[mapping.sourceField].toString().toLowerCase();
+            let brands = [];
+            
+            // Handle different input formats
+            if (brandInput.includes(',')) {
+              // Multiple brands separated by comma
+              brands = brandInput.split(',')
+                .map((b: string) => b.trim())
+                .filter((b: string) => b === 'sleepwear' || b === 'bride');
+            } else if (brandInput === 'sleepwear' || brandInput === 'bride') {
+              // Single brand
+              brands = [brandInput];
+            } else if (brandInput.includes('sleep') || brandInput.includes('pijama')) {
+              // Fuzzy match for sleepwear
+              brands = ['sleepwear'];
+            } else if (brandInput.includes('brid') || brandInput.includes('nov')) {
+              // Fuzzy match for bride (bride/novia)
+              brands = ['bride'];
+            } else {
+              // Default to sleepwear if no match
+              brands = ['sleepwear'];
+            }
             
             mappedItem[mapping.targetField] = brands.join(',');
-          } else {
+          } 
+          // Special handling for phoneCountry to ensure + prefix
+          else if (mapping.targetField === 'phoneCountry' && item[mapping.sourceField]) {
+            const countryCode = item[mapping.sourceField].toString().trim();
+            // Ensure it starts with +
+            mappedItem[mapping.targetField] = countryCode.startsWith('+') ? countryCode : `+${countryCode}`;
+          }
+          // Pass other fields as-is
+          else {
             mappedItem[mapping.targetField] = item[mapping.sourceField];
           }
         }
       });
+      
+      // For customer and lead imports, make sure we have proper name handling
+      if (importType === 'customers' || importType === 'leads') {
+        // If we have firstName and lastName but no full name, create it
+        if (mappedItem.firstName && mappedItem.lastName && !mappedItem.name) {
+          mappedItem.name = `${mappedItem.firstName} ${mappedItem.lastName}`;
+        }
+        // If we have full name but no firstName/lastName, try to split it
+        else if (mappedItem.name && (!mappedItem.firstName || !mappedItem.lastName)) {
+          const nameParts = mappedItem.name.split(' ');
+          if (nameParts.length > 1) {
+            if (!mappedItem.firstName) mappedItem.firstName = nameParts[0];
+            if (!mappedItem.lastName) mappedItem.lastName = nameParts.slice(1).join(' ');
+          } else if (!mappedItem.firstName) {
+            mappedItem.firstName = mappedItem.name;
+            if (!mappedItem.lastName) mappedItem.lastName = '(sin apellido)';
+          }
+        }
+      }
       
       return mappedItem;
     });
@@ -437,6 +736,7 @@ export function SpreadsheetImportComponent() {
         return [
           { name: "firstName", required: true, description: "Nombre del cliente" },
           { name: "lastName", required: true, description: "Apellidos del cliente" },
+          { name: "idNumber", required: false, description: "Cédula o Pasaporte" },
           { name: "email", required: false, description: "Correo electrónico" },
           { name: "phoneCountry", required: false, description: "Código de país (ej. +593)" },
           { name: "phoneNumber", required: false, description: "Número de teléfono sin código de país" },
@@ -632,14 +932,24 @@ export function SpreadsheetImportComponent() {
                     </div>
                     
                     <div className="flex justify-between pt-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={handlePreviousStep}
-                        className="flex items-center gap-2"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                        Atrás
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handlePreviousStep}
+                          className="flex items-center gap-2"
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          Atrás
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          onClick={autoMapFields}
+                          className="flex items-center gap-2"
+                        >
+                          <Wand2 className="h-4 w-4" />
+                          Auto-mapear
+                        </Button>
+                      </div>
                       <Button 
                         onClick={handleNextStep}
                         className="flex items-center gap-2"

@@ -36,7 +36,59 @@ export function registerRoutes(app: Express): Server {
         orderBy: desc(customers.createdAt),
         with: { sales: true }
       });
-      res.json(result);
+      
+      // Ensure backward compatibility by populating structured fields from legacy fields if needed
+      const enhancedResults = result.map(customer => {
+        // If a customer has name but not firstName/lastName, split them for display purposes
+        if (customer.name && (!customer.firstName || !customer.lastName)) {
+          const nameParts = customer.name.split(' ');
+          if (nameParts.length > 0) {
+            customer.firstName = customer.firstName || nameParts[0];
+            customer.lastName = customer.lastName || nameParts.slice(1).join(' ');
+          }
+        }
+        
+        // If a customer has address but not structured address fields, parse them
+        if (customer.address && (!customer.street || !customer.city || !customer.province)) {
+          try {
+            const addressParts = customer.address.split(',');
+            customer.street = customer.street || addressParts[0]?.trim();
+            customer.city = customer.city || addressParts[1]?.trim();
+            
+            // Handle province which might be followed by delivery instructions
+            if (addressParts[2]) {
+              const provinceAndInstructions = addressParts[2].split('\n');
+              customer.province = customer.province || provinceAndInstructions[0]?.trim();
+              
+              // Get delivery instructions if present
+              if (provinceAndInstructions.length > 1) {
+                customer.deliveryInstructions = customer.deliveryInstructions || provinceAndInstructions[1]?.trim();
+              }
+            }
+          } catch (e) {
+            // Silent fail - if parsing fails, we'll just use what we have
+            console.warn('Failed to parse address for customer', customer.id);
+          }
+        }
+        
+        // If a customer has phone but not phoneCountry/phoneNumber, parse them
+        if (customer.phone && (!customer.phoneCountry || !customer.phoneNumber)) {
+          try {
+            // Try to extract country code (usually starts with +)
+            const phoneMatch = customer.phone.match(/^(\+\d+)(.*)$/);
+            if (phoneMatch) {
+              customer.phoneCountry = customer.phoneCountry || phoneMatch[1];
+              customer.phoneNumber = customer.phoneNumber || phoneMatch[2];
+            }
+          } catch (e) {
+            console.warn('Failed to parse phone for customer', customer.id);
+          }
+        }
+        
+        return customer;
+      });
+      
+      res.json(enhancedResults);
     } catch (error) {
       console.error('Error fetching customers:', error);
       res.status(500).json({ error: "Failed to fetch customers" });
@@ -174,21 +226,46 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Parse name into parts (assuming format is "First Last")
-      const nameParts = customer.name.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      // Get firstName/lastName from fields or parse from name
+      const firstName = customer.firstName || customer.name.split(' ')[0] || '';
+      const lastName = customer.lastName || customer.name.split(' ').slice(1).join(' ') || '';
 
-      // Parse address if available (assuming format is "street, city, province\ndeliveryInstructions")
-      let street = '', city = '', province = '', deliveryInstructions = '';
-      if (customer.address) {
-        const parts = customer.address.split('\n');
-        const addressParts = parts[0]?.split(',') || [];
+      // Use structured address fields if available, otherwise parse from legacy address
+      let street = customer.street || '';
+      let city = customer.city || '';
+      let province = customer.province || '';
+      let deliveryInstructions = customer.deliveryInstructions || '';
+      
+      // If we don't have structured fields but we do have a legacy address, parse it
+      if (!street && !city && !province && customer.address) {
+        try {
+          const parts = customer.address.split('\n');
+          const addressParts = parts[0]?.split(',') || [];
 
-        street = addressParts[0]?.trim() || '';
-        city = addressParts[1]?.trim() || '';
-        province = addressParts[2]?.trim() || '';
-        deliveryInstructions = parts[1]?.trim() || '';
+          street = addressParts[0]?.trim() || '';
+          city = addressParts[1]?.trim() || '';
+          province = addressParts[2]?.trim() || '';
+          deliveryInstructions = parts[1]?.trim() || '';
+        } catch (e) {
+          console.warn('Failed to parse address for customer', customer.id);
+        }
+      }
+      
+      // Use structured phone fields if available, otherwise parse from phone
+      let phoneCountry = customer.phoneCountry || '';
+      let phoneNumber = customer.phoneNumber || '';
+      
+      // If we don't have structured phone fields but we have a legacy phone, parse it
+      if (!phoneCountry && !phoneNumber && customer.phone) {
+        try {
+          const phoneMatch = customer.phone.match(/^(\+\d+)(.*)$/);
+          if (phoneMatch) {
+            phoneCountry = phoneMatch[1];
+            phoneNumber = phoneMatch[2];
+          }
+        } catch (e) {
+          console.warn('Failed to parse phone for customer', customer.id);
+        }
       }
 
       // Create a new lead from the customer data
@@ -196,11 +273,11 @@ export function registerRoutes(app: Express): Server {
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
-        phoneCountry: customer.phone?.split(/[0-9]/)[0] || null,
-        street,
-        city,
-        province,
-        deliveryInstructions,
+        phoneCountry: phoneCountry || null,
+        street: street || null,
+        city: city || null,
+        province: province || null,
+        deliveryInstructions: deliveryInstructions || null,
         status: 'new', // Default status for converted leads
         source: customer.source || 'website',
         brand: customer.brand,
@@ -404,6 +481,14 @@ export function registerRoutes(app: Express): Server {
             name: name.trim(),
             email: email?.trim() || null,
             phone: phone?.trim() || null,
+            // Copy lead's address info to customer if available
+            street: existingLead.street || null,
+            city: existingLead.city || null,
+            province: existingLead.province || null,
+            deliveryInstructions: existingLead.deliveryInstructions || null,
+            // The idNumber will be empty here since leads don't track it,
+            // it needs to be added later when creating invoices or shipping labels
+            idNumber: null,
             source: source || 'website',
             brand: existingLead.brand || brand || 'sleepwear' // Include brand information
           })
@@ -612,11 +697,20 @@ export function registerRoutes(app: Express): Server {
             
             await db.insert(customers).values({
               name,
+              firstName: item.firstName || null,
+              lastName: item.lastName || null,
+              idNumber: item.idNumber || null, // Added ID number field
               email: item.email || null,
               phone,
-              address,
+              phoneCountry: item.phoneCountry || null,
+              street: item.street || null,
+              city: item.city || null,
+              province: item.province || null,
+              deliveryInstructions: item.deliveryInstructions || null,
+              address, // Legacy field kept for backward compatibility
               source: item.source || 'import',
               brand: brandValue, // Normalized brand value
+              notes: item.notes || null,
               createdAt: new Date(),
               updatedAt: new Date()
             });

@@ -79,6 +79,15 @@ export function CustomerList({
     if (filters.source && filters.source !== "all") {
       result = result.filter(customer => customer.source === filters.source);
     }
+    
+    // Filter customers by identification number status
+    if (filters.hasIdNumber && filters.hasIdNumber !== "all") {
+      if (filters.hasIdNumber === "yes") {
+        result = result.filter(customer => customer.idNumber !== null && customer.idNumber !== "");
+      } else if (filters.hasIdNumber === "no") {
+        result = result.filter(customer => !customer.idNumber);
+      }
+    }
 
     if (filters.brand && filters.brand !== "all" && !brand) {
       // Only apply brand filter here if not already filtered by prop
@@ -124,6 +133,16 @@ export function CustomerList({
         { value: "cold_call", label: "Llamada en Frío" },
         { value: "event", label: "Evento" },
         { value: "other", label: "Otro" },
+      ],
+    },
+    {
+      id: "hasIdNumber",
+      label: "Identificación",
+      type: "select" as const,
+      options: [
+        { value: "all", label: "Todos" },
+        { value: "yes", label: "Con Cédula/Pasaporte" },
+        { value: "no", label: "Sin Cédula/Pasaporte" },
       ],
     },
     ...(!brand ? [{
@@ -226,6 +245,17 @@ export function CustomerList({
                     )}
                   </div>
                 </div>
+                {customer.idNumber && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                      <rect width="18" height="12" x="3" y="6" rx="2" />
+                      <path d="M3 10h18" />
+                      <path d="M7 15h2" />
+                      <path d="M11 15h6" />
+                    </svg>
+                    {customer.idNumber}
+                  </div>
+                )}
                 {customer.phone && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                     <Phone className="h-4 w-4" />

@@ -10,15 +10,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { type Lead } from "@db/schema";
+import { type Lead, brandEnum } from "@db/schema";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Trash2, AlertCircle } from "lucide-react";
 
 interface LeadFormProps {
   lead?: Lead;
@@ -28,8 +31,17 @@ interface LeadFormProps {
 export function LeadForm({ lead, onClose }: LeadFormProps) {
   const [isViewMode, setIsViewMode] = useState(!!lead);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showIdNumberPrompt, setShowIdNumberPrompt] = useState(false);
+  const [idNumber, setIdNumber] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Brand options for marketing segmentation purposes
+  const brandOptions = [
+    { id: brandEnum.SLEEPWEAR, name: "Civetta Sleepwear" },
+    { id: brandEnum.BRIDE, name: "Civetta Bride" },
+    { id: `${brandEnum.SLEEPWEAR},${brandEnum.BRIDE}`, name: "Ambas marcas" }
+  ];
 
   const form = useForm({
     defaultValues: {
@@ -40,6 +52,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       status: lead?.status || 'new',
       source: lead?.source || 'website',
       notes: lead?.notes || '',
+      brand: lead?.brand || brandEnum.SLEEPWEAR,
       lastContact: lead?.lastContact ? new Date(lead.lastContact) : null,
       nextFollowUp: lead?.nextFollowUp ? new Date(lead.nextFollowUp) : null,
     }
@@ -57,6 +70,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
         phone: values.phone?.trim() || null,
         status: values.status,
         source: values.source,
+        brand: values.brand,
         notes: values.notes?.trim() || null,
         lastContact: values.lastContact ? new Date(values.lastContact).toISOString() : null,
         nextFollowUp: values.nextFollowUp ? new Date(values.nextFollowUp).toISOString() : null
@@ -139,10 +153,104 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
     deleteMutation.mutate();
   };
 
+  // New conversion mutation with ID number
+  const convertWithIdNumberMutation = useMutation({
+    mutationFn: async (values: any) => {
+      if (!lead) return;
+      
+      const formattedValues = {
+        ...values,
+        idNumber: idNumber.trim() || null,
+      };
+
+      const res = await apiRequest(
+        "PUT",
+        `/api/leads/${lead.id}/convert-with-id`,
+        formattedValues
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || error.error || `HTTP error! status: ${res.status}`);
+      }
+
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ 
+        title: "Lead convertido a cliente",
+        description: "El lead ha sido convertido a cliente con número de cédula/pasaporte"
+      });
+      onClose();
+    },
+    onError: (error: Error) => {
+      console.error('Lead conversion error:', error);
+      toast({
+        title: "Error al convertir lead",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Check if we're converting a lead to a customer
+  const handleFormSubmit = (data: any) => {
+    if (data.status === 'won' && !lead?.convertedToCustomer) {
+      // Show the ID number prompt
+      setShowIdNumberPrompt(true);
+    } else {
+      // Regular form submit
+      mutation.mutate(data);
+    }
+  };
+
+  // Handle ID number submission and lead conversion
+  const handleIdNumberSubmit = () => {
+    const data = form.getValues();
+    convertWithIdNumberMutation.mutate(data);
+  };
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+    <>
+      {/* ID Number Dialog */}
+      <Dialog open={showIdNumberPrompt} onOpenChange={setShowIdNumberPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ingrese el número de cédula/pasaporte</DialogTitle>
+            <DialogDescription>
+              Para convertir un lead a cliente, por favor ingrese el número de cédula o pasaporte. 
+              Este dato es importante para facturación, despacho y procesamiento de pagos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="idNumber">Número de Cédula/Pasaporte</Label>
+            <Input
+              id="idNumber"
+              value={idNumber}
+              onChange={(e) => setIdNumber(e.target.value)}
+              placeholder="Ej: 1234567890"
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIdNumberPrompt(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleIdNumberSubmit}
+              disabled={convertWithIdNumberMutation.isPending}
+            >
+              {convertWithIdNumberMutation.isPending ? "Procesando..." : "Guardar y Convertir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="firstName"
@@ -319,6 +427,38 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
                   onChange={field.onChange}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="brand"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Marca preferida</FormLabel>
+              <Select
+                disabled={isViewMode}
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {brandOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Marca por la que el lead inicialmente mostró interés para fines de marketing
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

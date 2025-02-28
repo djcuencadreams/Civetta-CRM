@@ -68,7 +68,8 @@ const provinces = [
 // Brand options for the form
 const brandOptions = [
   { id: brandEnum.SLEEPWEAR, name: "Civetta Sleepwear" },
-  { id: brandEnum.BRIDE, name: "Civetta Bride" }
+  { id: brandEnum.BRIDE, name: "Civetta Bride" },
+  { id: `${brandEnum.SLEEPWEAR},${brandEnum.BRIDE}`, name: "Ambas marcas" }
 ];
 
 export function CustomerForm({
@@ -165,20 +166,25 @@ export function CustomerForm({
 
   const form = useForm({
     defaultValues: customer ? {
-      firstName: customer.name?.split(' ')[0] || '',
-      lastName: customer.name?.split(' ').slice(1).join(' ') || '',
+      // Use separate first/last name fields if available, otherwise split from name
+      firstName: customer.firstName || customer.name?.split(' ')[0] || '',
+      lastName: customer.lastName || customer.name?.split(' ').slice(1).join(' ') || '',
+      idNumber: customer.idNumber || '',
       email: customer.email || '',
-      phoneCountry: customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
-      phoneNumber: customer.phone?.replace(/^\+\d+/, '') || '',
-      street: customer.address?.split(',')[0]?.trim() || '',
-      city: customer.address?.split(',')[1]?.trim() || '',
-      province: customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
-      deliveryInstructions: customer.address?.split('\n')[1]?.trim() || '',
+      // Use dedicated phone fields if available, otherwise parse from combined phone field
+      phoneCountry: customer.phoneCountry || customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
+      phoneNumber: customer.phoneNumber || customer.phone?.replace(/^\+\d+/, '') || '',
+      // Use structured address fields if available, otherwise parse from legacy address field
+      street: customer.street || customer.address?.split(',')[0]?.trim() || '',
+      city: customer.city || customer.address?.split(',')[1]?.trim() || '',
+      province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
+      deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
       source: customer.source || 'website',
       brand: customer.brand || brandEnum.SLEEPWEAR
     } : {
       firstName: "",
       lastName: "",
+      idNumber: "",
       email: "",
       phoneCountry: DEFAULT_COUNTRY_CODE,
       phoneNumber: "",
@@ -213,8 +219,18 @@ export function CustomerForm({
           }
           const formattedData = {
             name: `${data.firstName.trim()} ${data.lastName.trim()}`,
+            firstName: data.firstName.trim(),
+            lastName: data.lastName.trim(),
+            idNumber: data.idNumber?.trim() || null,
             email: data.email?.trim() || null,
             phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
+            phoneCountry: data.phoneCountry || null,
+            phoneNumber: data.phoneNumber ? formatPhoneNumber(data.phoneNumber) : null,
+            street: data.street?.trim() || null,
+            city: data.city?.trim() || null,
+            province: data.province || null,
+            deliveryInstructions: data.deliveryInstructions?.trim() || null,
+            // Keep backward compatibility with address field
             address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
             source: data.source,
             brand: data.brand
@@ -250,13 +266,30 @@ export function CustomerForm({
               )}
             />
           </div>
+          
+          <FormField
+            control={form.control}
+            name="idNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número de Cédula / Pasaporte</FormLabel>
+                <FormControl>
+                  <Input {...field} readOnly={isViewMode} />
+                </FormControl>
+                <FormMessage />
+                <p className="text-xs text-muted-foreground">
+                  Requerido para facturación, despacho y procesamiento de pagos
+                </p>
+              </FormItem>
+            )}
+          />
 
           <FormField
               control={form.control}
               name="brand"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Marca</FormLabel>
+                  <FormLabel>Marca preferida (opcional)</FormLabel>
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
@@ -273,6 +306,9 @@ export function CustomerForm({
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Esta información es solo para referencia. Los productos comprados determinarán las marcas reales.
+                  </p>
                 </FormItem>
               )}
             />
