@@ -1,4 +1,4 @@
-import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu } from "lucide-react";
+import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,7 +28,7 @@ const navigation = [
   {
     href: "/reports",
     label: "Informes",
-    icon: BarChart2
+    icon: BarChart
   },
   {
     href: "/configuration",
