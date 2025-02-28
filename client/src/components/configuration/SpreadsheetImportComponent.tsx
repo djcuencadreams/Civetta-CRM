@@ -10,21 +10,29 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileSpreadsheet, Download, Loader2, CheckCircle, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import * as XLSX from 'xlsx';
 
-// Define imported data types
+// Define imported data types with the updated fields
 type ImportedCustomerData = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
-  phone?: string;
-  address?: string;
+  phoneCountry?: string;
+  phoneNumber?: string;
+  street?: string;
+  city?: string;
+  province?: string;
+  deliveryInstructions?: string;
   source?: string;
   brand?: string;
 };
 
 type ImportedLeadData = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
-  phone?: string;
+  phoneCountry?: string;
+  phoneNumber?: string;
   status?: string;
   source?: string;
   notes?: string;
@@ -165,36 +173,149 @@ export function SpreadsheetImportComponent() {
     importDataMutation.mutate();
   };
 
-  // Download sample template
+  // Download sample template - Implementing actual file download
   const handleDownloadSample = () => {
-    // In a real implementation, this would download a sample CSV template
-    // For now, just show a toast message
-    toast({
-      title: "Descarga de plantilla",
-      description: "Descargando plantilla de ejemplo..."
-    });
+    try {
+      // Create sample data based on import type
+      let sampleData: any[] = [];
+      let filename = "";
+
+      switch (importType) {
+        case "customers":
+          filename = "plantilla_clientes_ejemplo.xlsx";
+          sampleData = [
+            {
+              firstName: "Juan",
+              lastName: "Pérez",
+              email: "juanperez@example.com",
+              phoneCountry: "+593",
+              phoneNumber: "987654321",
+              street: "Calle Principal 123",
+              city: "Quito",
+              province: "Pichincha",
+              deliveryInstructions: "Casa blanca con puerta azul",
+              source: "Website",
+              brand: "sleepwear,bride" // Example of a client who buys both brands
+            },
+            {
+              firstName: "María",
+              lastName: "González",
+              email: "mariag@example.com",
+              phoneCountry: "+593",
+              phoneNumber: "912345678",
+              street: "Av. Amazonas 456",
+              city: "Guayaquil",
+              province: "Guayas",
+              deliveryInstructions: "Edificio Central, Piso 3",
+              source: "Referral",
+              brand: "bride"
+            }
+          ];
+          break;
+        case "leads":
+          filename = "plantilla_leads_ejemplo.xlsx";
+          sampleData = [
+            {
+              firstName: "Carlos",
+              lastName: "López",
+              email: "carlosl@example.com",
+              phoneCountry: "+593",
+              phoneNumber: "976543210",
+              status: "new",
+              source: "Social Media",
+              notes: "Interesado en pijamas de seda",
+              brand: "sleepwear"
+            },
+            {
+              firstName: "Laura",
+              lastName: "Torres",
+              email: "laurat@example.com",
+              phoneCountry: "+593",
+              phoneNumber: "934567890",
+              status: "contacted",
+              source: "Event",
+              notes: "Boda programada para diciembre",
+              brand: "bride"
+            }
+          ];
+          break;
+        case "sales":
+          filename = "plantilla_ventas_ejemplo.xlsx";
+          sampleData = [
+            {
+              customerId: 1,
+              amount: 120.50,
+              status: "completed",
+              date: "2025-02-15",
+              notes: "Pago con tarjeta de crédito",
+              product: "Pijama de seda azul",
+              brand: "sleepwear"
+            },
+            {
+              customerId: 2,
+              amount: 350.00,
+              status: "pending",
+              date: "2025-02-20",
+              notes: "Pendiente depósito bancario",
+              product: "Vestido de novia modelo Celestial",
+              brand: "bride"
+            }
+          ];
+          break;
+        default:
+          break;
+      }
+
+      // Create a worksheet
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+
+      // Create a workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+
+      // Generate the Excel file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Plantilla descargada",
+        description: "Se ha descargado la plantilla de ejemplo en formato Excel."
+      });
+    } catch (error) {
+      toast({
+        title: "Error al descargar plantilla",
+        description: "Ocurrió un error al generar la plantilla de ejemplo.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getFieldsForImportType = () => {
     switch (importType) {
       case "customers":
         return [
-          { name: "name", required: true, description: "Nombre completo del cliente" },
+          { name: "firstName", required: true, description: "Nombre del cliente" },
+          { name: "lastName", required: true, description: "Apellidos del cliente" },
           { name: "email", required: false, description: "Correo electrónico" },
-          { name: "phone", required: false, description: "Número de teléfono" },
-          { name: "address", required: false, description: "Dirección completa" },
-          { name: "source", required: false, description: "Origen del cliente (ej. website, referral)" },
-          { name: "brand", required: false, description: "Marca (sleepwear o bride)" }
+          { name: "phoneCountry", required: false, description: "Código de país (ej. +593)" },
+          { name: "phoneNumber", required: false, description: "Número de teléfono sin código de país" },
+          { name: "street", required: false, description: "Calle, Intersección y Número de Casa" },
+          { name: "city", required: false, description: "Ciudad" },
+          { name: "province", required: false, description: "Provincia" },
+          { name: "deliveryInstructions", required: false, description: "Referencia o Instrucciones Especiales para la Entrega" },
+          { name: "source", required: false, description: "Origen del cliente (ej. Website, Referral, Social Media)" },
+          { name: "brand", required: false, description: "Marca (sleepwear, bride o ambas separadas por coma: sleepwear,bride)" }
         ];
       case "leads":
         return [
-          { name: "name", required: true, description: "Nombre del prospecto" },
+          { name: "firstName", required: true, description: "Nombre del prospecto" },
+          { name: "lastName", required: true, description: "Apellidos del prospecto" },
           { name: "email", required: false, description: "Correo electrónico" },
-          { name: "phone", required: false, description: "Número de teléfono" },
+          { name: "phoneCountry", required: false, description: "Código de país (ej. +593)" },
+          { name: "phoneNumber", required: false, description: "Número de teléfono sin código de país" },
           { name: "status", required: false, description: "Estado (new, contacted, qualified, lost, won)" },
           { name: "source", required: false, description: "Origen del lead" },
           { name: "notes", required: false, description: "Notas adicionales" },
-          { name: "brand", required: false, description: "Marca (sleepwear o bride)" }
+          { name: "brand", required: false, description: "Marca (sleepwear, bride o ambas separadas por coma: sleepwear,bride)" }
         ];
       case "sales":
         return [
@@ -340,6 +461,7 @@ export function SpreadsheetImportComponent() {
               <AlertTitle>Estructura de datos</AlertTitle>
               <AlertDescription>
                 Descargue una plantilla o utilice la siguiente estructura para preparar sus datos.
+                Para clientes que compran ambas marcas (sleepwear y bride), separe las marcas con coma en el campo "brand".
               </AlertDescription>
             </Alert>
 
@@ -388,6 +510,7 @@ export function SpreadsheetImportComponent() {
                     <li>Asegúrese de que los campos requeridos estén completos.</li>
                     <li>Para archivos CSV, utilice comas como separador y codificación UTF-8.</li>
                     <li>La primera fila debe contener los nombres de los campos.</li>
+                    <li>Para clientes que compran de ambas marcas, separe con coma: "sleepwear,bride".</li>
                     <li>Para fechas, use el formato YYYY-MM-DD.</li>
                     <li>Para importar ventas, el cliente debe existir previamente en el CRM.</li>
                   </ul>

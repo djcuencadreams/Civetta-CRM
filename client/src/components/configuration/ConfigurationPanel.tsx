@@ -10,7 +10,7 @@ import { useState } from "react";
 import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpreadsheetImportComponent } from "./SpreadsheetImportComponent";
-import { WordPressIntegration } from "./WordPressIntegration";
+import { WordPressIntegration } from "../integrations/WordPressIntegration";
 import { t } from "@/lib/i18n";
 
 export function ConfigurationPanel() {
@@ -168,6 +168,19 @@ export function ConfigurationPanel() {
         <TabsContent value="import" className="space-y-6">
           {/* Include SpreadsheetImport component */}
           <SpreadsheetImportComponent />
+
+          {/* WordPress integration import section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiWordpress className="h-5 w-5" />
+                Importar desde WordPress/WooCommerce
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WordPressIntegration />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

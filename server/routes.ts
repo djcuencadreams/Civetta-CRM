@@ -535,26 +535,47 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Unsupported file format. Please use CSV or Excel file." });
       }
 
-      // Validate data based on import type
-      const validationResult = validateImportData(data, importType);
-      if (!validationResult.valid) {
-        return res.status(400).json({ 
-          error: "Invalid data format", 
-          message: validationResult.message 
-        });
-      }
-
       // Import data based on type
       let importedCount = 0;
       switch (importType) {
         case 'customers':
-          // Import customers
+          // Import customers with the updated field structure
           for (const item of data) {
+            // Skip if required fields are missing
+            if (!item.firstName || !item.lastName) {
+              continue;
+            }
+
+            // Format name from firstName and lastName
+            const name = `${item.firstName} ${item.lastName}`;
+
+            // Format phone from phoneCountry and phoneNumber
+            let phone = null;
+            if (item.phoneNumber) {
+              phone = item.phoneCountry ? `${item.phoneCountry}${item.phoneNumber}` : item.phoneNumber;
+            }
+
+            // Format address from detailed fields
+            let address = null;
+            const addressParts = [];
+
+            if (item.street) addressParts.push(item.street);
+            if (item.city) addressParts.push(item.city);
+            if (item.province) addressParts.push(item.province);
+
+            if (addressParts.length > 0) {
+              address = addressParts.join(', ');
+              // Add delivery instructions as a new line if provided
+              if (item.deliveryInstructions) {
+                address += `\n${item.deliveryInstructions}`;
+              }
+            }
+
             await db.insert(customers).values({
-              name: item.name,
+              name,
               email: item.email || null,
-              phone: item.phone || null,
-              address: item.address || null,
+              phone,
+              address,
               source: item.source || 'import',
               brand: item.brand || 'sleepwear',
               createdAt: new Date(),
@@ -564,12 +585,31 @@ export function registerRoutes(app: Express): Server {
           }
           break;
         case 'leads':
-          // Import leads
+          // Import leads with the updated field structure
           for (const item of data) {
+            // Skip if required fields are missing
+            if (!item.firstName || !item.lastName) {
+              continue;
+            }
+
+            // Format name from firstName and lastName
+            const name = `${item.firstName} ${item.lastName}`;
+
+            // Format phone from phoneCountry and phoneNumber
+            let phone = null;
+            if (item.phoneNumber) {
+              phone = item.phoneCountry ? `${item.phoneCountry}${item.phoneNumber}` : item.phoneNumber;
+            }
+
             await db.insert(leads).values({
-              name: item.name,
+              name,
               email: item.email || null,
-              phone: item.phone || null,
+              phone,
+              phoneCountry: item.phoneCountry || null,
+              street: item.street || null,
+              city: item.city || null,
+              province: item.province || null,
+              deliveryInstructions: item.deliveryInstructions || null,
               status: item.status || 'new',
               source: item.source || 'import',
               notes: item.notes || null,
@@ -722,15 +762,15 @@ function validateImportData(data: any[], type: string): { valid: boolean, messag
   // Basic validation based on import type
   switch (type) {
     case 'customers':
-      // Check if 'name' field exists in all records
-      if (!data.every(item => item.name)) {
-        return { valid: false, message: "All customer records must have a 'name' field" };
+      // Check if firstName and lastName fields exist in all records
+      if (!data.every(item => item.firstName && item.lastName)) {
+        return { valid: false, message: "All customer records must have 'firstName' and 'lastName' fields" };
       }
       break;
     case 'leads':
-      // Check if 'name' field exists in all records
-      if (!data.every(item => item.name)) {
-        return { valid: false, message: "All lead records must have a 'name' field" };
+      // Check if firstName and lastName fields exist in all records
+      if (!data.every(item => item.firstName && item.lastName)) {
+        return { valid: false, message: "All lead records must have 'firstName' and 'lastName' fields" };
       }
       break;
     case 'sales':

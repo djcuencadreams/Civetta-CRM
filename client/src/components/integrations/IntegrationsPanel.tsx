@@ -12,27 +12,13 @@ import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PdfImportComponent } from "./PdfImportComponent";
 import { WordPressIntegration } from "./WordPressIntegration";
-
-// Define extracted customer data type
-type ExtractedCustomerData = {
-  name: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  notes?: string;
-};
+import { SpreadsheetImportComponent } from "../configuration/SpreadsheetImportComponent";
 
 export function IntegrationsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newWebhook, setNewWebhook] = useState({ name: "", url: "", event: "new_sale" });
-  //Removed unnecessary state variables
 
   const { data: webhooks } = useQuery<Webhook[]>({
     queryKey: ["/api/webhooks"],
@@ -183,8 +169,8 @@ export function IntegrationsPanel() {
         </TabsContent>
 
         <TabsContent value="import" className="space-y-6">
-          {/* Include PDF import component */}
-          <PdfImportComponent />
+          {/* Include Spreadsheet import component instead of PDF import */}
+          <SpreadsheetImportComponent />
 
           {/* WordPress integration import section */}
           <Card>
