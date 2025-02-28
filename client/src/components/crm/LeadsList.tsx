@@ -73,37 +73,93 @@ export function LeadsList({ onSelect }: LeadsListProps) {
       result = result.filter(lead => lead.brand === filters.brand);
     }
 
-    // Fix for date filters - properly check if the filter is a Date object
-    if (filters.lastContactFrom && filters.lastContactFrom instanceof Date) {
-      result = result.filter(lead => {
-        if (!lead.lastContact) return false;
-        const lastContactDate = new Date(lead.lastContact);
-        return lastContactDate >= (filters.lastContactFrom as Date);
-      });
+    // Fix for date filters - safely handle all potential value types
+    if (filters.lastContactFrom) {
+      // Ensure we're working with a single value, not an array
+      const filterValue = Array.isArray(filters.lastContactFrom)
+        ? filters.lastContactFrom[0]
+        : filters.lastContactFrom;
+
+      if (filterValue) {
+        // Convert to Date if it's not already
+        const fromDate = filterValue instanceof Date
+          ? filterValue
+          : new Date(String(filterValue));
+
+        if (!isNaN(fromDate.getTime())) {
+          result = result.filter(lead => {
+            if (!lead.lastContact) return false;
+            const lastContactDate = new Date(lead.lastContact);
+            return lastContactDate >= fromDate;
+          });
+        }
+      }
     }
 
-    if (filters.lastContactTo && filters.lastContactTo instanceof Date) {
-      result = result.filter(lead => {
-        if (!lead.lastContact) return false;
-        const lastContactDate = new Date(lead.lastContact);
-        return lastContactDate <= (filters.lastContactTo as Date);
-      });
+    if (filters.lastContactTo) {
+      // Ensure we're working with a single value, not an array
+      const filterValue = Array.isArray(filters.lastContactTo)
+        ? filters.lastContactTo[0]
+        : filters.lastContactTo;
+
+      if (filterValue) {
+        // Convert to Date if it's not already
+        const toDate = filterValue instanceof Date
+          ? filterValue
+          : new Date(String(filterValue));
+
+        if (!isNaN(toDate.getTime())) {
+          result = result.filter(lead => {
+            if (!lead.lastContact) return false;
+            const lastContactDate = new Date(lead.lastContact);
+            return lastContactDate <= toDate;
+          });
+        }
+      }
     }
 
-    if (filters.nextFollowUpFrom && filters.nextFollowUpFrom instanceof Date) {
-      result = result.filter(lead => {
-        if (!lead.nextFollowUp) return false;
-        const nextFollowUpDate = new Date(lead.nextFollowUp);
-        return nextFollowUpDate >= (filters.nextFollowUpFrom as Date);
-      });
+    if (filters.nextFollowUpFrom) {
+      // Ensure we're working with a single value, not an array
+      const filterValue = Array.isArray(filters.nextFollowUpFrom)
+        ? filters.nextFollowUpFrom[0]
+        : filters.nextFollowUpFrom;
+
+      if (filterValue) {
+        // Convert to Date if it's not already
+        const fromDate = filterValue instanceof Date
+          ? filterValue
+          : new Date(String(filterValue));
+
+        if (!isNaN(fromDate.getTime())) {
+          result = result.filter(lead => {
+            if (!lead.nextFollowUp) return false;
+            const nextFollowUpDate = new Date(lead.nextFollowUp);
+            return nextFollowUpDate >= fromDate;
+          });
+        }
+      }
     }
 
-    if (filters.nextFollowUpTo && filters.nextFollowUpTo instanceof Date) {
-      result = result.filter(lead => {
-        if (!lead.nextFollowUp) return false;
-        const nextFollowUpDate = new Date(lead.nextFollowUp);
-        return nextFollowUpDate <= (filters.nextFollowUpTo as Date);
-      });
+    if (filters.nextFollowUpTo) {
+      // Ensure we're working with a single value, not an array
+      const filterValue = Array.isArray(filters.nextFollowUpTo)
+        ? filters.nextFollowUpTo[0]
+        : filters.nextFollowUpTo;
+
+      if (filterValue) {
+        // Convert to Date if it's not already
+        const toDate = filterValue instanceof Date
+          ? filterValue
+          : new Date(String(filterValue));
+
+        if (!isNaN(toDate.getTime())) {
+          result = result.filter(lead => {
+            if (!lead.nextFollowUp) return false;
+            const nextFollowUpDate = new Date(lead.nextFollowUp);
+            return nextFollowUpDate <= toDate;
+          });
+        }
+      }
     }
 
     setFilteredLeads(result);
