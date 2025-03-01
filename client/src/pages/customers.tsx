@@ -3,7 +3,7 @@ import { CustomerList } from "@/components/crm/CustomerList";
 import { CustomerForm } from "@/components/crm/CustomerForm";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Customer } from "@db/schema";
 import { Plus } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -52,6 +52,9 @@ export default function CustomersPage() {
             <DialogTitle>
               {selectedCustomer ? t("common.edit") : t("customers.newCustomer")}
             </DialogTitle>
+            <DialogDescription>
+              {selectedCustomer ? "Modifique la información del cliente" : "Ingrese la información del nuevo cliente"}
+            </DialogDescription>
           </DialogHeader>
           <CustomerForm
             customer={selectedCustomer}

@@ -38,7 +38,7 @@ import {
 } from "recharts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeadForm } from "@/components/crm/LeadForm";
 import { CustomerForm } from "@/components/crm/CustomerForm";
 import { SalesForm } from "@/components/crm/SalesForm";
@@ -494,6 +494,7 @@ export default function DashboardPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nuevo Lead</DialogTitle>
+            <DialogDescription>Registre un nuevo prospecto en el sistema</DialogDescription>
           </DialogHeader>
           <LeadForm
             onClose={() => setLeadDialogOpen(false)}
@@ -506,6 +507,7 @@ export default function DashboardPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nuevo Cliente</DialogTitle>
+            <DialogDescription>Registre un nuevo cliente en el sistema</DialogDescription>
           </DialogHeader>
           <CustomerForm
             onComplete={() => setCustomerDialogOpen(false)}
@@ -518,6 +520,7 @@ export default function DashboardPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nueva Venta</DialogTitle>
+            <DialogDescription>Registre una nueva venta en el sistema</DialogDescription>
           </DialogHeader>
           <SalesForm
             onComplete={() => setSaleDialogOpen(false)}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { LeadsList } from "@/components/crm/LeadsList";
 import { LeadForm } from "@/components/crm/LeadForm";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { type Lead } from "@db/schema";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -51,6 +51,9 @@ export default function LeadsPage() {
             <DialogTitle>
               {selectedLead ? "Editar Lead" : "Nuevo Lead"}
             </DialogTitle>
+            <DialogDescription>
+              {selectedLead ? "Modifique la información del lead" : "Ingrese la información del nuevo lead"}
+            </DialogDescription>
           </DialogHeader>
           <LeadForm
             lead={selectedLead}

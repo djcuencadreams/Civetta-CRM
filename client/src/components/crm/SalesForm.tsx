@@ -24,16 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const paymentMethods = [
-  { id: "efectivo", name: "Efectivo" },
-  { id: "tarjeta", name: "Tarjeta de Crédito/Débito" },
   { id: "transferencia", name: "Transferencia Bancaria" },
-  { id: "payphone", name: "Payphone" },
-  { id: "paypal", name: "Paypal" },
+  { id: "tarjeta", name: "Tarjeta de Crédito / Débito" },
+  { id: "efectivo", name: "Efectivo" },
+  { id: "payphone", name: "PayPhone" },
+  { id: "paypal", name: "PayPal" },
+  { id: "canje", name: "Canje" },
   { id: "cripto", name: "Cripto" },
   { id: "otros", name: "Otros" }
 ];
@@ -62,7 +63,7 @@ export function SalesForm({
   onComplete: () => void;
 }) {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [selectedBrand, setSelectedBrand] = useState<string>(brandEnum.SLEEPWEAR);
+  const [selectedBrand, setSelectedBrand] = useState<typeof brandEnum.SLEEPWEAR>(brandEnum.SLEEPWEAR);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,7 +76,7 @@ export function SalesForm({
     defaultValues: {
       customerId: "",
       products: [{ name: "", category: "", amount: "", quantity: "1", brand: brandEnum.SLEEPWEAR }],
-      paymentMethod: "efectivo",
+      paymentMethod: "transferencia",
       notes: ""
       // Brand is now stored at product level
     },
@@ -399,7 +400,13 @@ export function SalesForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => append({ name: "", category: "", amount: "", quantity: "1", brand: selectedBrand })}
+            onClick={() => append({ 
+              name: "", 
+              category: "", 
+              amount: "", 
+              quantity: "1", 
+              brand: selectedBrand as typeof brandEnum.SLEEPWEAR 
+            })}
           >
             Agregar Producto
           </Button>
@@ -465,6 +472,9 @@ export function SalesForm({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nuevo Cliente</DialogTitle>
+            <DialogDescription>
+              Agregue un nuevo cliente para asociarlo con esta venta
+            </DialogDescription>
           </DialogHeader>
           <CustomerForm onComplete={() => {
             setShowNewCustomer(false);

@@ -3,7 +3,7 @@ import { SalesList } from "@/components/crm/SalesList";
 import { SalesForm } from "@/components/crm/SalesForm";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -51,6 +51,9 @@ export default function SalesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("sales.newSale")}</DialogTitle>
+            <DialogDescription>
+              Registre una nueva venta en el sistema
+            </DialogDescription>
           </DialogHeader>
           <SalesForm onComplete={() => setDialogOpen(false)} />
         </DialogContent>
