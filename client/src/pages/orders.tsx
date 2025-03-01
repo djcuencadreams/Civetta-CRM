@@ -536,14 +536,19 @@ export default function OrdersPage() {
           </p>
         </div>
         <div>
+            {/* Botón independiente para abrir el diálogo */}
             <Button 
               className="flex items-center gap-2"
-              onClick={() => setShowOrderForm(true)}
+              onClick={() => {
+                setOrderToEdit(undefined);
+                setShowOrderForm(true);
+              }}
             >
               <PlusCircleIcon className="h-4 w-4" />
               Nuevo Pedido
             </Button>
             
+            {/* Diálogo separado del botón */}
             <Dialog open={showOrderForm} onOpenChange={setShowOrderForm}>
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>

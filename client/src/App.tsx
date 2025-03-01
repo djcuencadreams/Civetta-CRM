@@ -1,63 +1,23 @@
 import React from 'react'
 import { useState } from 'react'
-import { Route, Switch } from 'wouter'
-import { Shell } from './components/layout/Shell'
-
-// Import pages
-import Dashboard from './pages/dashboard'
-import Customers from './pages/customers'
-import Leads from './pages/leads'
-import Sales from './pages/sales'
-import Orders from './pages/orders'
-import Products from './pages/products'
-import SimpleReports from './pages/reports-simple'
-import EnhancedReports from './pages/reports-new'
-import Reports from './pages/reports'
-import Configuration from './pages/configuration'
-import NotFound from './pages/not-found'
+import { TestComponent } from './TestComponent'
 
 function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
 
   return (
-    <Shell>
-      <Switch>
-        <Route path="/">
-          <Dashboard />
-        </Route>
-        <Route path="/customers">
-          <Customers />
-        </Route>
-        <Route path="/leads">
-          <Leads />
-        </Route>
-        <Route path="/sales">
-          <Sales />
-        </Route>
-        <Route path="/orders">
-          <Orders />
-        </Route>
-        <Route path="/products">
-          <Products />
-        </Route>
-        <Route path="/reports">
-          <SimpleReports />
-        </Route>
-        <Route path="/reports-new">
-          <EnhancedReports />
-        </Route>
-        <Route path="/reports-advanced">
-          <Reports />
-        </Route>
-        <Route path="/configuration">
-          <Configuration />
-        </Route>
-        <Route>
-          <NotFound />
-        </Route>
-      </Switch>
-    </Shell>
+    <div className="app-container">
+      <h1 className="text-2xl font-bold m-4">CIVETTA CRM - Diagnóstico</h1>
+      <p className="m-4">Esta es una versión simplificada para diagnosticar problemas de renderizado.</p>
+      <button 
+        className="mx-4 px-4 py-2 bg-primary text-white rounded"
+        onClick={() => setCount(count + 1)}
+      >
+        Contador: {count}
+      </button>
+      <TestComponent />
+    </div>
   )
 }
 
