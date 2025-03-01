@@ -242,7 +242,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
                 <FormLabel>Cliente</FormLabel>
                 <FormControl>
                   <CustomerSearchSelect
-                    customers={customers as any[]}
+                    customers={customers}
                     value={selectedCustomerId}
                     onChange={setSelectedCustomerId}
                     isLoading={isLoadingCustomers}

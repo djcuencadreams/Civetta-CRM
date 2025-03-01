@@ -9,7 +9,6 @@ import Customers from './pages/customers'
 import Leads from './pages/leads'
 import Sales from './pages/sales'
 import Orders from './pages/orders'
-import Products from './pages/products'
 import SimpleReports from './pages/reports-simple'
 import EnhancedReports from './pages/reports-new'
 import Reports from './pages/reports'
@@ -37,9 +36,6 @@ function App() {
         </Route>
         <Route path="/orders">
           <Orders />
-        </Route>
-        <Route path="/products">
-          <Products />
         </Route>
         <Route path="/reports">
           <SimpleReports />

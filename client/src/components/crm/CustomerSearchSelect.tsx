@@ -1,19 +1,5 @@
 import { useState, useRef, useEffect, forwardRef } from "react";
-import { brandEnum } from "@db/schema";
-
-// Definición del tipo Customer para el componente
-type Customer = {
-  id: number;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string | null;
-  idNumber?: string | null;
-  city?: string | null;
-  province?: string | null;
-  brand?: string | null;
-  [key: string]: any; // Para aceptar cualquier otra propiedad que pueda venir del backend
-};
+import { type Customer, brandEnum } from "@db/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 

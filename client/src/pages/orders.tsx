@@ -20,7 +20,6 @@ import {
 } from "@tanstack/react-table";
 import { Loader2, PlusCircleIcon, ShoppingCart } from "lucide-react";
 import { CrmNavigation, CrmSubnavigation } from "@/components/layout/CrmNavigation";
-import { Shell } from "@/components/layout/Shell";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +58,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Shell } from "@/components/layout/Shell";
 import { OrderForm } from "@/components/crm/OrderForm";
 import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
 import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
@@ -520,11 +520,13 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
+      {/* CRM Navigation Component */}
+      <CrmNavigation />
+      
       {/* CRM Subnavigation - específica para el área de Pedidos */}
       <CrmSubnavigation area="orders" />
     
-      {/* Header con título y botón de nuevo pedido */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-6 w-6 text-primary" />
@@ -535,145 +537,141 @@ export default function OrdersPage() {
             Administre pedidos, entregas y seguimiento logístico
           </p>
         </div>
-        <div>
-            <Button 
-              className="flex items-center gap-2"
-              onClick={() => setShowOrderForm(true)}
-            >
-              <PlusCircleIcon className="h-4 w-4" />
-              Nuevo Pedido
-            </Button>
-            
-            <Dialog open={showOrderForm} onOpenChange={setShowOrderForm}>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>
-                    {orderToEdit ? "Editar Pedido" : "Crear Nuevo Pedido"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {orderToEdit
-                      ? "Modifica los detalles del pedido existente"
-                      : "Ingresa los detalles del nuevo pedido"}
-                  </DialogDescription>
-                </DialogHeader>
-                <OrderForm 
-                  order={orderToEdit} 
-                  onClose={handleFormClose}
-                  onSuccess={() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-                    handleFormClose();
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-          </div>
-      </div>
+        <Dialog open={showOrderForm} onOpenChange={setShowOrderForm}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <PlusCircleIcon className="h-4 w-4" />
+                Nuevo Pedido
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {orderToEdit ? "Editar Pedido" : "Crear Nuevo Pedido"}
+                </DialogTitle>
+                <DialogDescription>
+                  {orderToEdit
+                    ? "Modifica los detalles del pedido existente"
+                    : "Ingresa los detalles del nuevo pedido"}
+                </DialogDescription>
+              </DialogHeader>
+              <OrderForm 
+                order={orderToEdit} 
+                onClose={handleFormClose}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+                  handleFormClose();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
 
-      {/* Tabla de pedidos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Gestión de Pedidos</CardTitle>
-          <CardDescription>
-            Administra todos los pedidos de Civetta Sleepwear y Civetta Bride
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <SearchFilterBar
-              searchPlaceholder="Buscar por cliente o número de pedido..."
-              filterOptions={filterOptions}
-              filters={filters}
-              setFilters={setFilters}
-            />
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestión de Pedidos</CardTitle>
+            <CardDescription>
+              Administra todos los pedidos de Civetta Sleepwear y Civetta Bride
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <SearchFilterBar
+                searchPlaceholder="Buscar por cliente o número de pedido..."
+                filterOptions={filterOptions}
+                filters={filters}
+                setFilters={setFilters}
+              />
+            </div>
 
-          {isLoading ? (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Cargando pedidos...</span>
-            </div>
-          ) : error ? (
-            <div className="text-red-500 p-4 text-center">
-              Error al cargar los pedidos. Por favor, intenta de nuevo.
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        data-state={row.getIsSelected() && "selected"}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
+            {isLoading ? (
+              <div className="flex justify-center items-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Cargando pedidos...</span>
+              </div>
+            ) : error ? (
+              <div className="text-red-500 p-4 text-center">
+                Error al cargar los pedidos. Por favor, intenta de nuevo.
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
                         ))}
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
-                        No se encontraron pedidos.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          No se encontraron pedidos.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div>
+                Página {table.getState().pagination.pageIndex + 1} de{" "}
+                {table.getPageCount()}
+              </div>
             </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div>
-              Página {table.getState().pagination.pageIndex + 1} de{" "}
-              {table.getPageCount()}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Siguiente
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
-    </div>
+          </CardFooter>
+        </Card>
+      </div>
+    </Shell>
   );
 }

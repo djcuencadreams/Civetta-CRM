@@ -25,7 +25,7 @@ interface NavigationItemProps {
 const NavigationItem = ({ href, label, description, icon: Icon, active }: NavigationItemProps) => {
   return (
     <Link href={href}>
-      <div className={cn(
+      <a className={cn(
         "relative flex h-full w-full cursor-pointer flex-col rounded-md border p-4 transition-colors",
         active 
           ? "border-primary bg-primary/5 text-primary" 
@@ -43,7 +43,7 @@ const NavigationItem = ({ href, label, description, icon: Icon, active }: Naviga
           <h3 className="font-medium">{label}</h3>
           <p className="line-clamp-2 text-sm text-muted-foreground">{description}</p>
         </div>
-      </div>
+      </a>
     </Link>
   );
 };
@@ -205,7 +205,7 @@ export function CrmSubnavigation({ area }: { area: 'sales' | 'orders' | 'custome
       )}>
         {subItems.map((item) => (
           <Link key={item.href} href={item.href}>
-            <div className={cn(
+            <a className={cn(
               "flex items-center gap-2 rounded-md border p-3 transition-colors",
               item.active 
                 ? "border-primary bg-primary/5 text-primary" 
@@ -213,7 +213,7 @@ export function CrmSubnavigation({ area }: { area: 'sales' | 'orders' | 'custome
             )}>
               <item.icon className="h-5 w-5" />
               <span className="font-medium">{item.label}</span>
-            </div>
+            </a>
           </Link>
         ))}
       </div>
