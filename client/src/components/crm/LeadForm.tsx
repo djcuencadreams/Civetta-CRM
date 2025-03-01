@@ -50,7 +50,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       email: lead?.email || '',
       phone: lead?.phone || '',
       status: lead?.status || 'new',
-      source: lead?.source || 'website',
+      source: lead?.source || 'instagram',
       notes: lead?.notes || '',
       lastContact: lead?.lastContact ? new Date(lead?.lastContact) : undefined,
       nextFollowUp: lead?.nextFollowUp ? new Date(lead?.nextFollowUp) : undefined,
@@ -350,13 +350,17 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
                 </FormControl>
                 <SelectContent>
                   {[
-                    ["website", "Sitio Web"],
-                    ["referral", "Referido"],
-                    ["social_media", "Redes Sociales"],
-                    ["email", "Correo Electrónico"],
-                    ["cold_call", "Llamada en Frío"],
+                    ["instagram", "Instagram"],
+                    ["facebook", "Facebook"],
+                    ["tiktok", "TikTok"],
+                    ["website", "Página Web"],
+                    ["whatsapp", "WhatsApp"],
+                    ["email", "Email"],
                     ["event", "Evento"],
-                    ["other", "Otro"]
+                    ["referral", "Referido"],
+                    ["mass_media", "Publicidad en medios masivos"],
+                    ["call", "Llamada"],
+                    ["other", "Otros"]
                   ].map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}

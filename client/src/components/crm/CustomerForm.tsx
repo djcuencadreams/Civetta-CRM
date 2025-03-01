@@ -179,7 +179,7 @@ export function CustomerForm({
       city: customer.city || customer.address?.split(',')[1]?.trim() || '',
       province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
       deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
-      source: customer.source || 'website',
+      source: customer.source || 'instagram',
       brand: customer.brand || brandEnum.SLEEPWEAR
     } : {
       firstName: "",
@@ -192,7 +192,7 @@ export function CustomerForm({
       city: "",
       province: "",
       deliveryInstructions: "",
-      source: "website",
+      source: "instagram",
       brand: brandEnum.SLEEPWEAR
     }
   });
@@ -328,9 +328,21 @@ export function CustomerForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Website", "Referral", "Social Media", "Email", "Cold Call", "Event", "Other"].map(source => (
-                        <SelectItem key={source} value={source}>
-                          {source}
+                      {[
+                        { value: "instagram", label: "Instagram" },
+                        { value: "facebook", label: "Facebook" },
+                        { value: "tiktok", label: "TikTok" },
+                        { value: "website", label: "Página Web" },
+                        { value: "whatsapp", label: "WhatsApp" },
+                        { value: "email", label: "Email" },
+                        { value: "event", label: "Evento" },
+                        { value: "referral", label: "Referido" },
+                        { value: "mass_media", label: "Publicidad en medios masivos" },
+                        { value: "call", label: "Llamada" },
+                        { value: "other", label: "Otros" }
+                      ].map(source => (
+                        <SelectItem key={source.value} value={source.value}>
+                          {source.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

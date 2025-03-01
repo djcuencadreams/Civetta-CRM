@@ -8,6 +8,13 @@
       "when": 1740711249671,
       "tag": "0000_milky_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1740800717831,
+      "tag": "0001_loud_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }
