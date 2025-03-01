@@ -352,6 +352,67 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Endpoint para actualizar el estado de un pedido (venta)
+  app.patch("/api/sales/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, reason } = req.body;
+      const saleId = parseInt(id);
+      
+      if (isNaN(saleId)) {
+        return res.status(400).json({ error: "ID de pedido inválido" });
+      }
+      
+      if (!status) {
+        return res.status(400).json({ error: "El estado es requerido" });
+      }
+      
+      // Verificar que el estado sea válido
+      const validStatuses = ['new', 'preparing', 'shipped', 'completed', 'cancelled'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          error: "Estado inválido", 
+          message: "El estado debe ser uno de: nuevo, preparando, enviado, completado, cancelado"
+        });
+      }
+      
+      // Verificar que el pedido exista
+      const existingSale = await db.query.sales.findFirst({
+        where: eq(sales.id, saleId)
+      });
+      
+      if (!existingSale) {
+        return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+      
+      // Actualizar el estado del pedido
+      const updateData: any = { 
+        status, 
+        updatedAt: new Date() 
+      };
+      
+      // Si hay una razón proporcionada (especialmente para cancelaciones), guardarla en notas
+      if (reason) {
+        updateData.notes = existingSale.notes 
+          ? `${existingSale.notes}\n[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`
+          : `[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`;
+      }
+      
+      await db.update(sales)
+        .set(updateData)
+        .where(eq(sales.id, saleId));
+      
+      res.json({ 
+        success: true, 
+        message: "Estado actualizado correctamente",
+        status
+      });
+    } catch (error) {
+      console.error("Error updating sale status:", error);
+      res.status(500).json({ error: "Error al actualizar el estado del pedido" });
+    }
+  });
+
   // Webhooks API
   app.get("/api/webhooks", async (_req, res) => {
     try {

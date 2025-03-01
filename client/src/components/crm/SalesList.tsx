@@ -1,14 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "@/lib/i18n";
 import { type Sale, brandEnum } from "@db/schema";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { es } from "date-fns/locale";
 import { getQueryFn } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
+import { OrderStatusUpdater } from "./OrderStatusUpdater";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SalesForm } from "./SalesForm";
 
 type SaleWithCustomer = Sale & {
   customer: {
@@ -16,16 +20,46 @@ type SaleWithCustomer = Sale & {
   };
 };
 
-const statusVariants = {
-  pending: "default",
-  completed: "default",
-  cancelled: "destructive"
-} as const;
+// Definición de estados del pedido con sus colores y transiciones permitidas
+// Exactamente los mismos que en OrderStatusUpdater para mantener consistencia
+type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
 
-const statusLabels = {
-  pending: "Pendiente",
-  completed: "Completado",
-  cancelled: "Cancelado"
+const orderStatuses: Record<string, {
+  label: string;
+  allowedTransitions: string[];
+  color: string;
+  badgeVariant: BadgeVariant;
+}> = {
+  new: {
+    label: "Nuevo Pedido",
+    allowedTransitions: ["preparing", "cancelled"],
+    color: "default",
+    badgeVariant: "secondary"
+  },
+  preparing: {
+    label: "Preparando Pedido",
+    allowedTransitions: ["shipped", "cancelled"],
+    color: "secondary",
+    badgeVariant: "default"
+  },
+  shipped: {
+    label: "Enviado",
+    allowedTransitions: ["completed", "cancelled"],
+    color: "blue",
+    badgeVariant: "secondary"
+  },
+  completed: {
+    label: "Completado",
+    allowedTransitions: [],
+    color: "green",
+    badgeVariant: "outline"
+  },
+  cancelled: {
+    label: "Cancelado",
+    allowedTransitions: [],
+    color: "destructive",
+    badgeVariant: "destructive"
+  },
 };
 
 export function SalesList({ brand, filters: externalFilters }: { brand?: string, filters?: FilterState }) {
@@ -34,6 +68,15 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
   const [filteredSales, setFilteredSales] = useState<SaleWithCustomer[]>([]);
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const queryClient = useQueryClient();
+  
+  // Función para manejar la edición de una venta
+  const handleEditSale = (sale: Sale) => {
+    setEditingSale(sale);
+    setShowEditDialog(true);
+  };
 
   // Merge external filters when provided
   useEffect(() => {
@@ -160,10 +203,13 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
       id: "status",
       label: "Estado",
       type: "select" as const,
-      options: Object.entries(statusLabels).map(([value, label]) => ({
-        value,
-        label,
-      })),
+      options: [
+        { value: "all", label: "Todos los estados" },
+        ...Object.entries(orderStatuses).map(([value, status]) => ({
+          value,
+          label: status.label as string,
+        })),
+      ],
     },
     ...(!brand ? [{
       id: "brand",
@@ -278,28 +324,88 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
                       </span>
                     )}
                   </div>
-                  <Badge variant={statusVariants[sale.status as keyof typeof statusVariants]}>
-                    {t(`sales.${sale.status}`)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleEditSale(sale)}
+                      className="text-xs h-7 px-2"
+                    >
+                      Editar
+                    </Button>
+                    <Badge variant={
+                      orderStatuses[sale.status as keyof typeof orderStatuses]?.badgeVariant || "default"
+                    }>
+                      {orderStatuses[sale.status as keyof typeof orderStatuses]?.label || sale.status}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  {sale.notes?.split('\n').map((line, i) => (
-                    line.startsWith('Notas:') ? null : 
-                    <div key={i} className="text-sm text-muted-foreground pl-2">
-                      {line}
-                    </div>
-                  ))}
                   <div className="text-sm font-medium">
                     Total: ${sale.amount} - {format(new Date(sale.createdAt), "PPp", { locale: es })}
                   </div>
+                  
+                  {/* Historial de cambios de estado */}
+                  {sale.notes && (
+                    <div className="mt-2">
+                      {sale.notes.split('\n').map((line, i) => {
+                        // Separamos las notas normales del historial de estados
+                        if (line.includes('Cambio de estado')) {
+                          return (
+                            <div key={i} className="text-xs text-slate-500 border-l-2 border-slate-300 pl-2 py-1">
+                              {line}
+                            </div>
+                          );
+                        } else if (line.trim() && !line.startsWith('Notas:')) {
+                          return (
+                            <div key={i} className="text-sm pl-2 py-0.5">
+                              {line}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
                 </div>
-                {sale.notes && (
-                  <div className="mt-2 text-sm">{sale.notes}</div>
-                )}
+                
+                {/* Componente para actualizar el estado del pedido */}
+                <OrderStatusUpdater 
+                  orderId={sale.id} 
+                  currentStatus={sale.status}
+                  onStatusUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/sales"] })} 
+                />
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+      
+      {/* Diálogo para editar venta */}
+      {editingSale && (
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Editar Venta</DialogTitle>
+              <div className="text-sm text-muted-foreground">
+                Modifique los detalles de la venta seleccionada
+              </div>
+            </DialogHeader>
+            <div className="py-4">
+              {/* Aquí integramos el formulario de edición de venta */}
+              {editingSale && (
+                <SalesForm 
+                  sale={editingSale} 
+                  onComplete={() => {
+                    setShowEditDialog(false);
+                    setEditingSale(null);
+                    queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+                  }} 
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

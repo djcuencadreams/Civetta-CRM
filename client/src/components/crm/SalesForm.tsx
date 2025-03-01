@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertSaleSchema, type Customer, brandEnum } from "@db/schema";
+import { insertSaleSchema, type Customer, type Sale, brandEnum } from "@db/schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
@@ -58,9 +58,11 @@ const productCategoriesByBrand = {
 };
 
 export function SalesForm({
-  onComplete
+  onComplete,
+  sale
 }: {
   onComplete: () => void;
+  sale?: Sale;
 }) {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<typeof brandEnum.SLEEPWEAR>(brandEnum.SLEEPWEAR);
@@ -72,13 +74,61 @@ export function SalesForm({
     queryFn: getQueryFn({ on401: "throw" })
   });
 
+  // Función para extraer productos desde las notas de la venta
+  function parseProductsFromSaleNotes(notes: string): Array<{ 
+    name: string; 
+    category: string; 
+    amount: string; 
+    quantity: string;
+    brand: string;
+  }> {
+    if (!notes) return [{ name: "", category: "", amount: "", quantity: "1", brand: brandEnum.SLEEPWEAR }];
+    
+    const products: Array<{ name: string; category: string; amount: string; quantity: string; brand: string }> = [];
+    const lines = notes.split('\n');
+    
+    for (const line of lines) {
+      // Si la línea es un cambio de estado o notas, ignorarla
+      if (line.includes('Cambio de estado') || line.startsWith('Notas:')) continue;
+      
+      // Formato esperado: "Producto (Categoría) - $X.XX x Y - Marca"
+      const match = line.match(/^(.+) \((.+)\) - \$([0-9.]+) x ([0-9]+) - (.+)$/);
+      if (match) {
+        const [_, name, category, amount, quantity, brandName] = match;
+        const brand = brandName.includes("Bride") ? brandEnum.BRIDE : brandEnum.SLEEPWEAR;
+        
+        products.push({
+          name,
+          category,
+          amount,
+          quantity,
+          brand
+        });
+      }
+    }
+    
+    // Si no se encontraron productos, devolver un producto vacío
+    return products.length > 0 ? products : [{ name: "", category: "", amount: "", quantity: "1", brand: brandEnum.SLEEPWEAR }];
+  }
+  
+  // Función para extraer notas personalizadas
+  function extractCustomNotesFromSale(notes: string): string {
+    const notesMatch = notes.match(/Notas: (.+)/);
+    return notesMatch ? notesMatch[1] : "";
+  }
+
+  // Inicialización de valores por defecto, con soporte para edición
   const form = useForm({
-    defaultValues: {
+    defaultValues: sale ? {
+      customerId: sale.customerId.toString(),
+      products: parseProductsFromSaleNotes(sale.notes || ""),
+      paymentMethod: sale.paymentMethod || "transferencia",
+      notes: extractCustomNotesFromSale(sale.notes || "")
+    } : {
       customerId: "",
       products: [{ name: "", category: "", amount: "", quantity: "1", brand: brandEnum.SLEEPWEAR }],
       paymentMethod: "transferencia",
       notes: ""
-      // Brand is now stored at product level
     },
     resolver: zodResolver(insertSaleSchema)
   });
@@ -100,6 +150,11 @@ export function SalesForm({
       }
     }
   }, [form.watch("customerId"), customers, form]);
+
+  // Get brand display name
+  const getBrandDisplayName = (brandValue: string) => {
+    return brandValue === brandEnum.BRIDE ? "Civetta Bride" : "Civetta Sleepwear";
+  };
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -150,7 +205,7 @@ export function SalesForm({
       const saleData = {
         customerId,
         amount: totalAmount,
-        status: "completed",
+        status: sale ? sale.status : "new", // Mantener el estado si es edición, nuevo si es creación
         paymentMethod: values.paymentMethod,
         brand: dominantBrand, // The sale is recorded with the dominant brand
         notes: values.products.map((p: any) => 
@@ -158,26 +213,30 @@ export function SalesForm({
         ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
       };
 
-      const res = await apiRequest("POST", "/api/sales", saleData);
+      // Si es edición (sale existe), hacer PATCH; si es nueva, hacer POST
+      const endpoint = sale ? `/api/sales/${sale.id}` : "/api/sales";
+      const method = sale ? "PATCH" : "POST";
+      
+      const res = await apiRequest(method, endpoint, saleData);
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Error al crear la venta");
+        throw new Error(errorData.error || `Error al ${sale ? 'actualizar' : 'crear'} la venta`);
       }
       return res.json();
     },
     onSuccess: (data) => {
-      console.log('Sale created successfully:', data);
+      console.log(`Sale ${sale ? 'updated' : 'created'} successfully:`, data);
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       toast({ 
-        title: "Venta guardada",
-        description: "La venta se ha registrado correctamente"
+        title: `Venta ${sale ? 'actualizada' : 'guardada'}`,
+        description: `La venta se ha ${sale ? 'actualizado' : 'registrado'} correctamente`
       });
       onComplete();
     },
     onError: (error: Error) => {
       console.error('Sale submission error:', error);
       toast({ 
-        title: "Error al guardar la venta",
+        title: `Error al ${sale ? 'actualizar' : 'guardar'} la venta`,
         description: error.message,
         variant: "destructive"
       });
@@ -192,27 +251,11 @@ export function SalesForm({
   const productCategories = productCategoriesByBrand[selectedBrand as keyof typeof productCategoriesByBrand] || 
                            productCategoriesByBrand[brandEnum.SLEEPWEAR];
 
-  // Get brand display name
-  const getBrandDisplayName = (brandValue: string) => {
-    return brandValue === brandEnum.BRIDE ? "Civetta Bride" : "Civetta Sleepwear";
-  };
-
   return (
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit((data) => {
-          mutation.mutate(data, {
-            onSuccess: () => {
-              onComplete();
-            },
-            onError: (error: Error) => {
-              toast({
-                title: "Error",
-                description: error.message,
-                variant: "destructive"
-              });
-            }
-          });
+          mutation.mutate(data);
         })} className="space-y-4">
           <FormField
             control={form.control}
@@ -354,6 +397,8 @@ export function SalesForm({
                             const value = e.target.value;
                             if (value === "" || Number(value) >= 0) {
                               field.onChange(value);
+                              // Forzar actualización de la vista cuando cambia el precio
+                              form.trigger(`products.${index}.amount`);
                             }
                           }}
                         />
@@ -378,6 +423,8 @@ export function SalesForm({
                             const value = e.target.value;
                             if (value === "" || Number(value) >= 1) {
                               field.onChange(value);
+                              // Forzar actualización de la vista cuando cambia la cantidad
+                              form.trigger(`products.${index}.quantity`);
                             }
                           }}
                         />
@@ -405,7 +452,7 @@ export function SalesForm({
               category: "", 
               amount: "", 
               quantity: "1", 
-              brand: selectedBrand as typeof brandEnum.SLEEPWEAR 
+              brand: selectedBrand
             })}
           >
             Agregar Producto
@@ -462,7 +509,7 @@ export function SalesForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              Guardar
+              {sale ? 'Actualizar' : 'Guardar'} Venta
             </Button>
           </div>
         </form>

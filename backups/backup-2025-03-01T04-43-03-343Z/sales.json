@@ -1,0 +1,13 @@
+[
+  {
+    "id": 12,
+    "customerId": 143,
+    "amount": "150.00",
+    "status": "new",
+    "paymentMethod": null,
+    "brand": "sleepwear",
+    "notes": null,
+    "createdAt": "2025-03-01T04:42:53.987Z",
+    "updatedAt": "2025-03-01T04:42:53.987Z"
+  }
+]
