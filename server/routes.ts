@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { registerOrderRoutes } from "./routes-orders-new";
 import { db } from "@db";
 import { customers, sales, webhooks, leads, leadActivities } from "@db/schema";
 import { eq, desc, like } from "drizzle-orm";
@@ -110,8 +111,8 @@ export function registerRoutes(app: Express): Server {
       });
 
       webhookList.forEach(webhook => {
-        if (webhook.active) {
-          fetch(webhook.url, {
+        if (webhook.active && webhook.endpoint) {
+          fetch(webhook.endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(customer[0])
@@ -338,8 +339,8 @@ export function registerRoutes(app: Express): Server {
       });
 
       webhookList.forEach(webhook => {
-        if (webhook.active) {
-          fetch(webhook.url, {
+        if (webhook.active && webhook.endpoint) {
+          fetch(webhook.endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(saleWithCustomer)
@@ -518,8 +519,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Webhook name is required" });
       }
 
-      if (!req.body.url?.trim()) {
-        return res.status(400).json({ error: "Webhook URL is required" });
+      if (!req.body.endpoint?.trim()) {
+        return res.status(400).json({ error: "Webhook endpoint is required" });
       }
 
       if (!req.body.event?.trim()) {
@@ -1111,6 +1112,9 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to import orders from WordPress" });
     }
   });
+  
+  // Register order management routes
+  registerOrderRoutes(app);
 
   return httpServer;
 }

@@ -1,0 +1,677 @@
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+// UI
+import { CaretSortIcon, DotsHorizontalIcon } from "@radix-ui/react-icons";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { Loader2, PlusCircleIcon, ShoppingCart } from "lucide-react";
+import { CrmNavigation, CrmSubnavigation } from "@/components/layout/CrmNavigation";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Shell } from "@/components/layout/Shell";
+import { OrderForm } from "@/components/crm/OrderForm";
+import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
+import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
+
+// Tipos
+type Order = {
+  id: number;
+  customerId: number;
+  leadId: number | null;
+  orderNumber: string | null;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string | null;
+  source: string | null;
+  woocommerceId: number | null;
+  brand: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer?: {
+    name: string;
+    id: number;
+  };
+  items?: OrderItem[];
+};
+
+type OrderItem = {
+  id: number;
+  orderId: number;
+  productId: number | null;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  subtotal: number;
+  createdAt: string;
+};
+
+// Utilizar las mismas variantes del componente Badge
+import { BadgeProps } from "@/components/ui/badge";
+type BadgeVariant = NonNullable<BadgeProps["variant"]>;
+
+// Componente principal
+export default function OrdersPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({});
+
+  // Estados para la tabla
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "createdAt", desc: true },
+  ]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
+
+  // Cargar pedidos
+  const {
+    data: orders = [] as Order[],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Eliminar un pedido
+  const deleteMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      await apiRequest("DELETE", `/api/orders/${orderId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pedido eliminado",
+        description: "El pedido ha sido eliminado correctamente",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Error al eliminar el pedido: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Función para obtener la variante del badge según el estado
+  const getStatusBadgeVariant = (status: string): BadgeVariant => {
+    switch (status) {
+      case "completed":
+        return "success";
+      case "shipped":
+        return "default";
+      case "preparing":
+        return "secondary";
+      case "cancelled":
+        return "destructive";
+      default:
+        return "outline";
+    }
+  };
+
+  // Obtener el texto en español para los estados
+  const getStatusText = (status: string): string => {
+    switch (status) {
+      case "new":
+        return "Nuevo";
+      case "preparing":
+        return "Preparando";
+      case "shipped":
+        return "Enviado";
+      case "completed":
+        return "Completado";
+      case "cancelled":
+        return "Cancelado";
+      default:
+        return status;
+    }
+  };
+
+  // Obtener el texto en español para los estados de pago
+  const getPaymentStatusText = (status: string): string => {
+    switch (status) {
+      case "pending":
+        return "Pendiente";
+      case "paid":
+        return "Pagado";
+      case "refunded":
+        return "Reembolsado";
+      default:
+        return status;
+    }
+  };
+
+  // Definición de columnas
+  const columns: ColumnDef<Order>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Seleccionar todo"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Seleccionar fila"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "orderNumber",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Nº Pedido
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {row.original.orderNumber || `ORD-${row.original.id.toString().padStart(6, "0")}`}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "customer.name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Cliente
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => (
+        <div>
+          {row.original.customer ? (
+            <Link href={`/customers/${row.original.customerId}`}>
+              <span className="text-blue-600 hover:underline">
+                {row.original.customer.name}
+              </span>
+            </Link>
+          ) : (
+            <span className="text-gray-500">Cliente #{row.original.customerId}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "totalAmount",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Total
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const amount = parseFloat(row.getValue("totalAmount") as string);
+        const formatted = new Intl.NumberFormat("es-ES", {
+          style: "currency",
+          currency: "USD",
+        }).format(amount);
+
+        return <div className="text-right font-medium">{formatted}</div>;
+      },
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Estado
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string;
+        const variant = getStatusBadgeVariant(status);
+        
+        return (
+          <OrderStatusUpdater
+            orderId={row.original.id}
+            currentStatus={status}
+            onStatusUpdated={() => refetch()}
+          />
+        );
+      },
+    },
+    {
+      accessorKey: "paymentStatus",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Pago
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const status = row.getValue("paymentStatus") as string;
+        let variant: BadgeVariant = "outline";
+        
+        if (status === "paid") variant = "success";
+        if (status === "refunded") variant = "destructive";
+        
+        return (
+          <Badge variant={variant}>
+            {getPaymentStatusText(status)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "source",
+      header: "Origen",
+      cell: ({ row }) => (
+        <div>{row.original.source || "Directo"}</div>
+      ),
+    },
+    {
+      accessorKey: "brand",
+      header: "Marca",
+      cell: ({ row }) => (
+        <div>{row.original.brand === "bride" ? "Civetta Bride" : "Civetta Sleepwear"}</div>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Fecha
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const date = new Date(row.original.createdAt);
+        const formatted = new Intl.DateTimeFormat("es-ES", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(date);
+
+        return <div>{formatted}</div>;
+      },
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => {
+        const order = row.original;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Abrir menú</span>
+                <DotsHorizontalIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => {
+                setOrderToEdit(order);
+                setShowOrderForm(true);
+              }}>
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => {
+                  if (confirm(`¿Estás seguro de que deseas eliminar este pedido?`)) {
+                    deleteMutation.mutate(order.id);
+                  }
+                }}
+              >
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+
+  // Filtros disponibles
+  const filterOptions: FilterOption[] = [
+    {
+      id: "status",
+      label: "Estado",
+      type: "select",
+      options: [
+        { value: "new", label: "Nuevo" },
+        { value: "preparing", label: "Preparando" },
+        { value: "shipped", label: "Enviado" },
+        { value: "completed", label: "Completado" },
+        { value: "cancelled", label: "Cancelado" },
+      ],
+    },
+    {
+      id: "paymentStatus",
+      label: "Estado de pago",
+      type: "select",
+      options: [
+        { value: "pending", label: "Pendiente" },
+        { value: "paid", label: "Pagado" },
+        { value: "refunded", label: "Reembolsado" },
+      ],
+    },
+    {
+      id: "brand",
+      label: "Marca",
+      type: "select",
+      options: [
+        { value: "sleepwear", label: "Civetta Sleepwear" },
+        { value: "bride", label: "Civetta Bride" },
+      ],
+    },
+    {
+      id: "source",
+      label: "Origen",
+      type: "select",
+      options: [
+        { value: "woocommerce", label: "WooCommerce" },
+        { value: "whatsapp", label: "WhatsApp" },
+        { value: "instagram", label: "Instagram" },
+        { value: "direct", label: "Directo" },
+      ],
+    }
+  ];
+
+  // Filtrar pedidos según los filtros aplicados
+  const filteredOrders = orders.filter((order: Order) => {
+    // Si no hay filtros, mostrar todos
+    if (Object.keys(filters).length === 0) return true;
+
+    // Verificar cada filtro
+    return Object.entries(filters).every(([key, value]) => {
+      if (!value) return true;
+      
+      if (key === "search" && value) {
+        const searchTerm = (value as string).toLowerCase();
+        const customerName = order.customer?.name?.toLowerCase() || "";
+        const orderNumber = order.orderNumber?.toLowerCase() || "";
+        
+        return customerName.includes(searchTerm) || 
+               orderNumber.includes(searchTerm) || 
+               order.id.toString().includes(searchTerm);
+      }
+      
+      // Para los demás filtros, comparar directamente
+      return order[key as keyof Order] === value;
+    });
+  });
+
+  // Inicializar tabla
+  const table = useReactTable({
+    data: filteredOrders,
+    columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+    },
+  });
+
+  // Cerrar el formulario después de guardar
+  const handleFormClose = () => {
+    setShowOrderForm(false);
+    setOrderToEdit(undefined);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* CRM Navigation Component */}
+      <CrmNavigation />
+      
+      {/* CRM Subnavigation - específica para el área de Pedidos */}
+      <CrmSubnavigation area="orders" />
+    
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Pedidos</h1>
+            <Badge variant="outline" className="ml-2">Gestión de Órdenes</Badge>
+          </div>
+          <p className="text-muted-foreground mt-1">
+            Administre pedidos, entregas y seguimiento logístico
+          </p>
+        </div>
+        <Dialog open={showOrderForm} onOpenChange={setShowOrderForm}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <PlusCircleIcon className="h-4 w-4" />
+                Nuevo Pedido
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {orderToEdit ? "Editar Pedido" : "Crear Nuevo Pedido"}
+                </DialogTitle>
+                <DialogDescription>
+                  {orderToEdit
+                    ? "Modifica los detalles del pedido existente"
+                    : "Ingresa los detalles del nuevo pedido"}
+                </DialogDescription>
+              </DialogHeader>
+              <OrderForm 
+                order={orderToEdit} 
+                onClose={handleFormClose}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+                  handleFormClose();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestión de Pedidos</CardTitle>
+            <CardDescription>
+              Administra todos los pedidos de Civetta Sleepwear y Civetta Bride
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <SearchFilterBar
+                searchPlaceholder="Buscar por cliente o número de pedido..."
+                filterOptions={filterOptions}
+                filters={filters}
+                setFilters={setFilters}
+              />
+            </div>
+
+            {isLoading ? (
+              <div className="flex justify-center items-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Cargando pedidos...</span>
+              </div>
+            ) : error ? (
+              <div className="text-red-500 p-4 text-center">
+                Error al cargar los pedidos. Por favor, intenta de nuevo.
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center"
+                        >
+                          No se encontraron pedidos.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div>
+                Página {table.getState().pagination.pageIndex + 1} de{" "}
+                {table.getPageCount()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+    </Shell>
+  );
+}

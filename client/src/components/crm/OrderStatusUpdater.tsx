@@ -1,70 +1,46 @@
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Loader2, CheckCircle, Package, Truck, ShoppingBag, XCircle } from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Loader2 } from "lucide-react";
 
-// Estados de pedido disponibles y sus transiciones permitidas
-type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
+// Importar estas variantes desde Badge.tsx para mantener consistencia
+import { BadgeProps } from "../ui/badge";
+type BadgeVariant = NonNullable<BadgeProps["variant"]>;
 
-const orderStatuses: Record<string, {
+const STATUS_CONFIG: Record<string, {
   label: string;
-  allowedTransitions: string[];
-  color: string;
   badgeVariant: BadgeVariant;
-  icon: React.ReactNode;
-  description?: string;
 }> = {
-  new: {
-    label: "Nuevo Pedido",
-    allowedTransitions: ["preparing", "cancelled"],
-    color: "default",
-    badgeVariant: "secondary",
-    icon: <ShoppingBag className="h-4 w-4" />,
-    description: "Pedido recién creado, pendiente de procesamiento"
+  "new": {
+    label: "Nuevo",
+    badgeVariant: "outline"
   },
-  preparing: {
-    label: "Preparando Pedido",
-    allowedTransitions: ["shipped", "cancelled"],
-    color: "secondary",
-    badgeVariant: "default",
-    icon: <Package className="h-4 w-4" />,
-    description: "Pedido en preparación para envío"
+  "preparing": {
+    label: "Preparando",
+    badgeVariant: "secondary"
   },
-  shipped: {
+  "shipped": {
     label: "Enviado",
-    allowedTransitions: ["completed", "cancelled"],
-    color: "blue",
-    badgeVariant: "secondary",
-    icon: <Truck className="h-4 w-4" />,
-    description: "Pedido enviado al cliente"
+    badgeVariant: "default"
   },
-  completed: {
+  "completed": {
     label: "Completado",
-    allowedTransitions: [],
-    color: "green",
-    badgeVariant: "outline",
-    icon: <CheckCircle className="h-4 w-4" />,
-    description: "Pedido entregado y confirmado por el cliente"
+    badgeVariant: "success"
   },
-  cancelled: {
+  "cancelled": {
     label: "Cancelado",
-    allowedTransitions: [],
-    color: "destructive",
-    badgeVariant: "destructive",
-    icon: <XCircle className="h-4 w-4" />,
-    description: "Pedido cancelado"
-  },
+    badgeVariant: "destructive"
+  }
 };
 
 interface OrderStatusUpdaterProps {
@@ -76,141 +52,88 @@ interface OrderStatusUpdaterProps {
 export function OrderStatusUpdater({ 
   orderId, 
   currentStatus,
-  onStatusUpdated 
+  onStatusUpdated
 }: OrderStatusUpdaterProps) {
-  const [newStatus, setNewStatus] = useState<string>("");
-  const [reason, setReason] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Obtener las transiciones permitidas para el estado actual
-  const allowedTransitions = orderStatuses[currentStatus as keyof typeof orderStatuses]?.allowedTransitions || [];
-
-  // Mutación para actualizar el estado del pedido
+  
+  // Mutación para actualizar el estado
   const updateStatusMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/sales/${orderId}/status`, { 
-        status: newStatus,
-        reason: reason.trim() || undefined
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Error al actualizar el estado del pedido");
-      }
-      return res.json();
+    mutationFn: async ({ status, reason }: { status: string, reason?: string }) => {
+      return apiRequest("PATCH", `/api/orders/${orderId}/status`, { status, reason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
-      toast({ 
+      toast({
         title: "Estado actualizado",
-        description: `El pedido ha sido actualizado a: ${orderStatuses[newStatus as keyof typeof orderStatuses]?.label || newStatus}`
+        description: "El estado del pedido ha sido actualizado correctamente",
       });
-      if (onStatusUpdated) {
-        onStatusUpdated();
-      }
-      setNewStatus("");
-      setReason("");
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (onStatusUpdated) onStatusUpdated();
     },
     onError: (error: Error) => {
-      toast({ 
-        title: "Error al actualizar el estado",
-        description: error.message,
-        variant: "destructive"
+      toast({
+        title: "Error",
+        description: `Error al actualizar el estado: ${error.message}`,
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  // No mostrar el componente si no hay transiciones permitidas
-  if (allowedTransitions.length === 0) {
-    return null;
-  }
-
-  // Determinar si se necesita motivo (obligatorio para cancelaciones)
-  const requiresReason = newStatus === 'cancelled';
-  // Mostrar el campo de razón para cualquier cambio de estado
-  const showReasonField = !!newStatus;
+  // Recuperar la configuración del estado actual
+  const currentConfig = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.new;
+  
+  // Manejar el cambio de estado
+  const handleStatusChange = (newStatus: string) => {
+    // Si se cancela, solicitar razón
+    if (newStatus === "cancelled") {
+      const reason = window.prompt("Por favor, indique el motivo de la cancelación:");
+      if (reason !== null) {
+        updateStatusMutation.mutate({ status: newStatus, reason });
+      }
+    } else {
+      updateStatusMutation.mutate({ status: newStatus });
+    }
+  };
 
   return (
-    <div className="mt-3 pt-3 border-t space-y-3 bg-muted/40 p-4 rounded-md">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <span className="text-sm font-medium block text-primary">Estado del Pedido:</span>
-          <Badge 
-            variant={orderStatuses[currentStatus as keyof typeof orderStatuses]?.badgeVariant || "default"}
-            className="ml-2 flex items-center gap-1"
-          >
-            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.icon}
-            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.label || currentStatus}
-          </Badge>
-        </div>
-        {/* Mostrar descripción del estado actual si existe */}
-        {orderStatuses[currentStatus as keyof typeof orderStatuses]?.description && (
-          <div className="text-xs text-muted-foreground hidden md:block">
-            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.description}
-          </div>
-        )}
-      </div>
-      
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-        <Select
-          value={newStatus}
-          onValueChange={setNewStatus}
-        >
-          <SelectTrigger className="w-full border-primary/50">
-            <SelectValue placeholder="Cambiar a..." />
-          </SelectTrigger>
-          <SelectContent>
-            {allowedTransitions.map((status) => (
-              <SelectItem key={status} value={status} className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  {orderStatuses[status as keyof typeof orderStatuses]?.icon}
-                  {orderStatuses[status as keyof typeof orderStatuses]?.label || status}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        {/* Mostrar descripción del estado seleccionado */}
-        {newStatus && (
-          <div className="text-xs text-muted-foreground mt-1 sm:mt-0 sm:ml-2">
-            {orderStatuses[newStatus as keyof typeof orderStatuses]?.description}
-          </div>
-        )}
-      </div>
-      
-      {showReasonField && (
-        <div className="mt-2">
-          <Textarea
-            placeholder={requiresReason ? "Motivo de cancelación (requerido)" : "Motivo del cambio (opcional)"}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            className="resize-none"
-          />
-        </div>
-      )}
-      
-      <div className="flex justify-end">
-        <Button 
-          size="sm"
-          variant={newStatus === 'cancelled' ? 'destructive' : 'default'}
-          disabled={
-            !newStatus || 
-            updateStatusMutation.isPending || 
-            (requiresReason && !reason.trim())
-          }
-          onClick={() => newStatus && updateStatusMutation.mutate()}
-          className="font-medium"
-        >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div>
           {updateStatusMutation.isPending ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            <Badge variant="outline" className="cursor-not-allowed">
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              Actualizando...
+            </Badge>
           ) : (
-            newStatus && orderStatuses[newStatus as keyof typeof orderStatuses]?.icon
+            <Badge variant={currentConfig.badgeVariant} className="cursor-pointer">
+              {currentConfig.label}
+            </Badge>
           )}
-          {newStatus === 'cancelled' ? 'Cancelar Pedido' : 'Actualizar Estado'}
-        </Button>
-      </div>
-    </div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleStatusChange("new")}>
+          Nuevo
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleStatusChange("preparing")}>
+          Preparando
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleStatusChange("shipped")}>
+          Enviado
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
+          Completado
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          onClick={() => handleStatusChange("cancelled")}
+          className="text-red-600"
+        >
+          Cancelar pedido
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

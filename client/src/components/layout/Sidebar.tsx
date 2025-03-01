@@ -1,4 +1,5 @@
-import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart, PieChart, LineChart, TrendingUp } from "lucide-react";
+import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart, 
+  PieChart, LineChart, TrendingUp, ShoppingCart, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -24,6 +25,16 @@ const navigation = [
     href: "/sales",
     label: "Ventas",
     icon: DollarSign
+  },
+  {
+    href: "/orders",
+    label: "Pedidos",
+    icon: ShoppingCart
+  },
+  {
+    href: "/products",
+    label: "Productos",
+    icon: Package
   },
   {
     href: "/reports",

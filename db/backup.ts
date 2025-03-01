@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './index';
-import * as schema from './schema';
+import * as schema from './schema-original';
 
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -16,7 +16,7 @@ if (!fs.existsSync(backupDir)) {
 
 // Tables to backup in the correct order (respecting foreign key dependencies)
 // Add tables in the order they should be restored (parents before children)
-const TABLES_TO_BACKUP = ['customers', 'leads', 'sales', 'webhooks'];
+const TABLES_TO_BACKUP = ['customers', 'leads', 'sales']; // Temporarily removed 'webhooks' until table is created
 
 /**
  * Creates a database backup by exporting all tables to JSON files
