@@ -16,8 +16,16 @@ import { formatDistanceToNow, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { ChartTooltipContent } from "@/components/ui/chart";
 
-// Updated color palette to be more professional and visually distinguishable
-const COLORS = ['#4E7ADE', '#6366F1', '#8884d8', '#9F7AEA', '#48BB78', '#10B981', '#F56565'];
+// Paleta de colores armonizada con Civetta para el embudo de ventas
+const COLORS = [
+  '#8b5cf6', // Violeta principal (Civetta Sleepwear)
+  '#c4b5fd', // Violeta claro
+  '#ec4899', // Rosa (Civetta Bride)
+  '#f9a8d4', // Rosa claro
+  '#3b82f6', // Azul
+  '#10b981', // Verde éxito
+  '#f59e0b'  // Ámbar/Naranja
+];
 
 // Labels for stages to be more user-friendly
 const STAGE_LABELS = {

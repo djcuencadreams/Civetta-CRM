@@ -5,6 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import { BarChart3, LineChart as LineChartIcon, TrendingUp } from "lucide-react";
 
+// Paleta de colores para Civetta - mejorada para informes
+const CHART_COLORS = {
+  primary: "#8b5cf6",       // Violeta principal (Civetta Sleepwear)
+  secondary: "#ec4899",     // Rosa (Civetta Bride)
+  accent: "#3b82f6",        // Azul
+  success: "#10b981",       // Verde
+  warning: "#f59e0b",       // Ámbar/Naranja
+  lightPrimary: "#c4b5fd",  // Violeta claro
+  lightSecondary: "#f9a8d4", // Rosa claro
+};
+
 interface TimeSeriesChartProps {
   data: {
     date: string;
@@ -54,8 +65,8 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
             <Area 
               type="monotone" 
               dataKey="total" 
-              stroke="#8884d8" 
-              fill="#8884d8"
+              stroke={CHART_COLORS.primary} 
+              fill={CHART_COLORS.primary}
               fillOpacity={0.6}
               name="Ventas totales" 
               activeDot={{ r: 6 }} 
@@ -80,14 +91,14 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
             <Bar 
               dataKey="total" 
               name="Ventas totales" 
-              fill="#8884d8" 
+              fill={CHART_COLORS.primary} 
               barSize={30}
               radius={[4, 4, 0, 0]}
             />
             <Bar 
               dataKey="average" 
               name="Promedio por venta" 
-              fill="#82ca9d" 
+              fill={CHART_COLORS.success} 
               barSize={30}
               radius={[4, 4, 0, 0]}
             />
@@ -111,7 +122,7 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
             <Line 
               type="monotone" 
               dataKey="total" 
-              stroke="#8884d8" 
+              stroke={CHART_COLORS.primary} 
               strokeWidth={2}
               name="Ventas totales" 
               dot={{ r: 4 }}
@@ -120,7 +131,7 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
             <Line 
               type="monotone" 
               dataKey="average" 
-              stroke="#82ca9d" 
+              stroke={CHART_COLORS.success} 
               strokeWidth={2}
               name="Promedio por venta" 
               dot={{ r: 4 }}
@@ -161,15 +172,15 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
               yAxisId="left"
               type="monotone" 
               dataKey="total" 
-              fill="#8884d8" 
-              stroke="#8884d8"
+              fill={CHART_COLORS.primary} 
+              stroke={CHART_COLORS.primary}
               fillOpacity={0.6}
               name="Ventas totales" 
             />
             <Bar 
               yAxisId="right"
               dataKey="count" 
-              fill="#ffc658" 
+              fill={CHART_COLORS.warning} 
               name="Número de ventas" 
               barSize={20}
               radius={[4, 4, 0, 0]}
@@ -178,7 +189,7 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
               yAxisId="left"
               type="monotone" 
               dataKey="average" 
-              stroke="#ff7300" 
+              stroke={CHART_COLORS.secondary} 
               strokeWidth={2}
               name="Promedio por venta" 
               dot={{ r: 3 }}

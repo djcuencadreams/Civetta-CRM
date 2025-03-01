@@ -5,22 +5,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { MapPin, BarChart3, Download } from 'lucide-react';
 
-// Paleta de colores para el mapa - inspirada en colores de Ecuador
+// Paleta de colores para el mapa - armonizada con Civetta
 const LOCATION_COLORS = [
-  "#3b82f6", // Azul 
+  "#8b5cf6", // Violeta (Civetta Sleepwear)
+  "#ec4899", // Rosa (Civetta Bride)
+  "#3b82f6", // Azul
   "#10b981", // Verde esmeralda
   "#f59e0b", // Ámbar
-  "#8b5cf6", // Violeta
-  "#ec4899", // Rosa
-  "#06b6d4", // Cian
-  "#6366f1", // Índigo
   "#a855f7", // Púrpura
-  "#14b8a6", // Verde azulado
-  "#f43f5e", // Rosa
-  "#0ea5e9", // Celeste
-  "#84cc16", // Lima
-  "#a16207", // Ámbar oscuro
-  "#475569", // Gris pizarra
+  "#f472b6", // Rosa medio
+  "#6366f1", // Índigo
+  "#c084fc", // Violeta claro
+  "#60a5fa", // Azul claro
+  "#34d399", // Verde claro
+  "#fcd34d", // Amarillo
 ];
 
 interface LocationStatsProps {
@@ -146,7 +144,7 @@ export function LocationStatsChart({
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <MapPin className="h-5 w-5 text-blue-500" />
+              <MapPin className="h-5 w-5 text-violet-500" />
               {dynamicTitle}
             </CardTitle>
             {description && (

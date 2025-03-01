@@ -6,7 +6,10 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DownloadCloud, Database, CalendarDays, RefreshCw, Users, UserPlus, DollarSign, BarChart4 } from "lucide-react";
+import { 
+  DownloadCloud, Database, CalendarDays, RefreshCw, Users, UserPlus, DollarSign, BarChart4,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, ArrowUp, ArrowDown
+} from "lucide-react";
 import { format, subDays } from "date-fns";
 import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
@@ -91,12 +94,31 @@ const formatDate = (dateStr: string) => {
   return format(new Date(dateStr), 'dd/MM/yyyy');
 };
 
+// Definir tipos para la ordenación
+type SortDirection = 'asc' | 'desc' | null;
+
+type SortConfig = {
+  key: string;
+  direction: SortDirection;
+};
+
 export default function SimpleReportsPage() {
   // Estados para el filtro de fechas
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 30));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Estados para la paginación
+  const [customersPage, setCustomersPage] = useState(1);
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [salesPage, setSalesPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  // Estados para la ordenación
+  const [customerSort, setCustomerSort] = useState<SortConfig>({ key: 'firstName', direction: 'asc' });
+  const [leadSort, setLeadSort] = useState<SortConfig>({ key: 'firstName', direction: 'asc' });
+  const [saleSort, setSaleSort] = useState<SortConfig>({ key: 'createdAt', direction: 'desc' });
   
   // Consultas para obtener los datos
   const { data: customers, isLoading: isLoadingCustomers, isError: isErrorCustomers, refetch: refetchCustomers } = 
@@ -258,16 +280,150 @@ export default function SimpleReportsPage() {
     }
   };
   
+  // Función genérica para ordenar datos
+  const sortData = <T extends Record<string, any>>(data: T[], sortConfig: SortConfig): T[] => {
+    if (!sortConfig.direction) return [...data];
+    
+    return [...data].sort((a, b) => {
+      if (a[sortConfig.key] === null) return 1;
+      if (b[sortConfig.key] === null) return -1;
+      
+      // Para ordenar por nombre completo (combinando firstName y lastName)
+      if (sortConfig.key === 'firstName' && 'lastName' in a) {
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
+        
+        return sortConfig.direction === 'asc' 
+          ? nameA.localeCompare(nameB) 
+          : nameB.localeCompare(nameA);
+      }
+      
+      // Para ordenar por cantidad
+      if (sortConfig.key === 'amount') {
+        return sortConfig.direction === 'asc' 
+          ? a.amount - b.amount 
+          : b.amount - a.amount;
+      }
+      
+      // Para ordenar por fechas
+      if (sortConfig.key === 'createdAt' || sortConfig.key === 'updatedAt') {
+        return sortConfig.direction === 'asc' 
+          ? new Date(a[sortConfig.key]).getTime() - new Date(b[sortConfig.key]).getTime() 
+          : new Date(b[sortConfig.key]).getTime() - new Date(a[sortConfig.key]).getTime();
+      }
+      
+      // Ordenamiento general para campos de texto
+      if (typeof a[sortConfig.key] === 'string' && typeof b[sortConfig.key] === 'string') {
+        return sortConfig.direction === 'asc' 
+          ? a[sortConfig.key].localeCompare(b[sortConfig.key]) 
+          : b[sortConfig.key].localeCompare(a[sortConfig.key]);
+      }
+      
+      // Ordenamiento numérico general
+      return sortConfig.direction === 'asc' 
+        ? (a[sortConfig.key] || 0) - (b[sortConfig.key] || 0) 
+        : (b[sortConfig.key] || 0) - (a[sortConfig.key] || 0);
+    });
+  };
+  
+  // Función para cambiar el ordenamiento
+  const requestSort = (key: string, currentConfig: SortConfig, setConfig: React.Dispatch<React.SetStateAction<SortConfig>>) => {
+    let direction: SortDirection = 'asc';
+    
+    if (currentConfig.key === key) {
+      if (currentConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (currentConfig.direction === 'desc') {
+        direction = 'asc';
+      }
+    }
+    
+    setConfig({ key, direction });
+  };
+  
   // Filtrar los datos por fecha
-  const filteredCustomers = filterByDate(customers);
-  const filteredLeads = filterByDate(leads);
-  const filteredSales = filterByDate(sales);
+  const filteredCustomers = sortData(filterByDate(customers), customerSort);
+  const filteredLeads = sortData(filterByDate(leads), leadSort);
+  const filteredSales = sortData(filterByDate(sales), saleSort);
   
   // Función para actualizar los datos
   const refreshData = () => {
     refetchCustomers();
     refetchLeads();
     refetchSales();
+  };
+  
+  // Funciones para la paginación
+  const getPaginatedItems = <T,>(items: T[], page: number, itemsPerPage: number): T[] => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return items.slice(startIndex, endIndex);
+  };
+  
+  // Calcular el número total de páginas
+  const getTotalPages = (totalItems: number): number => {
+    return Math.ceil(totalItems / itemsPerPage);
+  };
+  
+
+
+  // Componente de paginación reutilizable
+  const PaginationControls = ({ 
+    currentPage, 
+    totalItems, 
+    onPageChange 
+  }: { 
+    currentPage: number, 
+    totalItems: number, 
+    onPageChange: (page: number) => void 
+  }) => {
+    const totalPages = getTotalPages(totalItems);
+    
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-center space-x-2 mt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage <= 1}
+          className="hidden sm:flex"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <span className="text-sm px-4">
+          Página {currentPage} de {totalPages}
+        </span>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage >= totalPages}
+          className="hidden sm:flex"
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
   };
   
   return (
@@ -417,6 +573,8 @@ export default function SimpleReportsPage() {
               </Button>
             </CardHeader>
             <CardContent>
+
+
               {isLoadingCustomers ? (
                 <div className="text-center py-4">Cargando datos...</div>
               ) : isErrorCustomers ? (
@@ -436,45 +594,124 @@ export default function SimpleReportsPage() {
               ) : (
                 <div className="rounded-md border border-violet-200 shadow-sm">
                   <div className="w-full overflow-auto">
-                    <table className="min-w-full divide-y divide-violet-200">
+                    <table className="min-w-full divide-y divide-violet-200 table-fixed">
                       <thead className="bg-violet-50">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">ID</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Nombre</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Email</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Teléfono</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Ubicación</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Marca</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Fecha</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider w-8">#</th>
+                          <th 
+                            scope="col" 
+                            className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('firstName', customerSort, setCustomerSort)}
+                          >
+                            <div className="flex items-center">
+                              Nombre
+                              {customerSort.key === 'firstName' && (
+                                customerSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-violet-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-violet-600" />
+                              )}
+                              {customerSort.key !== 'firstName' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-violet-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('email', customerSort, setCustomerSort)}
+                          >
+                            <div className="flex items-center">
+                              Email
+                              {customerSort.key === 'email' && (
+                                customerSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-violet-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-violet-600" />
+                              )}
+                              {customerSort.key !== 'email' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-violet-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider">Teléfono</th>
+                          <th 
+                            scope="col" 
+                            className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('city', customerSort, setCustomerSort)}
+                          >
+                            <div className="flex items-center">
+                              Ubicación
+                              {customerSort.key === 'city' && (
+                                customerSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-violet-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-violet-600" />
+                              )}
+                              {customerSort.key !== 'city' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-violet-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('brand', customerSort, setCustomerSort)}
+                          >
+                            <div className="flex items-center">
+                              Marca
+                              {customerSort.key === 'brand' && (
+                                customerSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-violet-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-violet-600" />
+                              )}
+                              {customerSort.key !== 'brand' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-violet-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-3 py-2 text-left text-xs font-medium text-violet-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('createdAt', customerSort, setCustomerSort)}
+                          >
+                            <div className="flex items-center">
+                              Fecha
+                              {customerSort.key === 'createdAt' && (
+                                customerSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-violet-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-violet-600" />
+                              )}
+                              {customerSort.key !== 'createdAt' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-violet-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-violet-100">
-                        {filteredCustomers.slice(0, 10).map((customer, index) => (
+                        {getPaginatedItems(filteredCustomers, customersPage, itemsPerPage).map((customer, index) => (
                           <tr key={customer.id} className={index % 2 === 0 ? 'bg-white' : 'bg-violet-50'}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-violet-900">{customer.id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-violet-900">{customer.name}</div>
-                              <div className="text-sm text-violet-600">{customer.firstName} {customer.lastName}</div>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-violet-900">{(customersPage - 1) * itemsPerPage + index + 1}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="text-sm font-medium text-violet-900">{customer.firstName} {customer.lastName}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-violet-800">{customer.email || "-"}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-violet-800">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-violet-800">{customer.email || "-"}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-violet-800">
                               {customer.phone || customer.phoneNumber ? 
                                 `${customer.phoneCountry || ''} ${customer.phoneNumber || customer.phone}` : 
                                 "-"}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap">
                               <div className="text-sm font-medium text-violet-900">{customer.city || "-"}</div>
                               <div className="text-sm text-violet-600">{customer.province || "-"}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap">
                               {customer.brand && (
-                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-violet-100 text-violet-800">
+                                <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-violet-100 text-violet-800">
                                   {customer.brand}
                                 </span>
                               )}
                               {!customer.brand && <span className="text-sm text-violet-800">-</span>}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-violet-800">{formatDate(customer.createdAt)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-violet-800">{formatDate(customer.createdAt)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -482,10 +719,12 @@ export default function SimpleReportsPage() {
                   </div>
                 </div>
               )}
-              {filteredCustomers.length > 10 && (
-                <div className="mt-4 text-center text-sm text-violet-600 bg-violet-50 py-2 px-4 rounded-md border border-violet-200">
-                  Mostrando 10 de {filteredCustomers.length} clientes. Exporte a Excel para ver todos los registros.
-                </div>
+              {filteredCustomers.length > 0 && (
+                <PaginationControls
+                  currentPage={customersPage}
+                  totalItems={filteredCustomers.length}
+                  onPageChange={setCustomersPage}
+                />
               )}
             </CardContent>
           </Card>
@@ -520,6 +759,8 @@ export default function SimpleReportsPage() {
               </Button>
             </CardHeader>
             <CardContent>
+
+
               {isLoadingLeads ? (
                 <div className="text-center py-4">Cargando datos...</div>
               ) : isErrorLeads ? (
@@ -539,29 +780,124 @@ export default function SimpleReportsPage() {
               ) : (
                 <div className="rounded-md border border-pink-200 shadow-sm">
                   <div className="w-full overflow-auto">
-                    <table className="min-w-full divide-y divide-pink-200">
+                    <table className="min-w-full divide-y divide-pink-200 table-fixed">
                       <thead className="bg-pink-50">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">ID</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Nombre</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Email</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Estado</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Origen</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Marca</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">Fecha</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-pink-700 uppercase tracking-wider w-8">#</th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('firstName', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Nombre
+                              {leadSort.key === 'firstName' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'firstName' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('email', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Email
+                              {leadSort.key === 'email' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'email' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('status', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Estado
+                              {leadSort.key === 'status' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'status' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('source', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Origen
+                              {leadSort.key === 'source' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'source' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('brand', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Marca
+                              {leadSort.key === 'brand' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'brand' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('createdAt', leadSort, setLeadSort)}
+                          >
+                            <div className="flex items-center">
+                              Fecha
+                              {leadSort.key === 'createdAt' && (
+                                leadSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-pink-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-pink-600" />
+                              )}
+                              {leadSort.key !== 'createdAt' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-pink-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-pink-100">
-                        {filteredLeads.slice(0, 10).map((lead, index) => (
+                        {getPaginatedItems(filteredLeads, leadsPage, itemsPerPage).map((lead, index) => (
                           <tr key={lead.id} className={index % 2 === 0 ? 'bg-white' : 'bg-pink-50'}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pink-900">{lead.id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-pink-900">{lead.name}</div>
-                              <div className="text-sm text-pink-600">{lead.firstName} {lead.lastName}</div>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-pink-900">{(leadsPage - 1) * itemsPerPage + index + 1}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="text-sm font-medium text-pink-900">{lead.firstName} {lead.lastName}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-pink-800">{lead.email || "-"}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-pink-800">{lead.email || "-"}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 ${lead.status === 'new' ? 'bg-violet-100 text-violet-800' : 
                                 lead.status === 'contacted' ? 'bg-pink-100 text-pink-800' : 
                                 lead.status === 'qualified' ? 'bg-emerald-100 text-emerald-800' : 
@@ -572,16 +908,16 @@ export default function SimpleReportsPage() {
                                 {lead.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-pink-800">{lead.source || "-"}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-pink-800">{lead.source || "-"}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">
                               {lead.brand && (
-                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-pink-100 text-pink-800">
+                                <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-pink-100 text-pink-800">
                                   {lead.brand}
                                 </span>
                               )}
                               {!lead.brand && <span className="text-sm text-pink-800">-</span>}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-pink-800">{formatDate(lead.createdAt)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-pink-800">{formatDate(lead.createdAt)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -589,10 +925,12 @@ export default function SimpleReportsPage() {
                   </div>
                 </div>
               )}
-              {filteredLeads.length > 10 && (
-                <div className="mt-4 text-center text-sm text-pink-600 bg-pink-50 py-2 px-4 rounded-md border border-pink-200">
-                  Mostrando 10 de {filteredLeads.length} leads. Exporte a Excel para ver todos los registros.
-                </div>
+              {filteredLeads.length > 0 && (
+                <PaginationControls
+                  currentPage={leadsPage}
+                  totalItems={filteredLeads.length}
+                  onPageChange={setLeadsPage}
+                />
               )}
             </CardContent>
           </Card>
@@ -627,6 +965,8 @@ export default function SimpleReportsPage() {
               </Button>
             </CardHeader>
             <CardContent>
+
+
               {isLoadingSales ? (
                 <div className="text-center py-4">Cargando datos...</div>
               ) : isErrorSales ? (
@@ -649,19 +989,115 @@ export default function SimpleReportsPage() {
                     <table className="min-w-full divide-y divide-emerald-200">
                       <thead className="bg-emerald-50">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">ID</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Cliente</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Monto</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Estado</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Método de Pago</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Marca</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">Fecha</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider">#</th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('customerId', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Cliente
+                              {saleSort.key === 'customerId' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'customerId' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('amount', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Monto
+                              {saleSort.key === 'amount' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'amount' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('status', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Estado
+                              {saleSort.key === 'status' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'status' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('paymentMethod', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Método de Pago
+                              {saleSort.key === 'paymentMethod' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'paymentMethod' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('brand', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Marca
+                              {saleSort.key === 'brand' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'brand' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            scope="col" 
+                            className="px-6 py-3 text-left text-xs font-medium text-emerald-700 uppercase tracking-wider cursor-pointer"
+                            onClick={() => requestSort('createdAt', saleSort, setSaleSort)}
+                          >
+                            <div className="flex items-center">
+                              Fecha
+                              {saleSort.key === 'createdAt' && (
+                                saleSort.direction === 'asc' ? 
+                                <ArrowUp className="ml-1 h-4 w-4 text-emerald-600" /> : 
+                                <ArrowDown className="ml-1 h-4 w-4 text-emerald-600" />
+                              )}
+                              {saleSort.key !== 'createdAt' && (
+                                <ArrowUpDown className="ml-1 h-4 w-4 text-emerald-400 opacity-60" />
+                              )}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-emerald-100">
-                        {filteredSales.slice(0, 10).map((sale, index) => (
+                        {getPaginatedItems(filteredSales, salesPage, itemsPerPage).map((sale, index) => (
                           <tr key={sale.id} className={index % 2 === 0 ? 'bg-white' : 'bg-emerald-50'}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-900">{sale.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-emerald-900">{(salesPage - 1) * itemsPerPage + index + 1}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-900 font-medium">
                               {sale.customer?.name || `Cliente #${sale.customerId}`}
                             </td>
@@ -695,10 +1131,12 @@ export default function SimpleReportsPage() {
                   </div>
                 </div>
               )}
-              {filteredSales.length > 10 && (
-                <div className="mt-4 text-center text-sm text-emerald-600 bg-emerald-50 py-2 px-4 rounded-md border border-emerald-200">
-                  Mostrando 10 de {filteredSales.length} ventas. Exporte a Excel para ver todos los registros.
-                </div>
+              {filteredSales.length > 0 && (
+                <PaginationControls
+                  currentPage={salesPage}
+                  totalItems={filteredSales.length}
+                  onPageChange={setSalesPage}
+                />
               )}
             </CardContent>
           </Card>

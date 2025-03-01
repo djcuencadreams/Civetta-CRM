@@ -149,7 +149,7 @@ export function BrandRevenueChart({
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <DollarSign className="h-5 w-5 text-green-500" />
+              <DollarSign className="h-5 w-5 text-emerald-500" />
               {title}
             </CardTitle>
             {description && (

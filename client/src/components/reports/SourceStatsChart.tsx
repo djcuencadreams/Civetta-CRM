@@ -130,7 +130,7 @@ export function SourceStatsChart({
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <Users className="h-5 w-5 text-indigo-500" />
+              <Users className="h-5 w-5 text-pink-500" />
               {title}
             </CardTitle>
             {description && (
