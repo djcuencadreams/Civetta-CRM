@@ -17,7 +17,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, PlusCircleIcon } from "lucide-react";
+import { Loader2, PlusCircleIcon, Package } from "lucide-react";
+import { CrmNavigation, CrmSubnavigation } from "@/components/layout/CrmNavigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -80,7 +81,7 @@ type Product = {
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [productToEdit, setProductToEdit] = useState<Product | undefined>(undefined);
   const [showProductForm, setShowProductForm] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
 
@@ -106,9 +107,7 @@ export default function ProductsPage() {
   // Eliminar un producto
   const deleteMutation = useMutation({
     mutationFn: async (productId: number) => {
-      await apiRequest(`/api/products/${productId}`, {
-        method: "DELETE",
-      });
+      await apiRequest("DELETE", `/api/products/${productId}`);
     },
     onSuccess: () => {
       toast({
@@ -129,10 +128,7 @@ export default function ProductsPage() {
   // Cambiar estado activo/inactivo
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      await apiRequest(`/api/products/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ active }),
-      });
+      await apiRequest("PATCH", `/api/products/${id}`, { active });
     },
     onSuccess: () => {
       toast({
@@ -397,14 +393,43 @@ export default function ProductsPage() {
   // Mostrar mensaje si no hay productos
   if (Array.isArray(products) && products.length === 0 && !isLoading) {
     return (
-      <Shell>
+      <div className="space-y-6">
+        <CrmSubnavigation area="products" />
         <div className="container mx-auto py-4">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Inventario</h1>
-            <Button className="flex items-center gap-2">
-              <PlusCircleIcon className="h-4 w-4" />
-              Nuevo Producto
-            </Button>
+            <div>
+              <div className="flex items-center gap-2">
+                <Package className="h-6 w-6 text-primary" />
+                <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
+                <Badge variant="outline" className="ml-2">Gestión de Productos</Badge>
+              </div>
+              <p className="text-muted-foreground mt-1">
+                Administre productos, stock y catálogo
+              </p>
+            </div>
+            <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <PlusCircleIcon className="h-4 w-4" />
+                  Nuevo Producto
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Crear Nuevo Producto</DialogTitle>
+                  <DialogDescription>
+                    Ingresa los detalles del nuevo producto
+                  </DialogDescription>
+                </DialogHeader>
+                <ProductForm 
+                  onClose={() => setShowProductForm(false)}
+                  onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                    setShowProductForm(false);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
           <Card className="w-full">
             <CardHeader>
@@ -414,56 +439,68 @@ export default function ProductsPage() {
               </CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button className="flex items-center gap-2">
+              <Button className="flex items-center gap-2" onClick={() => setShowProductForm(true)}>
                 <PlusCircleIcon className="h-4 w-4" />
                 Agregar Producto
               </Button>
             </CardFooter>
           </Card>
         </div>
-      </Shell>
+      </div>
     );
   }
 
   return (
-    <Shell>
+    <div className="space-y-6">
+      <CrmSubnavigation area="products" />
       <div className="container mx-auto py-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Inventario</h1>
-          <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <PlusCircleIcon className="h-4 w-4" />
-                Nuevo Producto
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {productToEdit ? "Editar Producto" : "Crear Nuevo Producto"}
-                </DialogTitle>
-                <DialogDescription>
-                  {productToEdit
-                    ? "Modifica los detalles del producto existente"
-                    : "Ingresa los detalles del nuevo producto"}
-                </DialogDescription>
-              </DialogHeader>
-              <ProductForm 
-                product={productToEdit} 
-                onClose={() => {
-                  setShowProductForm(false);
-                  setProductToEdit(null);
-                }}
-                onSuccess={() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-                  setShowProductForm(false);
-                  setProductToEdit(null);
-                }}
-              />
-            </DialogContent>
-          </Dialog>
+          <div>
+            <div className="flex items-center gap-2">
+              <Package className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
+              <Badge variant="outline" className="ml-2">Gestión de Productos</Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">
+              Administre productos, stock y catálogo
+            </p>
+          </div>
+          <div>
+            <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <PlusCircleIcon className="h-4 w-4" />
+                  Nuevo Producto
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>
+                    {productToEdit ? "Editar Producto" : "Crear Nuevo Producto"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {productToEdit
+                      ? "Modifica los detalles del producto existente"
+                      : "Ingresa los detalles del nuevo producto"}
+                  </DialogDescription>
+                </DialogHeader>
+                <ProductForm 
+                  product={productToEdit} 
+                  onClose={() => {
+                    setShowProductForm(false);
+                    setProductToEdit(undefined);
+                  }}
+                  onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                    setShowProductForm(false);
+                    setProductToEdit(undefined);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-
+        
         <Card>
           <CardHeader>
             <CardTitle>Gestión de Inventario</CardTitle>
@@ -567,6 +604,6 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       </div>
-    </Shell>
+    </div>
   );
 }
