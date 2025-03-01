@@ -9,6 +9,8 @@ import Customers from './pages/customers'
 import Leads from './pages/leads'
 import Sales from './pages/sales'
 import SimpleReports from './pages/reports-simple'
+import EnhancedReports from './pages/reports-new'
+import Reports from './pages/reports'
 import Configuration from './pages/configuration'
 import NotFound from './pages/not-found'
 
@@ -19,13 +21,33 @@ function App() {
   return (
     <Shell>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/customers" component={Customers} />
-        <Route path="/leads" component={Leads} />
-        <Route path="/sales" component={Sales} />
-        <Route path="/reports" component={SimpleReports} />
-        <Route path="/configuration" component={Configuration} />
-        <Route component={NotFound} />
+        <Route path="/">
+          <Dashboard />
+        </Route>
+        <Route path="/customers">
+          <Customers />
+        </Route>
+        <Route path="/leads">
+          <Leads />
+        </Route>
+        <Route path="/sales">
+          <Sales />
+        </Route>
+        <Route path="/reports">
+          <SimpleReports />
+        </Route>
+        <Route path="/reports-new">
+          <EnhancedReports />
+        </Route>
+        <Route path="/reports-advanced">
+          <Reports />
+        </Route>
+        <Route path="/configuration">
+          <Configuration />
+        </Route>
+        <Route>
+          <NotFound />
+        </Route>
       </Switch>
     </Shell>
   )

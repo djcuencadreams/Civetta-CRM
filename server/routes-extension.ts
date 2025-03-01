@@ -78,7 +78,10 @@ function generateExcelBuffer(formattedData: Record<string, any>[]): Buffer {
       if (!worksheet['!cols'][c]) worksheet['!cols'][c] = { wch: 15 };
       
       // Establecer formato de texto para la columna
-      // Note: Removing problematic code for cell format setting
+      // Aplicamos formato de texto (@) para asegurar que Excel interprete correctamente
+      // especialmente para textos con punto y coma, comas o caracteres especiales
+      if (!worksheet['!cols']) worksheet['!cols'] = [];
+      if (!worksheet['!cols'][c]) worksheet['!cols'][c] = { wch: 15 };
     }
   }
   

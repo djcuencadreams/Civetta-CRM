@@ -1,28 +1,21 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { TabsList, TabsTrigger, Tabs, TabsContent } from "@/components/ui/tabs";
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from "recharts";
-import { TimeSeriesChart } from "@/components/reportChart";
-import { DataExportOptions } from "@/components/DataExportOptions";
-import { ReportTypeSelector, REPORT_TYPES } from "@/components/ReportTypeSelector";
-import { DownloadCloud, BarChart2, Calendar, Filter, Sliders, Table, Save, Share, FileText, Clock, ArrowUpDown, Layers, Star, Download, RefreshCw, CalendarDays, BellDot, ArrowDownToLine } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Switch } from "@/components/ui/switch";
-import * as XLSX from 'xlsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Shell } from "@/components/layout/Shell";
+import { Loader2, Download, Calendar, Filter, BarChart3 } from 'lucide-react';
+import { DateRange } from 'react-day-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { addDays, format, subDays, subMonths, isAfter, parseISO, formatISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { SourceStatsChart } from '@/components/reports/SourceStatsChart';
+import { BrandRevenueChart } from '@/components/reports/BrandRevenueChart';
+import { LocationStatsChart } from '@/components/reports/LocationStatsChart';
+import { DashboardSummary } from '@/components/reports/DashboardSummary';
+import { ReportSelector, DEFAULT_REPORT_TYPES } from '@/components/reports/ReportSelector';
 
-// Tipos para los datos
 type Customer = {
   id: number;
   name: string;
@@ -41,7 +34,6 @@ type Sale = {
   customerId: number;
   amount: number;
   status: string;
-  paymentMethod?: string | null;
   brand: string | null;
   notes: string | null;
   createdAt: string;
@@ -62,7 +54,6 @@ type Lead = {
   createdAt: string;
 };
 
-// Tipo para informes guardados
 type SavedReport = {
   id: string;
   name: string;
@@ -73,1569 +64,714 @@ type SavedReport = {
   createdAt: string;
 };
 
-// Colores para los gráficos
-const COLORS = [
-  "#8884d8", "#83a6ed", "#8dd1e1", "#82ca9d", "#a4de6c", 
-  "#d0ed57", "#ffc658", "#ff8042", "#ff6361", "#bc5090"
-];
-
-// Función auxiliar para formatear dinero
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('es-EC', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2
-  }).format(amount);
-};
-
-// Función auxiliar para formatear fechas
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return new Intl.DateTimeFormat('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(date);
-};
-
-// Función auxiliar para obtener el periodo actual
-const getPeriodLabel = (timeRange: string) => {
-  switch (timeRange) {
-    case "30days": return "Últimos 30 días";
-    case "90days": return "Últimos 90 días";
-    case "year": return "Último año";
-    case "custom": return "Periodo personalizado";
-    default: return "Todo el tiempo";
-  }
-};
-
 export default function ReportsPage() {
-  // Estado para la vista activa
-  const [activeView, setActiveView] = useState<string>("dashboard");
-  
-  // Estados para filtros y configuración de reportes
-  const [reportType, setReportType] = useState<string>(REPORT_TYPES.SALES_BY_CITY);
-  const [timeRange, setTimeRange] = useState<string>("all");
+  // Estado para filtros y selecciones
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    { from: subDays(new Date(), 30), to: new Date() }
+  );
+  const [reportType, setReportType] = useState<string>("dashboard");
   const [brandFilter, setBrandFilter] = useState<string>("all");
-  const [showExportDialog, setShowExportDialog] = useState<boolean>(false);
-  const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
-    customers: true,
-    sales: true,
-    leads: true
-  });
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
   
-  // Estados para fechas personalizadas
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  
-  // Estados para reportes personalizados
-  const [dataSource, setDataSource] = useState<string>("customers");
-  const [groupBy, setGroupBy] = useState<string>("province");
-  const [aggregateBy, setAggregateBy] = useState<string>("count");
-  const [filterField, setFilterField] = useState<string>("");
-  const [filterOperator, setFilterOperator] = useState<string>("equals");
-  const [filterValue, setFilterValue] = useState<string>("");
-  const [showData, setShowData] = useState<boolean>(false);
-  const [chartType, setChartType] = useState<string>("bar");
-  
-  // Estados para comparación
-  const [compareMode, setCompareMode] = useState<boolean>(false);
-  const [compareTimeRange, setCompareTimeRange] = useState<string>("previous");
-  
-  // Estados para planificación y programación de reportes
-  const [scheduleEnabled, setScheduleEnabled] = useState<boolean>(false);
-  const [scheduleFrequency, setScheduleFrequency] = useState<string>("weekly");
-  const [scheduleDay, setScheduleDay] = useState<string>("monday");
-  const [scheduleRecipients, setScheduleRecipients] = useState<string>("");
-  
-  // Estados para guardar y cargar reportes
-  const [savedReports, setSavedReports] = useState<SavedReport[]>([
-    {
-      id: "1",
-      name: "Ventas por Provincia (Último Mes)",
-      type: REPORT_TYPES.CUSTOMERS_BY_PROVINCE,
-      dateRange: "30days",
-      brandFilter: "all",
-      createdAt: "2025-02-15T12:00:00Z"
-    },
-    {
-      id: "2",
-      name: "Rendimiento de Leads por Origen",
-      type: REPORT_TYPES.LEADS_BY_SOURCE,
-      dateRange: "90days",
-      brandFilter: "all",
-      createdAt: "2025-02-20T14:30:00Z"
-    },
-    {
-      id: "3",
-      name: "Análisis de Ventas por Tiempo",
-      type: REPORT_TYPES.SALES_OVER_TIME,
-      dateRange: "year",
-      brandFilter: "Civetta Sleepwear",
-      customSettings: {
-        compareMode: true,
-        compareTimeRange: "previous"
-      },
-      createdAt: "2025-02-25T09:15:00Z"
-    }
-  ]);
-  const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
-  const [reportName, setReportName] = useState<string>("");
-  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
-  
-  // Información de KPIs y resumen
-  const [showKpis, setShowKpis] = useState<boolean>(true);
-  
-  // Cargar datos de clientes
-  const customersQuery = useQuery<Customer[]>({
+  // Obtener datos
+  const { data: customers, isLoading: isLoadingCustomers } = useQuery<Customer[]>({
     queryKey: ['/api/customers'],
   });
   
-  // Cargar datos de ventas
-  const salesQuery = useQuery<Sale[]>({
+  const { data: sales, isLoading: isLoadingSales } = useQuery<Sale[]>({
     queryKey: ['/api/sales'],
   });
   
-  // Cargar datos de leads
-  const leadsQuery = useQuery<Lead[]>({
+  const { data: leads, isLoading: isLoadingLeads } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],
   });
-  
-  const isLoading = customersQuery.isLoading || salesQuery.isLoading || leadsQuery.isLoading;
-  // Solo consideramos error si todos los datos fallan, ya que podemos mostrar informes parciales
-  const isError = customersQuery.isError && salesQuery.isError && leadsQuery.isError;
-  
-  // Filtrar ventas por rango de tiempo
-  const getFilteredSales = () => {
-    // Si no hay datos de ventas, creamos un conjunto de datos de ejemplo
-    if (!salesQuery.data || salesQuery.data.length === 0) {
-      // Datos de ejemplo para demostración
-      const exampleSales = [
-        {
-          id: 1,
-          customerId: 51,
-          amount: 1200,
-          status: "completed",
-          paymentMethod: "credit",
-          brand: "Civetta Sleepwear",
-          notes: "Pijama de seda",
-          createdAt: "2024-12-01T10:00:00Z",
-          updatedAt: "2024-12-01T10:00:00Z"
-        },
-        {
-          id: 2,
-          customerId: 52,
-          amount: 900,
-          status: "completed",
-          paymentMethod: "cash",
-          brand: "Civetta Bride",
-          notes: "Velo de novia",
-          createdAt: "2025-01-15T14:30:00Z",
-          updatedAt: "2025-01-15T14:30:00Z"
-        },
-        {
-          id: 3,
-          customerId: 53,
-          amount: 1500,
-          status: "completed",
-          paymentMethod: "transfer",
-          brand: "Civetta Sleepwear",
-          notes: "Bata de seda",
-          createdAt: "2025-02-05T09:45:00Z",
-          updatedAt: "2025-02-05T09:45:00Z"
-        }
-      ];
-      return exampleSales;
-    }
+
+  // Filtrar por rango de fechas y marca
+  const getFilteredData = (data: any[] | undefined, dateField: string = 'createdAt') => {
+    if (!data) return [];
     
-    const sales = [...salesQuery.data];
-    const now = new Date();
-    
-    if (timeRange === "30days") {
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return sales.filter(sale => new Date(sale.createdAt) >= thirtyDaysAgo);
-    }
-    if (timeRange === "90days") {
-      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      return sales.filter(sale => new Date(sale.createdAt) >= ninetyDaysAgo);
-    }
-    if (timeRange === "year") {
-      const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      return sales.filter(sale => new Date(sale.createdAt) >= oneYearAgo);
-    }
-    
-    return sales;
+    return data.filter(item => {
+      // Filtrar por fecha
+      const itemDate = parseISO(item[dateField]);
+      const dateInRange = (
+        dateRange?.from ? isAfter(itemDate, dateRange.from) || itemDate.getTime() === dateRange.from.getTime() : true
+      ) && (
+        dateRange?.to ? isAfter(new Date(dateRange.to.getTime() + 86400000), itemDate) : true
+      );
+      
+      // Filtrar por marca
+      const brandMatch = brandFilter === 'all' || item.brand === brandFilter;
+      
+      return dateInRange && brandMatch;
+    });
   };
   
-  // Filtrar por marca
-  const applyBrandFilter = (data: any[]) => {
-    if (brandFilter === "all") return data;
-    return data.filter(item => item.brand === brandFilter);
-  };
+  const filteredCustomers = getFilteredData(customers);
+  const filteredSales = getFilteredData(sales);
+  const filteredLeads = getFilteredData(leads);
   
-  // Obtener las marcas disponibles
-  const getBrands = () => {
-    const brandsSet = new Set<string>();
-    
-    // Recopilar marcas de clientes
-    if (customersQuery.data) {
-      customersQuery.data.forEach(customer => {
-        if (customer.brand) brandsSet.add(customer.brand);
-      });
-    }
-    
-    // Recopilar marcas de ventas
-    if (salesQuery.data) {
-      salesQuery.data.forEach(sale => {
-        if (sale.brand) brandsSet.add(sale.brand);
-      });
-    }
-    
-    // Recopilar marcas de leads
-    if (leadsQuery.data) {
-      leadsQuery.data.forEach(lead => {
-        if (lead.brand) brandsSet.add(lead.brand);
-      });
-    }
-    
-    // Asegurar que tenemos al menos marcas predeterminadas
-    if (brandsSet.size === 0) {
-      brandsSet.add("Civetta Sleepwear");
-      brandsSet.add("Civetta Bride");
-    }
-    
-    return Array.from(brandsSet);
-  };
+  // Preparar datos para visualizaciones
   
-  // Calcular KPIs para el dashboard
-  const getKpis = () => {
-    const sales = getFilteredSales();
-    const customers = customersQuery.data || [];
-    const leads = leadsQuery.data || [];
+  // Datos para fuentes de clientes/leads
+  const sourceStatsData = React.useMemo(() => {
+    const dataToUse = reportType.includes('lead') ? filteredLeads : filteredCustomers;
+    if (!dataToUse.length) return [];
     
-    const totalSales = sales.reduce((sum, sale) => sum + sale.amount, 0);
-    const totalCustomers = customers.length;
-    const totalLeads = leads.length;
-    const avgSaleValue = totalSales / (sales.length || 1);
+    const sourceMap: Record<string, number> = {};
+    dataToUse.forEach(item => {
+      const source = item.source || 'Sin especificar';
+      sourceMap[source] = (sourceMap[source] || 0) + 1;
+    });
     
-    // Calcular tasa de conversión (leads a clientes)
-    const conversionRate = totalLeads > 0 ? (totalCustomers / totalLeads) * 100 : 0;
+    return Object.entries(sourceMap)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredCustomers, filteredLeads, reportType]);
+  
+  // Datos para ubicaciones
+  const locationStatsData = React.useMemo(() => {
+    const dataToUse = reportType.includes('province') ? filteredCustomers : 
+                      reportType.includes('city') ? filteredCustomers : 
+                      filteredCustomers;
+    
+    if (!dataToUse.length) return [];
+    
+    const locationType = reportType.includes('province') ? 'province' : 'city';
+    const locationMap: Record<string, { count: number, revenue: number }> = {};
+    
+    dataToUse.forEach(customer => {
+      const locationValue = customer[locationType as keyof typeof customer] || 'Sin especificar';
+      const locationKey = locationValue as string;
+      
+      if (!locationMap[locationKey]) {
+        locationMap[locationKey] = { count: 0, revenue: 0 };
+      }
+      
+      locationMap[locationKey].count += 1;
+      
+      // Calcular ingresos asociados a esta ubicación
+      if (filteredSales && filteredSales.length) {
+        const customerSales = filteredSales.filter(sale => sale.customerId === customer.id);
+        locationMap[locationKey].revenue += customerSales.reduce((sum, sale) => sum + sale.amount, 0);
+      }
+    });
+    
+    return Object.entries(locationMap)
+      .map(([name, { count, revenue }]) => ({ name, count, revenue }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredCustomers, filteredSales, reportType]);
+  
+  // Datos para ingresos por marca
+  const brandRevenueData = React.useMemo(() => {
+    if (!filteredSales.length) return [];
+    
+    const brandMap: Record<string, { revenue: number, count: number }> = {};
+    filteredSales.forEach(sale => {
+      const brand = sale.brand || 'Sin especificar';
+      if (!brandMap[brand]) {
+        brandMap[brand] = { revenue: 0, count: 0 };
+      }
+      brandMap[brand].revenue += sale.amount;
+      brandMap[brand].count += 1;
+    });
+    
+    return Object.entries(brandMap)
+      .map(([brand, { revenue, count }]) => ({ brand, revenue, count }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [filteredSales]);
+  
+  // Datos para comparación con período anterior
+  const previousPeriodData = React.useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to || !sales) return [];
+    
+    // Calcular duración del período actual
+    const currentPeriodDays = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Definir período anterior
+    const previousPeriodEnd = subDays(dateRange.from, 1);
+    const previousPeriodStart = subDays(previousPeriodEnd, currentPeriodDays);
+    
+    // Filtrar ventas del período anterior
+    const previousSales = sales.filter(sale => {
+      const saleDate = parseISO(sale.createdAt);
+      return isAfter(saleDate, previousPeriodStart) && 
+             isAfter(new Date(previousPeriodEnd.getTime() + 86400000), saleDate);
+    });
+    
+    // Calcular por marca
+    const brandMap: Record<string, { revenue: number, count: number }> = {};
+    previousSales.forEach(sale => {
+      const brand = sale.brand || 'Sin especificar';
+      if (!brandMap[brand]) {
+        brandMap[brand] = { revenue: 0, count: 0 };
+      }
+      brandMap[brand].revenue += sale.amount;
+      brandMap[brand].count += 1;
+    });
+    
+    return Object.entries(brandMap)
+      .map(([brand, { revenue, count }]) => ({ brand, revenue, count }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [dateRange, sales]);
+  
+  // Datos para métricas del dashboard
+  const dashboardMetrics = React.useMemo(() => {
+    // Calcular métricas del período actual
+    const totalCustomers = filteredCustomers.length;
+    const totalLeads = filteredLeads.length;
+    const totalSales = filteredSales.length;
+    const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.amount, 0);
+    const avgOrderValue = totalSales > 0 ? Math.round(totalRevenue / totalSales) : 0;
+    
+    // Calcular métricas de crecimiento
+    const previousPeriodRevenue = previousPeriodData.reduce((sum, item) => sum + item.revenue, 0);
+    const previousPeriodSales = previousPeriodData.reduce((sum, item) => sum + item.count, 0);
+    
+    // Calcular crecimientos
+    const revenueGrowth = previousPeriodRevenue > 0 
+      ? Math.round(((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100)
+      : 0;
+    const salesGrowth = previousPeriodSales > 0
+      ? Math.round(((totalSales - previousPeriodSales) / previousPeriodSales) * 100)
+      : 0;
+    
+    // Métricas adicionales
+    const newCustomers = filteredCustomers.filter(customer => {
+      if (!dateRange?.from) return true;
+      const createdDate = parseISO(customer.createdAt);
+      return isAfter(createdDate, dateRange.from);
+    }).length;
+    
+    const activeLeads = filteredLeads.filter(lead => lead.status !== 'cerrado' && lead.status !== 'perdido').length;
+    
+    const conversionRate = totalLeads > 0 
+      ? Math.round((newCustomers / totalLeads) * 100) 
+      : 0;
     
     return {
-      totalSales,
       totalCustomers,
       totalLeads,
-      avgSaleValue,
+      totalSales,
+      totalRevenue,
+      avgOrderValue,
       conversionRate,
-      salesCount: sales.length,
-      topCity: getSalesByCity()[0]?.city || "N/A",
-      topProvince: getCustomersByProvince()[0]?.province || "N/A"
+      activeLeads,
+      newCustomers,
+      revenueGrowth,
+      salesGrowth,
+      customerGrowth: 0, // Requeriría datos históricos
+      leadsGrowth: 0     // Requeriría datos históricos
     };
-  };
+  }, [filteredCustomers, filteredLeads, filteredSales, previousPeriodData, dateRange]);
   
-  // Guardar un informe
-  const saveReport = () => {
-    if (!reportName.trim()) return;
+  // Manejar guardado/carga de informes
+  const saveCurrentReport = () => {
+    // Generar ID único
+    const reportId = `report-${Date.now()}`;
     
+    // Crear objeto de informe
     const newReport: SavedReport = {
-      id: Date.now().toString(),
-      name: reportName,
+      id: reportId,
+      name: `Informe ${reportType} - ${format(new Date(), 'dd/MM/yyyy')}`,
       type: reportType,
-      dateRange: timeRange,
-      brandFilter: brandFilter,
-      customSettings: compareMode ? { compareMode, compareTimeRange } : undefined,
+      dateRange: dateRange ? 
+        `${dateRange.from ? format(dateRange.from, 'dd/MM/yyyy') : ''} - ${dateRange.to ? format(dateRange.to, 'dd/MM/yyyy') : ''}` : '',
+      brandFilter,
       createdAt: new Date().toISOString()
     };
     
+    // Guardar al estado
     setSavedReports([...savedReports, newReport]);
-    setReportName("");
-    setShowSaveDialog(false);
+    
+    // También podríamos guardar en localStorage para persistencia
+    const existingReports = JSON.parse(localStorage.getItem('savedReports') || '[]');
+    localStorage.setItem('savedReports', JSON.stringify([...existingReports, newReport]));
   };
   
-  // Cargar un informe guardado
   const loadReport = (report: SavedReport) => {
+    // Cargar configuración de informe
     setReportType(report.type);
-    setTimeRange(report.dateRange);
     setBrandFilter(report.brandFilter);
     
-    if (report.customSettings) {
-      if (report.customSettings.compareMode !== undefined) {
-        setCompareMode(report.customSettings.compareMode);
-      }
-      
-      if (report.customSettings.compareTimeRange) {
-        setCompareTimeRange(report.customSettings.compareTimeRange);
-      }
-    }
-    
-    setSelectedReport(report);
-  };
-  
-  // Eliminar un informe guardado
-  const deleteReport = (id: string) => {
-    setSavedReports(savedReports.filter(report => report.id !== id));
-    if (selectedReport?.id === id) {
-      setSelectedReport(null);
-    }
-  };
-  
-  // Obtener ventas por ciudad
-  const getSalesByCity = () => {
-    const sales = getFilteredSales();
-    if (!sales.length) return [];
-    
-    // Si no hay datos de clientes, usamos un mapa de datos de ejemplo
-    let customersMap: Record<number, { city: string }> = {};
-    
-    if (!customersQuery.data || customersQuery.data.length === 0) {
-      // Datos de ejemplo para demostración
-      customersMap = {
-        51: { city: "Quito" },
-        52: { city: "Guayaquil" },
-        53: { city: "Cuenca" }
-      };
-    } else {
-      // Crear mapa de clientes reales
-      customersQuery.data.forEach(customer => {
-        if (customer.city) {
-          customersMap[customer.id] = { city: customer.city };
+    // Intentar convertir el rango de fechas
+    if (report.dateRange) {
+      const [fromStr, toStr] = report.dateRange.split(' - ');
+      try {
+        // Esto es simplificado y podría necesitar una lógica más robusta
+        const from = fromStr ? new Date(fromStr.split('/').reverse().join('-')) : undefined;
+        const to = toStr ? new Date(toStr.split('/').reverse().join('-')) : undefined;
+        
+        if (from || to) {
+          setDateRange({ from, to });
         }
-      });
-    }
-    
-    const salesByCity: Record<string, { city: string, total: number, count: number }> = {};
-    
-    sales.forEach(sale => {
-      const customerCity = customersMap[sale.customerId]?.city;
-      if (!customerCity) return;
-      
-      // Filtro de marca
-      if (brandFilter !== "all" && sale.brand !== brandFilter) return;
-      
-      if (!salesByCity[customerCity]) {
-        salesByCity[customerCity] = { city: customerCity, total: 0, count: 0 };
+      } catch (error) {
+        console.error('Error al parsear fechas:', error);
       }
-      
-      salesByCity[customerCity].total += sale.amount;
-      salesByCity[customerCity].count += 1;
-    });
-    
-    return Object.values(salesByCity)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10); // Tomar las 10 ciudades principales
+    }
   };
   
-  // Obtener clientes por provincia
-  const getCustomersByProvince = () => {
-    if (!customersQuery.data || customersQuery.data.length === 0) {
-      // Datos de ejemplo para demostración
-      return [
-        { province: "Pichincha", count: 32 },
-        { province: "Guayas", count: 28 },
-        { province: "Azuay", count: 15 },
-        { province: "Manabí", count: 10 },
-        { province: "Imbabura", count: 7 }
-      ];
-    }
-    
-    const filteredCustomers = applyBrandFilter(customersQuery.data);
-    
-    const customersByProvince: Record<string, { province: string, count: number }> = {};
-    
-    filteredCustomers.forEach(customer => {
-      if (!customer.province) return;
-      
-      const province = customer.province;
-      if (!customersByProvince[province]) {
-        customersByProvince[province] = { province, count: 0 };
+  // Cargar informes guardados del localStorage al inicio
+  useEffect(() => {
+    const storedReports = localStorage.getItem('savedReports');
+    if (storedReports) {
+      try {
+        setSavedReports(JSON.parse(storedReports));
+      } catch (error) {
+        console.error('Error al cargar informes guardados:', error);
       }
-      
-      customersByProvince[province].count += 1;
-    });
-    
-    return Object.values(customersByProvince)
-      .sort((a, b) => b.count - a.count);
-  };
-  
-  // Obtener ventas por marca
-  const getSalesByBrand = () => {
-    const sales = getFilteredSales();
-    if (!sales.length) {
-      // Datos de ejemplo para demostración
-      return [
-        { brand: "Civetta Sleepwear", total: 15800, count: 12 },
-        { brand: "Civetta Bride", total: 22500, count: 15 },
-        { brand: "Sin marca", total: 1800, count: 3 }
-      ];
     }
+  }, []);
+
+  // Opciones rápidas para rango de fechas
+  const setDateRangeOption = (option: string) => {
+    const today = new Date();
     
-    const salesByBrand: Record<string, { brand: string, total: number, count: number }> = {};
-    
-    sales.forEach(sale => {
-      const brand = sale.brand || "Sin marca";
-      
-      if (!salesByBrand[brand]) {
-        salesByBrand[brand] = { brand, total: 0, count: 0 };
-      }
-      
-      salesByBrand[brand].total += sale.amount;
-      salesByBrand[brand].count += 1;
-    });
-    
-    return Object.values(salesByBrand)
-      .sort((a, b) => b.total - a.total);
-  };
-  
-  // Obtener leads por origen
-  const getLeadsBySource = () => {
-    if (!leadsQuery.data || leadsQuery.data.length === 0) {
-      // Datos de ejemplo para demostración
-      return [
-        { source: "Instagram", count: 45 },
-        { source: "Facebook", count: 32 },
-        { source: "Referidos", count: 28 },
-        { source: "Sitio Web", count: 22 },
-        { source: "Ferias", count: 15 }
-      ];
-    }
-    
-    const filteredLeads = applyBrandFilter(leadsQuery.data);
-    
-    const leadsBySource: Record<string, { source: string, count: number }> = {};
-    
-    filteredLeads.forEach(lead => {
-      const source = lead.source || "Desconocido";
-      
-      if (!leadsBySource[source]) {
-        leadsBySource[source] = { source, count: 0 };
-      }
-      
-      leadsBySource[source].count += 1;
-    });
-    
-    return Object.values(leadsBySource)
-      .sort((a, b) => b.count - a.count);
-  };
-  
-  // Obtener ventas por tiempo
-  const getSalesOverTime = () => {
-    const sales = getFilteredSales();
-    if (!sales.length) {
-      // Datos de ejemplo para demostración
-      return [
-        { date: "noviembre 2024", total: 5800, count: 5, monthSort: 202411 },
-        { date: "diciembre 2024", total: 8500, count: 7, monthSort: 202412 },
-        { date: "enero 2025", total: 7200, count: 6, monthSort: 202501 },
-        { date: "febrero 2025", total: 10500, count: 8, monthSort: 202502 }
-      ];
-    }
-    
-    // Define type with monthSort property
-    type SalesByMonthType = { 
-      date: string, 
-      total: number, 
-      count: number, 
-      monthSort: number 
-    };
-    
-    const salesByMonth: Record<string, SalesByMonthType> = {};
-    
-    sales.forEach(sale => {
-      // Usar fecha de creación para el análisis temporal
-      const date = new Date(sale.createdAt);
-      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthName = date.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-      
-      if (!salesByMonth[monthYear]) {
-        salesByMonth[monthYear] = { 
-          date: monthName, 
-          total: 0, 
-          count: 0,
-          monthSort: parseInt(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`)
-        };
-      }
-      
-      // Filtro de marca
-      if (brandFilter !== "all" && sale.brand !== brandFilter) return;
-      
-      salesByMonth[monthYear].total += sale.amount;
-      salesByMonth[monthYear].count += 1;
-    });
-    
-    return Object.values(salesByMonth)
-      .sort((a, b) => a.monthSort - b.monthSort);
-  };
-  
-  // Exportar datos a Excel
-  const exportToExcel = () => {
-    let data: any[] = [];
-    let filename = 'reporte.xlsx';
-    
-    switch (reportType) {
-      case REPORT_TYPES.SALES_BY_CITY:
-        data = getSalesByCity().map(item => ({
-          Ciudad: item.city || 'No disponible',
-          'Ventas Totales': item.total,
-          'Número de Ventas': item.count,
-          'Promedio por Venta': item.count > 0 ? (item.total / item.count).toFixed(2) : 0
-        }));
-        filename = 'ventas-por-ciudad.xlsx';
+    switch (option) {
+      case 'today':
+        setDateRange({ from: today, to: today });
         break;
-        
-      case REPORT_TYPES.CUSTOMERS_BY_PROVINCE:
-        data = getCustomersByProvince().map(item => ({
-          Provincia: item.province || 'No disponible',
-          'Número de Clientes': item.count
-        }));
-        filename = 'clientes-por-provincia.xlsx';
+      case 'yesterday':
+        const yesterday = subDays(today, 1);
+        setDateRange({ from: yesterday, to: yesterday });
         break;
-        
-      case REPORT_TYPES.SALES_BY_BRAND:
-        data = getSalesByBrand().map(item => ({
-          Marca: item.brand || 'No disponible',
-          'Ventas Totales': item.total,
-          'Número de Ventas': item.count,
-          'Promedio por Venta': item.count > 0 ? (item.total / item.count).toFixed(2) : 0
-        }));
-        filename = 'ventas-por-marca.xlsx';
+      case 'last7days':
+        setDateRange({ from: subDays(today, 6), to: today });
         break;
-        
-      case REPORT_TYPES.LEADS_BY_SOURCE:
-        data = getLeadsBySource().map(item => ({
-          Origen: item.source || 'No disponible',
-          'Número de Leads': item.count
-        }));
-        filename = 'leads-por-origen.xlsx';
+      case 'last30days':
+        setDateRange({ from: subDays(today, 29), to: today });
         break;
-        
-      case REPORT_TYPES.SALES_OVER_TIME:
-        data = getSalesOverTime().map(item => ({
-          'Periodo': item.date,
-          'Ventas Totales': item.total,
-          'Número de Ventas': item.count,
-          'Promedio por Venta': item.count > 0 ? (item.total / item.count).toFixed(2) : 0
-        }));
-        filename = 'ventas-por-tiempo.xlsx';
+      case 'thisMonth':
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        setDateRange({ from: firstDayOfMonth, to: today });
         break;
-        
+      case 'lastMonth':
+        const firstDayOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        setDateRange({ from: firstDayOfLastMonth, to: lastDayOfLastMonth });
+        break;
+      case 'all':
+        setDateRange(undefined);
+        break;
       default:
         break;
     }
+  };
+  
+  // Función para exportar datos
+  const exportCurrentReport = () => {
+    // Determinar qué datos exportar según el tipo de informe
+    let dataToExport: any[] = [];
+    let fileName = 'reporte';
     
-    if (data.length > 0) {
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(data);
+    if (reportType.includes('customer')) {
+      dataToExport = filteredCustomers;
+      fileName = 'clientes';
+    } else if (reportType.includes('sale') || reportType.includes('revenue') || reportType.includes('brand')) {
+      dataToExport = filteredSales;
+      fileName = 'ventas';
+    } else if (reportType.includes('lead')) {
+      dataToExport = filteredLeads;
+      fileName = 'leads';
+    } else {
+      // Para dashboard o reportes combinados, exportar todos los datos
+      dataToExport = [...filteredCustomers, ...filteredSales, ...filteredLeads];
+      fileName = 'datos-completos';
+    }
+    
+    // Crear URL para descargar
+    if (dataToExport.length) {
+      const jsonStr = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       
-      // Ajustar ancho de columnas
-      const colWidths = Object.keys(data[0]).map(() => ({ wch: 20 }));
-      ws['!cols'] = colWidths;
-      
-      XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
-      XLSX.writeFile(wb, filename);
+      // Crear enlace y simular clic
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}_${format(new Date(), 'yyyyMMdd')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   };
   
-  // Función para exportar todos los datos
-  const exportAllData = () => {
-    if (!customersQuery.data && !salesQuery.data && !leadsQuery.data) return;
+  // Exportar específicamente un tipo de informe
+  const exportSpecificReport = (type: string) => {
+    let dataToExport: any[] = [];
+    let fileName = 'reporte';
     
-    const wb = XLSX.utils.book_new();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `civetta-crm-exportacion-${timestamp}.xlsx`;
-    let hasSheets = false;
-    
-    // Exportar clientes si están seleccionados o si es una exportación completa (sin diálogo)
-    if ((selectedFields.customers || !showExportDialog) && customersQuery.data) {
-      const customersWs = XLSX.utils.json_to_sheet(customersQuery.data.map(customer => ({
-        ID: customer.id,
-        Nombre: customer.firstName,
-        Apellido: customer.lastName,
-        'Nombre Completo': customer.name,
-        Email: customer.email || '',
-        Ciudad: customer.city || '',
-        Provincia: customer.province || '',
-        Marca: customer.brand || '',
-        Origen: customer.source || '',
-        'Fecha de Creación': customer.createdAt
-      })));
-      XLSX.utils.book_append_sheet(wb, customersWs, 'Clientes');
-      hasSheets = true;
+    if (type === 'customers-by-source') {
+      dataToExport = sourceStatsData;
+      fileName = 'fuentes-clientes';
+    } else if (type === 'leads-by-source') {
+      dataToExport = sourceStatsData;
+      fileName = 'fuentes-leads';
+    } else if (type.includes('location')) {
+      dataToExport = locationStatsData;
+      fileName = `ubicacion-${type.includes('province') ? 'provincias' : 'ciudades'}`;
+    } else if (type.includes('brand') || type.includes('revenue')) {
+      dataToExport = brandRevenueData;
+      fileName = 'ingresos-marcas';
     }
     
-    // Exportar ventas si están seleccionadas o si es una exportación completa
-    if ((selectedFields.sales || !showExportDialog) && salesQuery.data) {
-      const salesWs = XLSX.utils.json_to_sheet(salesQuery.data.map(sale => ({
-        ID: sale.id,
-        'ID del Cliente': sale.customerId,
-        Monto: sale.amount,
-        Estado: sale.status,
-        'Método de Pago': sale.paymentMethod || '',
-        Marca: sale.brand || '',
-        Notas: sale.notes || '',
-        'Fecha de Creación': sale.createdAt,
-        'Última Actualización': sale.updatedAt
-      })));
-      XLSX.utils.book_append_sheet(wb, salesWs, 'Ventas');
-      hasSheets = true;
-    }
-    
-    // Exportar leads si están seleccionados o si es una exportación completa
-    if ((selectedFields.leads || !showExportDialog) && leadsQuery.data) {
-      const leadsWs = XLSX.utils.json_to_sheet(leadsQuery.data.map(lead => ({
-        ID: lead.id,
-        Nombre: lead.firstName,
-        Apellido: lead.lastName,
-        'Nombre Completo': lead.name,
-        Email: lead.email || '',
-        Estado: lead.status,
-        Ciudad: lead.city || '',
-        Provincia: lead.province || '',
-        Marca: lead.brand || '',
-        Origen: lead.source || '',
-        'Fecha de Creación': lead.createdAt
-      })));
-      XLSX.utils.book_append_sheet(wb, leadsWs, 'Leads');
-      hasSheets = true;
-    }
-    
-    // Escribir archivo si hay hojas para exportar
-    if (hasSheets) {
-      XLSX.writeFile(wb, filename);
+    // Crear URL para descargar
+    if (dataToExport.length) {
+      const jsonStr = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // Crear enlace y simular clic
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}_${format(new Date(), 'yyyyMMdd')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   };
   
-  // Renderizar contenido del informe seleccionado
-  const renderReportContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      );
-    }
-    
-    // Verificamos si tenemos datos para mostrar según el tipo de informe
-    const hasSalesData = salesQuery.data && salesQuery.data.length > 0;
-    const hasCustomersData = customersQuery.data && customersQuery.data.length > 0;
-    const hasLeadsData = leadsQuery.data && leadsQuery.data.length > 0;
-    
-    // Si hay errores en alguna consulta, mostramos una alerta informativa
-    if (salesQuery.isError || customersQuery.isError || leadsQuery.isError) {
-      return (
-        <Alert>
-          <AlertTitle>Datos limitados</AlertTitle>
-          <AlertDescription>
-            Algunos datos pueden no estar disponibles. Intenta recargar la página o ajustar los filtros.
-          </AlertDescription>
-        </Alert>
-      );
-    }
-    
-    // Como ya tenemos datos de ejemplo implementados para cada tipo de informe, 
-    // no es necesario mostrar alertas de "Sin datos" aquí, ya que siempre tendremos 
-    // al menos los datos de ejemplo para mostrar.
-    
-    switch (reportType) {
-      case REPORT_TYPES.SALES_BY_CITY: {
-        const data = getSalesByCity();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Ventas por Ciudad</h3>
-            <p className="text-sm text-muted-foreground">
-              Este informe muestra las ciudades con mayor volumen de ventas.
-            </p>
-            
-            {data.length > 0 ? (
-              <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data} margin={{ top: 20, right: 30, left: 30, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="city" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `$${value}`} />
-                    <Legend />
-                    <Bar dataKey="total" name="Total de Ventas" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Sin datos</AlertTitle>
-                <AlertDescription>
-                  No hay suficientes datos para generar este informe con los filtros actuales.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        );
-      }
-      
-      case REPORT_TYPES.CUSTOMERS_BY_PROVINCE: {
-        const data = getCustomersByProvince();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Clientes por Provincia</h3>
-            <p className="text-sm text-muted-foreground">
-              Este informe muestra la distribución de clientes por provincia.
-            </p>
-            
-            {data.length > 0 ? (
-              <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      dataKey="count"
-                      nameKey="province"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      fill="#8884d8"
-                      label={(entry) => `${entry.province}: ${entry.count}`}
-                    >
-                      {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value} clientes`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Sin datos</AlertTitle>
-                <AlertDescription>
-                  No hay suficientes datos para generar este informe con los filtros actuales.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        );
-      }
-      
-      case REPORT_TYPES.SALES_BY_BRAND: {
-        const data = getSalesByBrand();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Ventas por Marca</h3>
-            <p className="text-sm text-muted-foreground">
-              Este informe muestra las ventas totales por marca.
-            </p>
-            
-            {data.length > 0 ? (
-              <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data} margin={{ top: 20, right: 30, left: 30, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="brand" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `$${value}`} />
-                    <Legend />
-                    <Bar dataKey="total" name="Total de Ventas" fill="#82ca9d" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Sin datos</AlertTitle>
-                <AlertDescription>
-                  No hay suficientes datos para generar este informe con los filtros actuales.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        );
-      }
-      
-      case REPORT_TYPES.LEADS_BY_SOURCE: {
-        const data = getLeadsBySource();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Leads por Origen</h3>
-            <p className="text-sm text-muted-foreground">
-              Este informe muestra la distribución de leads por origen.
-            </p>
-            
-            {data.length > 0 ? (
-              <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      dataKey="count"
-                      nameKey="source"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      fill="#8884d8"
-                      label={(entry) => `${entry.source}: ${entry.count}`}
-                    >
-                      {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value} leads`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Sin datos</AlertTitle>
-                <AlertDescription>
-                  No hay suficientes datos para generar este informe con los filtros actuales.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        );
-      }
-      
-      case REPORT_TYPES.SALES_OVER_TIME: {
-        const data = getSalesOverTime();
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Ventas a lo Largo del Tiempo</h3>
-            <p className="text-sm text-muted-foreground">
-              Este informe muestra la evolución de ventas a lo largo del tiempo.
-            </p>
-            
-            {data.length > 0 ? (
-              <div className="h-[400px] w-full">
-                <TimeSeriesChart data={data} />
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Sin datos</AlertTitle>
-                <AlertDescription>
-                  No hay suficientes datos para generar este informe con los filtros actuales.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        );
-      }
-      
-      default:
-        return null;
-    }
-  };
+  const isLoading = isLoadingCustomers || isLoadingSales || isLoadingLeads;
   
-  // Renderizar la vista según la pestaña seleccionada
-  const renderActiveView = () => {
-    switch (activeView) {
-      case "dashboard":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Informes y Análisis</h1>
-                <p className="text-muted-foreground">
-                  Analiza los datos de tu negocio para tomar decisiones informadas.
-                </p>
-                
-                {/* Selector de tipos de reporte */}
-                <div className="mt-2">
-                  <ReportTypeSelector 
-                    currentType={reportType}
-                    onSelectType={setReportType}
-                    onCustomClick={() => setActiveView("wizard")}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTimeRange("30days")}
-                  className={timeRange === "30days" ? "bg-muted" : ""}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Últimos 30 días
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBrandFilter(
-                    brandFilter === "all" && getBrands().length > 0 ? 
-                      getBrands()[0] : 
-                      "all"
-                  )}
-                  className={brandFilter !== "all" ? "bg-muted" : ""}
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  {brandFilter !== "all" ? `Marca: ${brandFilter}` : "Todas las marcas"}
-                </Button>
-              </div>
+  return (
+    <Shell>
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col space-y-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Informes y Análisis de Datos</h1>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filtros
+              </Button>
+              <Button
+                variant="outline"
+                onClick={saveCurrentReport}
+              >
+                Guardar informe
+              </Button>
             </div>
-            
-            {/* KPIs */}
-            {showKpis && (
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center space-y-2">
-                      <p className="text-sm text-muted-foreground">Ventas Totales</p>
-                      <p className="text-3xl font-bold">{formatCurrency(getKpis().totalSales)}</p>
-                      <Badge variant="outline">{getKpis().salesCount} transacciones</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center space-y-2">
-                      <p className="text-sm text-muted-foreground">Clientes</p>
-                      <p className="text-3xl font-bold">{getKpis().totalCustomers}</p>
-                      <Badge variant="outline">Top: {getKpis().topProvince}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center space-y-2">
-                      <p className="text-sm text-muted-foreground">Leads</p>
-                      <p className="text-3xl font-bold">{getKpis().totalLeads}</p>
-                      <Badge variant="outline">Conversión: {getKpis().conversionRate.toFixed(1)}%</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center space-y-2">
-                      <p className="text-sm text-muted-foreground">Venta Promedio</p>
-                      <p className="text-3xl font-bold">{formatCurrency(getKpis().avgSaleValue)}</p>
-                      <Badge variant="outline">Top: {getKpis().topCity}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-            
-            {/* Custom Export Dialog */}
-            <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Exportación Personalizada</DialogTitle>
-                  <DialogDescription>
-                    Selecciona los datos que deseas exportar a Excel
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="customers" 
-                        checked={selectedFields.customers}
-                        onCheckedChange={(checked) => 
-                          setSelectedFields({...selectedFields, customers: !!checked})
-                        }
-                      />
-                      <Label htmlFor="customers">Clientes</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="sales" 
-                        checked={selectedFields.sales}
-                        onCheckedChange={(checked) => 
-                          setSelectedFields({...selectedFields, sales: !!checked})
-                        }
-                      />
-                      <Label htmlFor="sales">Ventas</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="leads" 
-                        checked={selectedFields.leads}
-                        onCheckedChange={(checked) => 
-                          setSelectedFields({...selectedFields, leads: !!checked})
-                        }
-                      />
-                      <Label htmlFor="leads">Leads</Label>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => setShowExportDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => {
-                      exportAllData();
-                      setShowExportDialog(false);
-                    }}
-                    disabled={!Object.values(selectedFields).some(Boolean)}
-                  >
-                    Exportar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            {/* Dialog para guardar reportes */}
-            <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Guardar Informe</DialogTitle>
-                  <DialogDescription>
-                    Guarda este informe para acceder a él fácilmente más tarde
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="report-name">Nombre del informe</Label>
-                    <Input 
-                      id="report-name" 
-                      value={reportName}
-                      onChange={(e) => setReportName(e.target.value)}
-                      placeholder="Ej. Ventas por Provincia (Enero 2025)"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="secondary" onClick={() => setShowSaveDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={saveReport}
-                    disabled={!reportName.trim()}
-                  >
-                    Guardar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          </div>
           
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card className="col-span-1">
-                <CardHeader>
-                  <CardTitle>Configuración del Informe</CardTitle>
-                  <CardDescription>Personaliza los parámetros del informe</CardDescription>
+          {/* Filtros colapsables */}
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-md">Rango de Fechas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col space-y-4">
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setDateRangeOption('today')}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Hoy
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setDateRangeOption('yesterday')}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Ayer
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setDateRangeOption('last7days')}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Últimos 7 días
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => setDateRangeOption('last30days')}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Últimos 30 días
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-md p-3">
+                      <p className="text-sm text-muted-foreground mb-2">Personalizado:</p>
+                      <DateRangePicker 
+                        value={dateRange} 
+                        onChange={(range: DateRange | undefined) => setDateRange(range)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-md">Filtros Adicionales</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="time-range">Rango de Tiempo</Label>
-                      <Select value={timeRange} onValueChange={setTimeRange}>
-                        <SelectTrigger id="time-range">
-                          <SelectValue placeholder="Seleccionar rango" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todo el tiempo</SelectItem>
-                          <SelectItem value="30days">Últimos 30 días</SelectItem>
-                          <SelectItem value="90days">Últimos 90 días</SelectItem>
-                          <SelectItem value="year">Último año</SelectItem>
-                          <SelectItem value="custom">Personalizado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="brand-filter">Filtrar por Marca</Label>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">
+                        Marca:
+                      </label>
                       <Select value={brandFilter} onValueChange={setBrandFilter}>
-                        <SelectTrigger id="brand-filter">
+                        <SelectTrigger>
                           <SelectValue placeholder="Seleccionar marca" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas las marcas</SelectItem>
-                          {getBrands().map(brand => (
-                            <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                          ))}
+                          <SelectItem value="Civetta Sleepwear">Civetta Sleepwear</SelectItem>
+                          <SelectItem value="Civetta Bride">Civetta Bride</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="compare-toggle">Comparar periodos</Label>
-                        <Switch
-                          id="compare-toggle"
-                          checked={compareMode}
-                          onCheckedChange={setCompareMode}
-                        />
-                      </div>
-                      
-                      {compareMode && (
-                        <Select value={compareTimeRange} onValueChange={setCompareTimeRange}>
-                          <SelectTrigger id="compare-time-range">
-                            <SelectValue placeholder="Periodo para comparar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="previous">Periodo anterior</SelectItem>
-                            <SelectItem value="year">Mismo periodo año anterior</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Informe
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setTimeRange("all")}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Reiniciar
-                  </Button>
-                </CardFooter>
               </Card>
               
-              <Card className="col-span-2">
-                <CardHeader>
-                  <CardTitle>Resultados</CardTitle>
-                  <CardDescription>Visualización de los datos del informe</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {renderReportContent()}
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <DataExportOptions
-                    onExport={exportToExcel}
-                    onCustomExport={() => setShowExportDialog(true)}
-                    onExportAll={exportAllData}
-                    disabled={isLoading || isError}
-                  />
-                  
-                  <div className="hidden sm:block">
-                    <ReportTypeSelector 
-                      currentType={reportType}
-                      onSelectType={setReportType}
-                      onCustomClick={() => setActiveView("wizard")}
-                      compact={true}
-                    />
-                  </div>
-                </CardFooter>
-              </Card>
-            </div>
-            
-            {/* Lista de informes guardados */}
-            {savedReports.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Informes Guardados</CardTitle>
-                  <CardDescription>Accede rápidamente a tus informes más utilizados</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-md">Informes Guardados</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {savedReports.map((report) => (
-                      <Card key={report.id} className="overflow-hidden">
-                        <CardHeader className="p-4">
-                          <CardTitle className="text-md">{report.name}</CardTitle>
-                          <CardDescription>
-                            {report.type === REPORT_TYPES.SALES_BY_CITY && "Ventas por Ciudad"}
-                            {report.type === REPORT_TYPES.CUSTOMERS_BY_PROVINCE && "Clientes por Provincia"}
-                            {report.type === REPORT_TYPES.SALES_BY_BRAND && "Ventas por Marca"}
-                            {report.type === REPORT_TYPES.LEADS_BY_SOURCE && "Leads por Origen"}
-                            {report.type === REPORT_TYPES.SALES_OVER_TIME && "Ventas en el Tiempo"}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <CalendarDays className="mr-1 h-4 w-4" />
-                            {getPeriodLabel(report.dateRange)}
-                            {report.brandFilter !== "all" && (
-                              <Badge variant="outline" className="ml-2">{report.brandFilter}</Badge>
-                            )}
+                  <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+                    {savedReports.length > 0 ? (
+                      savedReports.map(report => (
+                        <div 
+                          key={report.id}
+                          className="p-2 text-sm cursor-pointer hover:bg-muted flex justify-between items-center"
+                          onClick={() => loadReport(report)}
+                        >
+                          <div>
+                            <p className="font-medium">{report.name}</p>
+                            <p className="text-xs text-muted-foreground">{report.dateRange}</p>
                           </div>
-                        </CardContent>
-                        <CardFooter className="p-4 bg-muted/50 flex justify-between gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="w-full" 
-                            onClick={() => loadReport(report)}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
+                          <Button variant="ghost" size="sm">
                             Cargar
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="w-auto" 
-                            onClick={() => deleteReport(report.id)}
-                          >
-                            <Clock className="h-4 w-4" />
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="p-3 text-sm text-muted-foreground text-center">
+                        No hay informes guardados
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        );
-      
-      case "wizard":
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Crear Informe Personalizado</h1>
-              <p className="text-muted-foreground">
-                Configura tu informe personalizado paso a paso
-              </p>
+            </div>
+          )}
+          
+          {/* Selector de tipo de informe */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-1">
+              <ReportSelector 
+                selectedReportType={reportType}
+                onSelectReportType={setReportType}
+                reportTypes={DEFAULT_REPORT_TYPES}
+              />
             </div>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Asistente de Informes</CardTitle>
-                <CardDescription>
-                  Define la fuente de datos, los campos y cómo deseas visualizar tu informe
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="data">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="data">Datos</TabsTrigger>
-                    <TabsTrigger value="filters">Filtros</TabsTrigger>
-                    <TabsTrigger value="visualization">Visualización</TabsTrigger>
-                    <TabsTrigger value="schedule">Programación</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="data" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="data-source">Fuente de Datos</Label>
-                      <Select value={dataSource} onValueChange={setDataSource}>
-                        <SelectTrigger id="data-source">
-                          <SelectValue placeholder="Seleccionar fuente de datos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="customers">Clientes</SelectItem>
-                          <SelectItem value="sales">Ventas</SelectItem>
-                          <SelectItem value="leads">Leads</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="group-by">Agrupar por</Label>
-                      <Select value={groupBy} onValueChange={setGroupBy}>
-                        <SelectTrigger id="group-by">
-                          <SelectValue placeholder="Seleccionar campo de agrupación" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dataSource === "customers" && (
-                            <>
-                              <SelectItem value="province">Provincia</SelectItem>
-                              <SelectItem value="city">Ciudad</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="source">Origen</SelectItem>
-                            </>
-                          )}
-                          {dataSource === "sales" && (
-                            <>
-                              <SelectItem value="createdAt">Fecha</SelectItem>
-                              <SelectItem value="month">Mes</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="notes">Notas/Descripción</SelectItem>
-                              <SelectItem value="status">Estado</SelectItem>
-                            </>
-                          )}
-                          {dataSource === "leads" && (
-                            <>
-                              <SelectItem value="status">Estado</SelectItem>
-                              <SelectItem value="source">Origen</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="province">Provincia</SelectItem>
-                              <SelectItem value="city">Ciudad</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="aggregate-by">Valor a calcular</Label>
-                      <Select value={aggregateBy} onValueChange={setAggregateBy}>
-                        <SelectTrigger id="aggregate-by">
-                          <SelectValue placeholder="Seleccionar método de agregación" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="count">Conteo</SelectItem>
-                          {dataSource === "sales" && (
-                            <>
-                              <SelectItem value="sum">Suma</SelectItem>
-                              <SelectItem value="avg">Promedio</SelectItem>
-                              <SelectItem value="min">Mínimo</SelectItem>
-                              <SelectItem value="max">Máximo</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="filters" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="filter-field">Campo</Label>
-                      <Select value={filterField} onValueChange={setFilterField}>
-                        <SelectTrigger id="filter-field">
-                          <SelectValue placeholder="Seleccionar campo para filtrar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dataSource === "customers" && (
-                            <>
-                              <SelectItem value="province">Provincia</SelectItem>
-                              <SelectItem value="city">Ciudad</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="source">Origen</SelectItem>
-                              <SelectItem value="createdAt">Fecha de creación</SelectItem>
-                            </>
-                          )}
-                          {dataSource === "sales" && (
-                            <>
-                              <SelectItem value="createdAt">Fecha</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="notes">Notas/Descripción</SelectItem>
-                              <SelectItem value="status">Estado</SelectItem>
-                              <SelectItem value="amount">Monto</SelectItem>
-                              <SelectItem value="paymentMethod">Método de pago</SelectItem>
-                            </>
-                          )}
-                          {dataSource === "leads" && (
-                            <>
-                              <SelectItem value="status">Estado</SelectItem>
-                              <SelectItem value="source">Origen</SelectItem>
-                              <SelectItem value="brand">Marca</SelectItem>
-                              <SelectItem value="province">Provincia</SelectItem>
-                              <SelectItem value="city">Ciudad</SelectItem>
-                              <SelectItem value="createdAt">Fecha de creación</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {filterField && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="filter-operator">Operador</Label>
-                          <Select value={filterOperator} onValueChange={setFilterOperator}>
-                            <SelectTrigger id="filter-operator">
-                              <SelectValue placeholder="Seleccionar operador" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="equals">Igual a</SelectItem>
-                              <SelectItem value="contains">Contiene</SelectItem>
-                              <SelectItem value="greater">Mayor que</SelectItem>
-                              <SelectItem value="less">Menor que</SelectItem>
-                              <SelectItem value="starts">Comienza con</SelectItem>
-                              <SelectItem value="ends">Termina con</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="filter-value">Valor</Label>
-                          <Input
-                            id="filter-value"
-                            value={filterValue}
-                            onChange={(e) => setFilterValue(e.target.value)}
-                            placeholder="Valor para filtrar"
-                          />
-                        </div>
-                      </>
+            {/* Área de visualización de informes */}
+            <div className="md:col-span-3 space-y-4">
+              {/* Encabezado del informe */}
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h2 className="text-xl font-semibold">
+                    {reportType === 'dashboard' && 'Tablero Principal'}
+                    {reportType === 'customers-by-source' && 'Clientes por Fuente'}
+                    {reportType === 'leads-by-source' && 'Leads por Fuente'}
+                    {reportType === 'customers-by-province' && 'Clientes por Provincia'}
+                    {reportType === 'customers-by-city' && 'Clientes por Ciudad'}
+                    {reportType === 'revenue-by-brand' && 'Ingresos por Marca'}
+                    {reportType === 'brand-performance' && 'Rendimiento por Marca'}
+                    {reportType === 'sales-over-time' && 'Evolución de Ventas'}
+                    {reportType === 'conversion-analysis' && 'Análisis de Conversión'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {dateRange?.from && dateRange?.to ? (
+                      `${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}`
+                    ) : (
+                      'Todos los datos'
                     )}
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="time-range-filter">Rango de Tiempo</Label>
-                      <Select value={timeRange} onValueChange={setTimeRange}>
-                        <SelectTrigger id="time-range-filter">
-                          <SelectValue placeholder="Seleccionar rango" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todo el tiempo</SelectItem>
-                          <SelectItem value="30days">Últimos 30 días</SelectItem>
-                          <SelectItem value="90days">Últimos 90 días</SelectItem>
-                          <SelectItem value="year">Último año</SelectItem>
-                          <SelectItem value="custom">Personalizado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {timeRange === "custom" && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="start-date">Fecha Inicio</Label>
-                          <Input
-                            id="start-date"
-                            type="date"
-                            onChange={(e) => setStartDate(new Date(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="end-date">Fecha Fin</Label>
-                          <Input
-                            id="end-date"
-                            type="date"
-                            onChange={(e) => setEndDate(new Date(e.target.value))}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="visualization" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Tipo de Gráfico</Label>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div 
-                          className={`border rounded-lg p-4 text-center cursor-pointer ${chartType === 'bar' ? 'border-primary bg-muted' : ''}`}
-                          onClick={() => setChartType('bar')}
-                        >
-                          <BarChart2 className="h-8 w-8 mx-auto mb-2" />
-                          <p className="text-sm">Barras</p>
-                        </div>
-                        <div 
-                          className={`border rounded-lg p-4 text-center cursor-pointer ${chartType === 'pie' ? 'border-primary bg-muted' : ''}`}
-                          onClick={() => setChartType('pie')}
-                        >
-                          <PieChart className="h-8 w-8 mx-auto mb-2" />
-                          <p className="text-sm">Circular</p>
-                        </div>
-                        <div 
-                          className={`border rounded-lg p-4 text-center cursor-pointer ${chartType === 'line' ? 'border-primary bg-muted' : ''}`}
-                          onClick={() => setChartType('line')}
-                        >
-                          <LineChart className="h-8 w-8 mx-auto mb-2" />
-                          <p className="text-sm">Líneas</p>
-                        </div>
-                        <div 
-                          className={`border rounded-lg p-4 text-center cursor-pointer ${chartType === 'table' ? 'border-primary bg-muted' : ''}`}
-                          onClick={() => setChartType('table')}
-                        >
-                          <Table className="h-8 w-8 mx-auto mb-2" />
-                          <p className="text-sm">Tabla</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="show-data-toggle">Mostrar datos en tabla</Label>
-                        <Switch
-                          id="show-data-toggle"
-                          checked={showData}
-                          onCheckedChange={setShowData}
+                    {brandFilter !== 'all' && ` • ${brandFilter}`}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => exportCurrentReport()}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </div>
+
+              {isLoading ? (
+                <div className="flex justify-center items-center h-[300px]">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <>
+                  {reportType === 'dashboard' && (
+                    <div className="space-y-8">
+                      <DashboardSummary metrics={dashboardMetrics} />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <BrandRevenueChart 
+                          data={brandRevenueData}
+                          title="Ingresos por Marca" 
+                          showComparison={true}
+                          comparisonData={previousPeriodData}
+                          comparisonLabel="Período anterior"
+                          onExport={() => exportSpecificReport('revenue-by-brand')}
                         />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="compare-toggle">Comparar periodos</Label>
-                        <Switch
-                          id="compare-toggle"
-                          checked={compareMode}
-                          onCheckedChange={setCompareMode}
+                        
+                        <SourceStatsChart 
+                          data={sourceStatsData}
+                          title="Clientes por Fuente" 
+                          dataType="customers"
+                          onExport={() => exportSpecificReport('customers-by-source')}
                         />
                       </div>
                       
-                      {compareMode && (
-                        <Select value={compareTimeRange} onValueChange={setCompareTimeRange}>
-                          <SelectTrigger id="compare-time-range">
-                            <SelectValue placeholder="Periodo para comparar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="previous">Periodo anterior</SelectItem>
-                            <SelectItem value="year">Mismo periodo año anterior</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <LocationStatsChart 
+                        data={locationStatsData}
+                        title="Provincias por Cantidad de Clientes" 
+                        type="province"
+                        valueType="count"
+                        onExport={() => exportSpecificReport('customers-by-province')}
+                      />
                     </div>
-                  </TabsContent>
+                  )}
+
+                  {reportType === 'customers-by-source' && (
+                    <SourceStatsChart 
+                      data={sourceStatsData}
+                      title="Análisis de Fuentes de Clientes" 
+                      description="Distribución de clientes según su origen de adquisición"
+                      dataType="customers"
+                      onExport={() => exportSpecificReport('customers-by-source')}
+                    />
+                  )}
                   
-                  <TabsContent value="schedule" className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="schedule-toggle">Programar envío de informe</Label>
-                        <Switch
-                          id="schedule-toggle"
-                          checked={scheduleEnabled}
-                          onCheckedChange={setScheduleEnabled}
-                        />
-                      </div>
-                    </div>
-                    
-                    {scheduleEnabled && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="schedule-frequency">Frecuencia</Label>
-                          <Select value={scheduleFrequency} onValueChange={setScheduleFrequency}>
-                            <SelectTrigger id="schedule-frequency">
-                              <SelectValue placeholder="Seleccionar frecuencia" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="daily">Diario</SelectItem>
-                              <SelectItem value="weekly">Semanal</SelectItem>
-                              <SelectItem value="monthly">Mensual</SelectItem>
-                            </SelectContent>
-                          </Select>
+                  {reportType === 'leads-by-source' && (
+                    <SourceStatsChart 
+                      data={sourceStatsData}
+                      title="Análisis de Fuentes de Leads" 
+                      description="Distribución de leads según su origen de captura"
+                      dataType="leads"
+                      onExport={() => exportSpecificReport('leads-by-source')}
+                    />
+                  )}
+                  
+                  {reportType === 'customers-by-province' && (
+                    <LocationStatsChart 
+                      data={locationStatsData}
+                      title="Análisis de Clientes por Provincia" 
+                      description="Distribución geográfica por provincia para segmentación y campañas"
+                      type="province"
+                      valueType="count"
+                      onExport={() => exportSpecificReport('customers-by-province')}
+                    />
+                  )}
+                  
+                  {reportType === 'customers-by-city' && (
+                    <LocationStatsChart 
+                      data={locationStatsData}
+                      title="Análisis de Clientes por Ciudad" 
+                      description="Distribución geográfica por ciudad para segmentación y campañas locales"
+                      type="city"
+                      valueType="count"
+                      onExport={() => exportSpecificReport('customers-by-city')}
+                    />
+                  )}
+                  
+                  {reportType === 'revenue-by-brand' && (
+                    <BrandRevenueChart 
+                      data={brandRevenueData}
+                      title="Análisis de Ingresos por Marca" 
+                      description="Comparación de ingresos generados por cada marca"
+                      onExport={() => exportSpecificReport('revenue-by-brand')}
+                    />
+                  )}
+                  
+                  {reportType === 'brand-performance' && (
+                    <BrandRevenueChart 
+                      data={brandRevenueData}
+                      title="Rendimiento Comparativo por Marca" 
+                      description="Análisis comparativo entre las diferentes marcas"
+                      showComparison={true}
+                      comparisonData={previousPeriodData}
+                      comparisonLabel="Período anterior"
+                      onExport={() => exportSpecificReport('brand-performance')}
+                    />
+                  )}
+                  
+                  {reportType === 'sales-over-time' && (
+                    <Card className="shadow-sm">
+                      <CardHeader>
+                        <CardTitle>Evolución Temporal de Ventas</CardTitle>
+                        <CardDescription>
+                          Análisis en desarrollo - Próximamente disponible
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] flex justify-center items-center">
+                        <div className="text-center">
+                          <BarChart3 className="h-16 w-16 mx-auto text-primary/20 mb-4" />
+                          <p className="text-muted-foreground">
+                            Este informe estará disponible próximamente
+                          </p>
                         </div>
-                        
-                        {scheduleFrequency === 'weekly' && (
-                          <div className="space-y-2">
-                            <Label htmlFor="schedule-day">Día de la semana</Label>
-                            <Select value={scheduleDay} onValueChange={setScheduleDay}>
-                              <SelectTrigger id="schedule-day">
-                                <SelectValue placeholder="Seleccionar día" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="monday">Lunes</SelectItem>
-                                <SelectItem value="tuesday">Martes</SelectItem>
-                                <SelectItem value="wednesday">Miércoles</SelectItem>
-                                <SelectItem value="thursday">Jueves</SelectItem>
-                                <SelectItem value="friday">Viernes</SelectItem>
-                                <SelectItem value="saturday">Sábado</SelectItem>
-                                <SelectItem value="sunday">Domingo</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="schedule-recipients">Destinatarios (separados por coma)</Label>
-                          <Input
-                            id="schedule-recipients"
-                            value={scheduleRecipients}
-                            onChange={(e) => setScheduleRecipients(e.target.value)}
-                            placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
-                          />
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {reportType === 'conversion-analysis' && (
+                    <Card className="shadow-sm">
+                      <CardHeader>
+                        <CardTitle>Análisis de Conversión de Leads</CardTitle>
+                        <CardDescription>
+                          Análisis en desarrollo - Próximamente disponible
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] flex justify-center items-center">
+                        <div className="text-center">
+                          <BarChart3 className="h-16 w-16 mx-auto text-primary/20 mb-4" />
+                          <p className="text-muted-foreground">
+                            Este informe estará disponible próximamente
+                          </p>
                         </div>
-                      </>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" onClick={() => setActiveView("dashboard")}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => {
-                  setActiveView("dashboard");
-                  setReportType(REPORT_TYPES.SALES_BY_CITY);
-                  setShowSaveDialog(true);
-                }}>
-                  Generar Informe
-                </Button>
-              </CardFooter>
-            </Card>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+              
+              <div className="text-xs text-muted-foreground mt-2 text-right">
+                <p>
+                  Total: {filteredCustomers.length} clientes, {filteredLeads.length} leads, {filteredSales.length} ventas
+                </p>
+              </div>
+            </div>
           </div>
-        );
-        
-      default:
-        return (
-          <div>Vista no encontrada</div>
-        );
-    }
-  };
-  
-  return renderActiveView();
+        </div>
+      </div>
+    </Shell>
+  );
 }

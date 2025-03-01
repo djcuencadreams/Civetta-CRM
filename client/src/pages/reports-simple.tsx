@@ -152,16 +152,16 @@ export default function SimpleReportsPage() {
     
     if (reportType === 'customers') {
       endpoint = '/api/export/customers';
-      fileName = `clientes_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      fileName = `clientes_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     } else if (reportType === 'leads') {
       endpoint = '/api/export/leads';
-      fileName = `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      fileName = `leads_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     } else if (reportType === 'sales') {
       endpoint = '/api/export/sales';
-      fileName = `ventas_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      fileName = `ventas_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     } else {
       endpoint = '/api/export/all';
-      fileName = `reporte_completo_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      fileName = `reporte_completo_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
     }
     
     const url = `${endpoint}?${params.toString()}`;
@@ -411,7 +411,7 @@ export default function SimpleReportsPage() {
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a CSV
+                    Exportar a Excel
                   </>
                 )}
               </Button>
@@ -507,7 +507,7 @@ export default function SimpleReportsPage() {
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a CSV
+                    Exportar a Excel
                   </>
                 )}
               </Button>
@@ -607,7 +607,7 @@ export default function SimpleReportsPage() {
                 ) : (
                   <>
                     <DownloadCloud className="mr-2 h-4 w-4" />
-                    Exportar a CSV
+                    Exportar a Excel
                   </>
                 )}
               </Button>
