@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertSaleSchema, type Customer, type Sale, brandEnum } from "@db/schema";
+import { type Customer, type Sale, brandEnum } from "@db/schema";
+import * as z from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
@@ -17,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerForm } from "./CustomerForm";
+import { CustomerSearchSelect } from "./CustomerSearchSelect";
 import {
   Select,
   SelectContent,
@@ -117,6 +119,22 @@ export function SalesForm({
     return notesMatch ? notesMatch[1] : "";
   }
 
+  // Definimos un schema personalizado para el formulario
+  const productSchema = z.object({
+    name: z.string().min(1, "El nombre del producto es requerido"),
+    category: z.string().min(1, "La categoría es requerida"),
+    amount: z.string().refine(val => !isNaN(Number(val)) && Number(val) > 0, "El precio debe ser un número mayor que cero"),
+    quantity: z.string().refine(val => !isNaN(Number(val)) && Number(val) >= 1, "La cantidad debe ser un número mayor o igual a 1"),
+    brand: z.string().default(brandEnum.SLEEPWEAR)
+  });
+
+  const formSchema = z.object({
+    customerId: z.string().refine(val => !isNaN(Number(val)) && Number(val) > 0, "Debe seleccionar un cliente"),
+    products: z.array(productSchema).min(1, "Debe agregar al menos un producto"),
+    paymentMethod: z.string(),
+    notes: z.string().optional()
+  });
+
   // Inicialización de valores por defecto, con soporte para edición
   const form = useForm({
     defaultValues: sale ? {
@@ -130,7 +148,7 @@ export function SalesForm({
       paymentMethod: "transferencia",
       notes: ""
     },
-    resolver: zodResolver(insertSaleSchema)
+    resolver: zodResolver(formSchema)
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -142,7 +160,8 @@ export function SalesForm({
   useEffect(() => {
     const customerId = form.watch("customerId");
     if (customerId && customers) {
-      const customer = customers.find(c => c.id === parseInt(customerId));
+      const customerIdNum = parseInt(customerId, 10);
+      const customer = customers.find(c => c.id === customerIdNum);
       if (customer && customer.brand) {
         // Set the brand for future product additions
         const customerBrand = customer.brand as typeof brandEnum.SLEEPWEAR;
@@ -158,6 +177,9 @@ export function SalesForm({
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
+      // Mostrar todos los valores recibidos para depuración
+      console.log("Valores del formulario:", values);
+      
       const customerId = parseInt(values.customerId, 10);
       if (!customerId || isNaN(customerId)) {
         throw new Error("Debe seleccionar un cliente válido");
@@ -167,21 +189,29 @@ export function SalesForm({
         throw new Error("Debe agregar al menos un producto");
       }
 
+      // Validaciones más estrictas para cada producto
+      for (const product of values.products) {
+        if (!product.name?.trim()) {
+          throw new Error("Todos los productos deben tener un nombre");
+        }
+        if (!product.category?.trim()) {
+          throw new Error("Todos los productos deben tener una categoría");
+        }
+        const amount = Number(product.amount);
+        const quantity = Number(product.quantity);
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error(`El precio del producto "${product.name}" debe ser un número mayor que cero`);
+        }
+        if (isNaN(quantity) || quantity < 1) {
+          throw new Error(`La cantidad del producto "${product.name}" debe ser al menos 1`);
+        }
+      }
+
+      // Calcular el monto total con precisión
       const totalAmount = values.products.reduce(
         (sum: number, product: any) => {
           const amount = Number(product.amount);
           const quantity = Number(product.quantity);
-
-          if (isNaN(amount) || isNaN(quantity) || amount < 0 || quantity < 1) {
-            throw new Error("Los valores de precio y cantidad deben ser números válidos");
-          }
-          if (!product.name?.trim()) {
-            throw new Error("El nombre del producto es requerido");
-          }
-          if (!product.category?.trim()) {
-            throw new Error("La categoría del producto es requerida");
-          }
-
           return sum + (amount * quantity);
         }, 0
       );
@@ -202,9 +232,10 @@ export function SalesForm({
         { brand: brandEnum.SLEEPWEAR, amount: 0 }
       ).brand;
       
+      // Crear el objeto de datos de venta que coincide exactamente con el schema
       const saleData = {
         customerId,
-        amount: totalAmount,
+        amount: Number(totalAmount.toFixed(2)), // Asegurar que es un número con 2 decimales
         status: sale ? sale.status : "new", // Mantener el estado si es edición, nuevo si es creación
         paymentMethod: values.paymentMethod,
         brand: dominantBrand, // The sale is recorded with the dominant brand
@@ -213,16 +244,24 @@ export function SalesForm({
         ).join("\n") + (values.notes ? `\n\nNotas: ${values.notes}` : "")
       };
 
+      console.log("Datos a enviar a la API:", saleData);
+
       // Si es edición (sale existe), hacer PATCH; si es nueva, hacer POST
       const endpoint = sale ? `/api/sales/${sale.id}` : "/api/sales";
       const method = sale ? "PATCH" : "POST";
       
-      const res = await apiRequest(method, endpoint, saleData);
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `Error al ${sale ? 'actualizar' : 'crear'} la venta`);
+      try {
+        const res = await apiRequest(method, endpoint, saleData);
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error("Error respuesta API:", errorData);
+          throw new Error(errorData.error || `Error al ${sale ? 'actualizar' : 'crear'} la venta`);
+        }
+        return res.json();
+      } catch (error) {
+        console.error("Error en la mutación:", error);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: (data) => {
       console.log(`Sale ${sale ? 'updated' : 'created'} successfully:`, data);
@@ -255,6 +294,8 @@ export function SalesForm({
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit((data) => {
+          console.log("Enviando datos:", data);
+          console.log("Errores de formulario:", form.formState.errors);
           mutation.mutate(data);
         })} className="space-y-4">
           <FormField
@@ -264,23 +305,18 @@ export function SalesForm({
               <FormItem>
                 <FormLabel>Cliente</FormLabel>
                 <div className="flex gap-2">
-                  <Select
-                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                    value={field.value?.toString()}
-                  >
+                  <div className="flex-1">
                     <FormControl>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Seleccionar cliente" />
-                      </SelectTrigger>
+                      <CustomerSearchSelect
+                        customers={customers || []}
+                        value={field.value?.toString()}
+                        onChange={(value) => field.onChange(value)}
+                        isLoading={isLoadingCustomers}
+                        placeholder="Buscar y seleccionar cliente..."
+                        className="w-full"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {customers?.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id.toString()}>
-                          {customer.name} ({getBrandDisplayName(customer.brand || brandEnum.SLEEPWEAR)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  </div>
                   <Button type="button" onClick={() => setShowNewCustomer(true)}>
                     <Plus className="h-4 w-4" />
                   </Button>

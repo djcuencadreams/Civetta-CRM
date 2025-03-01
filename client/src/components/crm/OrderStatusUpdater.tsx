@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle, Package, Truck, ShoppingBag, XCircle } from "lucide-react";
 
 // Estados de pedido disponibles y sus transiciones permitidas
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
@@ -22,36 +22,48 @@ const orderStatuses: Record<string, {
   allowedTransitions: string[];
   color: string;
   badgeVariant: BadgeVariant;
+  icon: React.ReactNode;
+  description?: string;
 }> = {
   new: {
     label: "Nuevo Pedido",
     allowedTransitions: ["preparing", "cancelled"],
     color: "default",
-    badgeVariant: "secondary"
+    badgeVariant: "secondary",
+    icon: <ShoppingBag className="h-4 w-4" />,
+    description: "Pedido recién creado, pendiente de procesamiento"
   },
   preparing: {
     label: "Preparando Pedido",
     allowedTransitions: ["shipped", "cancelled"],
     color: "secondary",
-    badgeVariant: "default"
+    badgeVariant: "default",
+    icon: <Package className="h-4 w-4" />,
+    description: "Pedido en preparación para envío"
   },
   shipped: {
     label: "Enviado",
     allowedTransitions: ["completed", "cancelled"],
     color: "blue",
-    badgeVariant: "secondary"
+    badgeVariant: "secondary",
+    icon: <Truck className="h-4 w-4" />,
+    description: "Pedido enviado al cliente"
   },
   completed: {
     label: "Completado",
     allowedTransitions: [],
     color: "green",
-    badgeVariant: "outline"
+    badgeVariant: "outline",
+    icon: <CheckCircle className="h-4 w-4" />,
+    description: "Pedido entregado y confirmado por el cliente"
   },
   cancelled: {
     label: "Cancelado",
     allowedTransitions: [],
     color: "destructive",
-    badgeVariant: "destructive"
+    badgeVariant: "destructive",
+    icon: <XCircle className="h-4 w-4" />,
+    description: "Pedido cancelado"
   },
 };
 
@@ -115,36 +127,56 @@ export function OrderStatusUpdater({
 
   // Determinar si se necesita motivo (obligatorio para cancelaciones)
   const requiresReason = newStatus === 'cancelled';
-  const showReasonField = newStatus === 'cancelled';
+  // Mostrar el campo de razón para cualquier cambio de estado
+  const showReasonField = !!newStatus;
 
   return (
-    <div className="mt-3 pt-3 border-t space-y-3 bg-muted p-4 rounded-md">
+    <div className="mt-3 pt-3 border-t space-y-3 bg-muted/40 p-4 rounded-md">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium block text-primary">Cambiar Estado del Pedido:</span>
-        <Badge 
-          variant={orderStatuses[currentStatus as keyof typeof orderStatuses]?.badgeVariant || "default"}
-          className="ml-2"
-        >
-          Estado actual: {orderStatuses[currentStatus as keyof typeof orderStatuses]?.label || currentStatus}
-        </Badge>
+        <div className="flex items-center">
+          <span className="text-sm font-medium block text-primary">Estado del Pedido:</span>
+          <Badge 
+            variant={orderStatuses[currentStatus as keyof typeof orderStatuses]?.badgeVariant || "default"}
+            className="ml-2 flex items-center gap-1"
+          >
+            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.icon}
+            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.label || currentStatus}
+          </Badge>
+        </div>
+        {/* Mostrar descripción del estado actual si existe */}
+        {orderStatuses[currentStatus as keyof typeof orderStatuses]?.description && (
+          <div className="text-xs text-muted-foreground hidden md:block">
+            {orderStatuses[currentStatus as keyof typeof orderStatuses]?.description}
+          </div>
+        )}
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
         <Select
           value={newStatus}
           onValueChange={setNewStatus}
         >
           <SelectTrigger className="w-full border-primary/50">
-            <SelectValue placeholder="Seleccionar nuevo estado" />
+            <SelectValue placeholder="Cambiar a..." />
           </SelectTrigger>
           <SelectContent>
             {allowedTransitions.map((status) => (
-              <SelectItem key={status} value={status}>
-                {orderStatuses[status as keyof typeof orderStatuses]?.label || status}
+              <SelectItem key={status} value={status} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  {orderStatuses[status as keyof typeof orderStatuses]?.icon}
+                  {orderStatuses[status as keyof typeof orderStatuses]?.label || status}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        
+        {/* Mostrar descripción del estado seleccionado */}
+        {newStatus && (
+          <div className="text-xs text-muted-foreground mt-1 sm:mt-0 sm:ml-2">
+            {orderStatuses[newStatus as keyof typeof orderStatuses]?.description}
+          </div>
+        )}
       </div>
       
       {showReasonField && (
@@ -171,7 +203,11 @@ export function OrderStatusUpdater({
           onClick={() => newStatus && updateStatusMutation.mutate()}
           className="font-medium"
         >
-          <ArrowRight className="h-4 w-4 mr-1" />
+          {updateStatusMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            newStatus && orderStatuses[newStatus as keyof typeof orderStatuses]?.icon
+          )}
           {newStatus === 'cancelled' ? 'Cancelar Pedido' : 'Actualizar Estado'}
         </Button>
       </div>

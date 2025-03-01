@@ -351,6 +351,94 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: "Failed to create sale" });
     }
   });
+  
+  // Endpoint para actualizar una venta existente
+  app.patch("/api/sales/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const saleId = parseInt(id);
+      
+      if (isNaN(saleId)) {
+        return res.status(400).json({ error: "ID de venta inválido" });
+      }
+      
+      // Verificar que la venta exista
+      const existingSale = await db.query.sales.findFirst({
+        where: eq(sales.id, saleId)
+      });
+      
+      if (!existingSale) {
+        return res.status(404).json({ error: "Venta no encontrada" });
+      }
+      
+      // Verificar campos obligatorios
+      if (!req.body.customerId || isNaN(Number(req.body.customerId))) {
+        return res.status(400).json({ error: "Cliente inválido" });
+      }
+      
+      if (!req.body.amount || isNaN(Number(req.body.amount))) {
+        return res.status(400).json({ error: "Monto inválido" });
+      }
+      
+      // Actualizar la venta
+      await db.update(sales)
+        .set({
+          customerId: req.body.customerId,
+          amount: req.body.amount,
+          status: req.body.status || existingSale.status,
+          paymentMethod: req.body.paymentMethod || existingSale.paymentMethod,
+          brand: req.body.brand || existingSale.brand,
+          notes: req.body.notes,
+          updatedAt: new Date()
+        })
+        .where(eq(sales.id, saleId));
+      
+      // Obtener la venta actualizada con la información del cliente
+      const updatedSale = await db.query.sales.findFirst({
+        where: eq(sales.id, saleId),
+        with: { customer: true }
+      });
+      
+      res.json(updatedSale);
+    } catch (error) {
+      console.error('Error updating sale:', error);
+      res.status(500).json({ error: "Error al actualizar la venta" });
+    }
+  });
+  
+  // Endpoint para eliminar una venta
+  app.delete("/api/sales/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const saleId = parseInt(id);
+      
+      if (isNaN(saleId)) {
+        return res.status(400).json({ error: "ID de venta inválido" });
+      }
+      
+      // Verificar que la venta exista
+      const existingSale = await db.query.sales.findFirst({
+        where: eq(sales.id, saleId)
+      });
+      
+      if (!existingSale) {
+        return res.status(404).json({ error: "Venta no encontrada" });
+      }
+      
+      // Eliminar la venta
+      const result = await db.delete(sales)
+        .where(eq(sales.id, saleId));
+      
+      res.json({ 
+        success: true, 
+        message: "Venta eliminada correctamente", 
+        id: saleId 
+      });
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      res.status(500).json({ error: "Error al eliminar la venta" });
+    }
+  });
 
   // Endpoint para actualizar el estado de un pedido (venta)
   app.patch("/api/sales/:id/status", async (req, res) => {

@@ -1,0 +1,35 @@
+[
+  {
+    "id": 12,
+    "customerId": 143,
+    "amount": "150.00",
+    "status": "completed",
+    "paymentMethod": null,
+    "brand": "sleepwear",
+    "notes": "[3/1/2025, 4:43:14 AM] Cambio a preparing: Iniciando preparación del pedido\n[3/1/2025, 4:43:48 AM] Cambio a shipped: Pedido enviado por servientrega, guía #1234567\n[3/1/2025, 4:43:52 AM] Cambio a completed: Cliente confirmó recepción del pedido",
+    "createdAt": "2025-03-01T04:42:53.987Z",
+    "updatedAt": "2025-03-01T04:43:52.345Z"
+  },
+  {
+    "id": 13,
+    "customerId": 143,
+    "amount": "200.00",
+    "status": "cancelled",
+    "paymentMethod": null,
+    "brand": "sleepwear",
+    "notes": "[3/1/2025, 4:44:06 AM] Cambio a cancelled: Cliente canceló el pedido por motivos personales",
+    "createdAt": "2025-03-01T04:44:03.026Z",
+    "updatedAt": "2025-03-01T04:44:06.440Z"
+  },
+  {
+    "id": 14,
+    "customerId": 143,
+    "amount": "125.00",
+    "status": "new",
+    "paymentMethod": "efectivo",
+    "brand": "sleepwear",
+    "notes": "Producto de prueba actualizado (Pijamas) - $125 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:06:31.444Z",
+    "updatedAt": "2025-03-01T05:06:36.664Z"
+  }
+]

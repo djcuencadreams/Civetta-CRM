@@ -1,0 +1,79 @@
+[
+  {
+    "id": 12,
+    "customerId": 143,
+    "amount": "150.00",
+    "status": "completed",
+    "paymentMethod": null,
+    "brand": "sleepwear",
+    "notes": "[3/1/2025, 4:43:14 AM] Cambio a preparing: Iniciando preparación del pedido\n[3/1/2025, 4:43:48 AM] Cambio a shipped: Pedido enviado por servientrega, guía #1234567\n[3/1/2025, 4:43:52 AM] Cambio a completed: Cliente confirmó recepción del pedido",
+    "createdAt": "2025-03-01T04:42:53.987Z",
+    "updatedAt": "2025-03-01T04:43:52.345Z"
+  },
+  {
+    "id": 13,
+    "customerId": 143,
+    "amount": "200.00",
+    "status": "cancelled",
+    "paymentMethod": null,
+    "brand": "sleepwear",
+    "notes": "[3/1/2025, 4:44:06 AM] Cambio a cancelled: Cliente canceló el pedido por motivos personales",
+    "createdAt": "2025-03-01T04:44:03.026Z",
+    "updatedAt": "2025-03-01T04:44:06.440Z"
+  },
+  {
+    "id": 14,
+    "customerId": 143,
+    "amount": "125.00",
+    "status": "new",
+    "paymentMethod": "efectivo",
+    "brand": "sleepwear",
+    "notes": "Producto de prueba actualizado (Pijamas) - $125 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:06:31.444Z",
+    "updatedAt": "2025-03-01T05:06:36.664Z"
+  },
+  {
+    "id": 15,
+    "customerId": 143,
+    "amount": "100.00",
+    "status": "new",
+    "paymentMethod": "transferencia",
+    "brand": "sleepwear",
+    "notes": "Producto de prueba (Pijamas) - $100 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:10:54.060Z",
+    "updatedAt": "2025-03-01T05:10:54.060Z"
+  },
+  {
+    "id": 16,
+    "customerId": 143,
+    "amount": "150.00",
+    "status": "completed",
+    "paymentMethod": "tarjeta",
+    "brand": "sleepwear",
+    "notes": "Pijama Seda (Pijamas) - $150 x 1 - Civetta Sleepwear\n[3/1/2025, 5:13:44 AM] Cambio a preparing: Preparando pedido para envío\n[3/1/2025, 5:14:13 AM] Cambio a shipped: Pedido enviado por Servientrega, guía #45678\n[3/1/2025, 5:14:17 AM] Cambio a completed: Cliente confirmó recepción satisfactoria del pedido",
+    "createdAt": "2025-03-01T05:12:42.486Z",
+    "updatedAt": "2025-03-01T05:14:17.227Z"
+  },
+  {
+    "id": 17,
+    "customerId": 143,
+    "amount": "100.00",
+    "status": "new",
+    "paymentMethod": "transferencia",
+    "brand": "sleepwear",
+    "notes": "Test product (Pijamas) - $100 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:20:10.680Z",
+    "updatedAt": "2025-03-01T05:20:10.680Z"
+  },
+  {
+    "id": 18,
+    "customerId": 141,
+    "amount": "55.00",
+    "status": "new",
+    "paymentMethod": "transferencia",
+    "brand": "sleepwear",
+    "notes": "abcd (Conjuntos) - $55 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:21:07.302Z",
+    "updatedAt": "2025-03-01T05:21:07.302Z"
+  }
+]

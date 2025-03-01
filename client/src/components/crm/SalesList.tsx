@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { t } from "@/lib/i18n";
 import { type Sale, brandEnum } from "@db/schema";
 import { format } from "date-fns";
@@ -7,22 +7,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { es } from "date-fns/locale";
-import { getQueryFn } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
 import { OrderStatusUpdater } from "./OrderStatusUpdater";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { SalesForm } from "./SalesForm";
+import { Edit, CheckCircle, Package, Truck, ShoppingBag, XCircle, Trash2, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
+// Definir el tipo Customer basado en lo que devuelve la API
+type Customer = {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  city: string | null;
+  province: string | null;
+  // ... otros campos
+};
+
+// Extender el tipo Sale para incluir la propiedad customer que viene de la API
 type SaleWithCustomer = Sale & {
-  customer: {
-    name: string;
-  };
+  customer?: Customer;
 };
 
 // Definición de estados del pedido con sus colores y transiciones permitidas
 // Exactamente los mismos que en OrderStatusUpdater para mantener consistencia
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
+
+// Iconos para los estados de pedido
+const orderStatusIcons: Record<string, React.ReactNode> = {
+  new: <ShoppingBag className="h-4 w-4" />,
+  preparing: <Package className="h-4 w-4" />,
+  shipped: <Truck className="h-4 w-4" />,
+  completed: <CheckCircle className="h-4 w-4" />,
+  cancelled: <XCircle className="h-4 w-4" />,
+};
 
 const orderStatuses: Record<string, {
   label: string;
@@ -70,13 +92,47 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   // Función para manejar la edición de una venta
   const handleEditSale = (sale: Sale) => {
     setEditingSale(sale);
     setShowEditDialog(true);
   };
+  
+  // Función para manejar la confirmación de eliminación
+  const handleDeleteConfirm = (sale: Sale) => {
+    setSaleToDelete(sale);
+    setShowDeleteDialog(true);
+  };
+  
+  // Mutación para eliminar una venta
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/sales/${id}`);
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Venta eliminada",
+        description: "La venta ha sido eliminada correctamente",
+        variant: "default"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      setShowDeleteDialog(false);
+      setSaleToDelete(null);
+    },
+    onError: (error: Error) => {
+      console.error("Error al eliminar la venta:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la venta. Por favor, intente nuevamente.",
+        variant: "destructive"
+      });
+    }
+  });
 
   // Merge external filters when provided
   useEffect(() => {
@@ -165,8 +221,9 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
           valueB = Number(b.amount);
           break;
         case "customerName":
-          valueA = a.customer?.name?.toLowerCase() || "";
-          valueB = b.customer?.name?.toLowerCase() || "";
+          // Usar el nombre del cliente o por ID si no está disponible
+          valueA = a.customer?.name?.toLowerCase() || String(a.customerId);
+          valueB = b.customer?.name?.toLowerCase() || String(b.customerId);
           break;
         case "status":
           valueA = a.status;
@@ -317,7 +374,7 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium">{sale.customer.name}</h3>
+                    <h3 className="font-medium">{sale.customer?.name || `Cliente ID: ${sale.customerId}`}</h3>
                     {brand ? null : (
                       <span className="text-xs text-muted-foreground">
                         {getBrandDisplayName(sale.brand)}
@@ -331,11 +388,24 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
                       onClick={() => handleEditSale(sale)}
                       className="text-xs h-7 px-2"
                     >
+                      <Edit className="h-3.5 w-3.5 mr-1" />
                       Editar
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => handleDeleteConfirm(sale)}
+                      className="text-xs h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Eliminar
                     </Button>
                     <Badge variant={
                       orderStatuses[sale.status as keyof typeof orderStatuses]?.badgeVariant || "default"
-                    }>
+                    }
+                    className="flex items-center gap-1 py-1"
+                    >
+                      {orderStatusIcons[sale.status as keyof typeof orderStatusIcons] || null}
                       {orderStatuses[sale.status as keyof typeof orderStatuses]?.label || sale.status}
                     </Badge>
                   </div>
@@ -345,15 +415,42 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
                     Total: ${sale.amount} - {format(new Date(sale.createdAt), "PPp", { locale: es })}
                   </div>
                   
+                  {/* Mostrar productos si están incluidos en las notas */}
+                  {sale.notes && !sale.notes.startsWith('[') && (
+                    <div className="text-sm text-muted-foreground">
+                      <strong>Productos:</strong> {
+                        // Extraer la información de producto de la primera línea de las notas
+                        // Ejemplo: "Pijama Seda (Pijamas) - $150 x 1 - Civetta Sleepwear"
+                        (() => {
+                          const firstLine = sale.notes.split('\n')[0];
+                          // Si tiene formato de producto+precio, extraemos el producto
+                          if (firstLine.includes('$')) {
+                            const productPart = firstLine.split(' - ')[0];
+                            return productPart;
+                          }
+                          // Si no tiene ese formato, mostramos la primera línea completa
+                          return firstLine;
+                        })()
+                      }
+                    </div>
+                  )}
+                  
                   {/* Historial de cambios de estado */}
                   {sale.notes && (
                     <div className="mt-2">
                       {sale.notes.split('\n').map((line, i) => {
                         // Separamos las notas normales del historial de estados
-                        if (line.includes('Cambio de estado')) {
+                        // El formato es [fecha] Cambio a [estado]: [razón]
+                        if (line.match(/\[\d+\/\d+\/\d+.*?\] Cambio a/)) {
+                          // Extraer el estado del cambio
+                          const statusMatch = line.match(/Cambio a (\w+):/);
+                          const status = statusMatch ? statusMatch[1] : null;
+                          const statusIcon = status ? orderStatusIcons[status as keyof typeof orderStatusIcons] : null;
+                          
                           return (
-                            <div key={i} className="text-xs text-slate-500 border-l-2 border-slate-300 pl-2 py-1">
-                              {line}
+                            <div key={i} className="text-xs text-slate-500 border-l-2 border-slate-300 pl-2 py-1 flex items-start">
+                              {statusIcon && <span className="mt-0.5 mr-1 text-muted-foreground">{statusIcon}</span>}
+                              <span className="flex-1">{line}</span>
                             </div>
                           );
                         } else if (line.trim() && !line.startsWith('Notas:')) {
@@ -407,6 +504,57 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
           </DialogContent>
         </Dialog>
       )}
+      
+      {/* Diálogo de confirmación para eliminar venta */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar eliminación</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro que desea eliminar esta venta? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {saleToDelete && (
+            <div className="py-4">
+              <div className="space-y-2 mb-4 p-3 border rounded-md bg-muted/50">
+                <div className="font-medium">Detalles de la venta:</div>
+                <div className="text-sm">Venta ID: {saleToDelete.id}</div>
+                <div className="text-sm">Cliente: {(saleToDelete as SaleWithCustomer).customer?.name || `ID: ${saleToDelete.customerId}`}</div>
+                <div className="text-sm">Monto: ${saleToDelete.amount}</div>
+                <div className="text-sm">Fecha: {format(new Date(saleToDelete.createdAt), "PPp", { locale: es })}</div>
+                <div className="text-sm">Estado: {orderStatuses[saleToDelete.status as keyof typeof orderStatuses]?.label || saleToDelete.status}</div>
+              </div>
+              
+              <div className="flex items-center space-x-2 bg-destructive/10 p-3 rounded-md">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <div className="text-sm text-destructive">
+                  Esta acción eliminará permanentemente el registro de la venta del sistema.
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setSaleToDelete(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => saleToDelete && deleteMutation.mutate(saleToDelete.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Eliminando..." : "Eliminar Venta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
