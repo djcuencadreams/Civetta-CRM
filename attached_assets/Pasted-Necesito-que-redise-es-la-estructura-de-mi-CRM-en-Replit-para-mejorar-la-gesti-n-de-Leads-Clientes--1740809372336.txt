@@ -1,0 +1,96 @@
+Necesito que rediseñes la estructura de mi CRM en Replit para mejorar la gestión de Leads, Clientes, Pedidos y Ventas, además de prepararlo para sincronización con WooCommerce.
+
+### **📌 Estructura Actual**
+Actualmente, los datos están almacenados en **Key-Value Store** en archivos JSON como `customers_data.json`, pero todos los clientes están en una sola base sin distinción entre Leads y Clientes. Además, los pedidos y ventas no tienen almacenamiento independiente.
+
+---
+
+### **🔥 Objetivo del Rediseño**
+1️⃣ **Separar Leads y Clientes en archivos distintos.**  
+2️⃣ **Crear almacenamiento independiente para Pedidos y Ventas.**  
+3️⃣ **Mantener los datos actuales sin perder información clave (Fuente, Marca, Dirección, Cédula, etc.).**  
+4️⃣ **Preparar la base de datos para sincronización con WooCommerce.**  
+
+---
+
+### **📌 Nueva Estructura de Datos**
+#### **1️⃣ Leads (`leads_data.json`) → Clientes potenciales**  
+- `id` → ID único del Lead  
+- `name`, `firstName`, `lastName` → Nombre completo  
+- `idNumber` → Cédula o identificación  
+- `email`, `phone`, `phoneCountry`, `phoneNumber` → Contacto  
+- `street`, `city`, `province`, `deliveryInstructions` → Dirección  
+- `source` → Cómo llegó el Lead (`Redes Sociales`, `WhatsApp`, etc.)  
+- `brandInterest` → `Civetta Sleepwear` o `Civetta Bride`  
+- `notes` → Notas sobre la personalización o cita  
+- `createdAt`, `updatedAt` → Fechas de creación y actualización  
+- `status` → Estado (`Nuevo`, `Cita Agendada`, `Pendiente`, `Convertido en Cliente`)  
+
+📌 **Reglas de Leads:**  
+✔ Cuando un Lead compra algo, se mueve automáticamente a `customers_data.json`.  
+
+---
+
+#### **2️⃣ Clientes (`customers_data.json`) → Personas que ya compraron**  
+- **Todos los campos de Leads**, más:  
+- `sales` → Historial de compras del cliente  
+
+📌 **Reglas de Clientes:**  
+✔ Un Lead se convierte en Cliente cuando realiza su primera compra.  
+✔ Un Cliente puede tener múltiples pedidos y compras registradas en `sales`.  
+
+---
+
+#### **3️⃣ Pedidos (`orders_data.json`) → Órdenes en proceso**  
+- `id` → ID único del Pedido  
+- `customerId` → ID del Cliente o Lead  
+- `source` → De dónde proviene (`WooCommerce`, `WhatsApp`, `Instagram`, `Tienda Física`)  
+- `products` → Lista de productos en el pedido  
+- `total` → Monto total del pedido  
+- `status` → Estado del Pedido (`Nuevo Pedido`, `Preparando`, `Enviado`, `Completado`, `Cancelado`)  
+- `createdAt`, `updatedAt` → Fechas de registro  
+
+📌 **Reglas de Pedidos:**  
+✔ Cuando WooCommerce genera un pedido, se almacena aquí automáticamente.  
+✔ Cuando un pedido se completa y se paga, se convierte en una Venta.  
+
+---
+
+#### **4️⃣ Ventas (`sales_data.json`) → Órdenes confirmadas y pagadas**  
+- `id` → ID único de la Venta  
+- `orderId` → ID del Pedido relacionado  
+- `customerId` → Cliente que realizó la compra  
+- `total` → Monto final pagado  
+- `paymentMethod` → `Transferencia`, `Tarjeta`, `Efectivo`  
+- `status` → `Pagado`, `Pendiente`, `Reembolsado`  
+- `createdAt`, `updatedAt` → Fechas  
+
+📌 **Reglas de Ventas:**  
+✔ Solo se genera cuando un pedido se completa y se paga.  
+✔ Si una venta se devuelve, se marca como `Reembolsado`.  
+
+---
+
+#### **5️⃣ Inventario (`inventory_data.json`) → Gestión de Stock**  
+- `id` → ID único del Producto  
+- `name` → Nombre del Producto  
+- `brand` → `Civetta Sleepwear` o `Civetta Bride`  
+- `stock` → Cantidad disponible  
+- `price` → Precio de venta  
+- `lastUpdated` → Última modificación  
+
+📌 **Reglas de Inventario:**  
+✔ Si WooCommerce cambia el stock, se actualiza aquí.  
+✔ Si el CRM vende un producto manualmente, WooCommerce debe reflejar el ajuste.  
+
+---
+
+### **📌 Tareas a Implementar**
+1️⃣ **Migrar los Leads actuales de `customers_data.json` a `leads_data.json` y diferenciarlos por `status`.**  
+2️⃣ **Crear `orders_data.json` y `sales_data.json` para almacenar Pedidos y Ventas sin mezclar clientes con pedidos.**  
+3️⃣ **Actualizar el CRM para registrar nuevos pedidos en `orders_data.json`, sin agregarlos directamente en Clientes.**  
+4️⃣ **Asegurar que cuando un pedido se complete y pague, se mueva a `sales_data.json`.**  
+5️⃣ **Crear endpoints API RESTful para sincronizar Pedidos y Stock con WooCommerce.**  
+6️⃣ **No perder datos clave como dirección, fuente de origen, cédula, notas y marca de interés.**  
+
+Genera el código necesario para implementar esta nueva arquitectura en el CRM y explícame los cambios realizados.
