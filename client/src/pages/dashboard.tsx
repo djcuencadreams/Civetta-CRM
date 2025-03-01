@@ -46,8 +46,8 @@ import { SalesForm } from "@/components/crm/SalesForm";
 type DateRangeType = "day" | "week" | "month" | "year" | "custom";
 
 export default function DashboardPage() {
-  const [dateRange, setDateRange] = useState<DateRangeType>("week");
-  const [startDate, setStartDate] = useState<Date>(() => subDays(new Date(), 7));
+  const [dateRange, setDateRange] = useState<DateRangeType>("month");
+  const [startDate, setStartDate] = useState<Date>(() => subMonths(new Date(), 1));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
 
@@ -171,18 +171,24 @@ export default function DashboardPage() {
         </div>
         {/* Mobile layout - Quick Action Buttons above filters */}
         {isMobile && (
-          <div className="grid gap-4 grid-cols-3 w-full">
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setLeadDialogOpen(true)}>
-              <PhoneForwarded className="h-4 w-4 text-purple-500" />
-              <span className="text-xs">Nuevo Lead</span>
+          <div className="grid gap-3 grid-cols-3 w-full">
+            <Button variant="outline" className="w-full h-14 flex flex-col items-center justify-center px-2" onClick={() => setLeadDialogOpen(true)}>
+              <div className="flex flex-col items-center justify-center h-full py-2 space-y-1">
+                <PhoneForwarded className="h-5 w-5 text-purple-500" />
+                <span className="text-xs">Nuevo Lead</span>
+              </div>
             </Button>
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setCustomerDialogOpen(true)}>
-              <UserPlus className="h-4 w-4 text-blue-500" />
-              <span className="text-xs">Nuevo Cliente</span>
+            <Button variant="outline" className="w-full h-14 flex flex-col items-center justify-center px-2" onClick={() => setCustomerDialogOpen(true)}>
+              <div className="flex flex-col items-center justify-center h-full py-2 space-y-1">
+                <UserPlus className="h-5 w-5 text-blue-500" />
+                <span className="text-xs">Nuevo Cliente</span>
+              </div>
             </Button>
-            <Button variant="outline" className="w-full h-14 gap-2" onClick={() => setSaleDialogOpen(true)}>
-              <FileText className="h-4 w-4 text-green-500" />
-              <span className="text-xs">Nueva Venta</span>
+            <Button variant="outline" className="w-full h-14 flex flex-col items-center justify-center px-2" onClick={() => setSaleDialogOpen(true)}>
+              <div className="flex flex-col items-center justify-center h-full py-2 space-y-1">
+                <FileText className="h-5 w-5 text-green-500" />
+                <span className="text-xs">Nueva Venta</span>
+              </div>
             </Button>
           </div>
         )}
@@ -261,8 +267,8 @@ export default function DashboardPage() {
                 <p className="text-sm font-medium text-muted-foreground">Ventas Totales</p>
                 <h3 className="text-2xl font-bold mt-1">${totalSales.toFixed(2)}</h3>
               </div>
-              <div className="p-2 bg-primary/10 rounded-full">
-                <DollarSign className="h-5 w-5 text-primary" />
+              <div className="p-2 bg-green-600 rounded-full">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
             </div>
             <div className="text-xs text-muted-foreground mt-2">{getBrandDisplayName(selectedBrand)}</div>

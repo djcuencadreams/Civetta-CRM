@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista móvil de Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        
+        .phone-container {
+            width: 375px;
+            height: 667px;
+            border: 12px solid #333;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .phone-header {
+            background-color: #000;
+            height: 24px;
+            position: relative;
+        }
+        
+        .notch {
+            width: 150px;
+            height: 24px;
+            background-color: #000;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+        
+        iframe {
+            width: 100%;
+            height: calc(100% - 24px);
+            border: none;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="phone-header">
+            <div class="notch"></div>
+        </div>
+        <iframe src="http://localhost:3000/" title="Vista móvil de Dashboard"></iframe>
+    </div>
+</body>
+</html>

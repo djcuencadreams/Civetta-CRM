@@ -427,10 +427,10 @@ export default function SimpleReportsPage() {
   };
   
   return (
-    <div className="container mx-auto py-6 space-y-8">
-      <div className="flex flex-col space-y-2">
+    <div className="container mx-auto py-6 space-y-4">
+      <div className="flex flex-col items-center text-center mb-2 sm:mb-4 sm:text-left sm:items-start">
         <h1 className="text-3xl font-bold tracking-tight">Informes</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Consulta y exporta la información de clientes, leads y ventas
         </p>
       </div>
@@ -482,58 +482,50 @@ export default function SimpleReportsPage() {
         </CardContent>
       </Card>
       
-      {/* Resumen de datos - Mejorado con la paleta Civetta */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      {/* Resumen de datos - Optimizado para móvil con diseño compacto */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
         <Card className="bg-gradient-to-br from-violet-100 to-violet-200 border-violet-300 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-violet-800">Clientes</CardTitle>
-            <CardDescription className="text-violet-700">Total en el período</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div className="text-3xl font-bold text-violet-900">{filteredCustomers.length}</div>
-              <div className="p-2 bg-violet-200 rounded-full shadow-sm">
-                <Users className="h-8 w-8 text-violet-700" />
-              </div>
+          <div className="px-3 py-2 flex justify-between items-center">
+            <div>
+              <h3 className="text-base font-medium text-violet-800">Clientes</h3>
+              <p className="text-xs text-violet-600 -mt-0.5">Total en el período</p>
+              <span className="text-2xl font-bold text-violet-900 block mt-0.5">{filteredCustomers.length}</span>
             </div>
-          </CardContent>
+            <div className="p-1.5 bg-violet-200 rounded-full shadow-sm">
+              <Users className="h-5 w-5 text-violet-700" />
+            </div>
+          </div>
         </Card>
         
         <Card className="bg-gradient-to-br from-emerald-100 to-emerald-200 border-emerald-300 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-emerald-800">Ventas</CardTitle>
-            <CardDescription className="text-emerald-700">Total en el período</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div className="text-3xl font-bold text-emerald-900">{filteredSales.length}</div>
-              <div className="p-2 bg-emerald-200 rounded-full shadow-sm">
-                <DollarSign className="h-8 w-8 text-emerald-700" />
-              </div>
+          <div className="px-3 py-2 flex justify-between items-center">
+            <div>
+              <h3 className="text-base font-medium text-emerald-800">Ventas</h3>
+              <p className="text-xs text-emerald-600 -mt-0.5">Total en el período</p>
+              <span className="text-2xl font-bold text-emerald-900 block mt-0.5">{filteredSales.length}</span>
+              {filteredSales.length > 0 && (
+                <span className="text-xs font-medium text-emerald-800 block -mt-1">
+                  {formatCurrency(filteredSales.reduce((sum, sale) => sum + sale.amount, 0))}
+                </span>
+              )}
             </div>
-            {filteredSales.length > 0 && (
-              <div className="text-sm mt-2 font-medium text-emerald-800">
-                Valor total: {formatCurrency(
-                  filteredSales.reduce((sum, sale) => sum + sale.amount, 0)
-                )}
-              </div>
-            )}
-          </CardContent>
+            <div className="p-1.5 bg-emerald-200 rounded-full shadow-sm">
+              <DollarSign className="h-5 w-5 text-emerald-700" />
+            </div>
+          </div>
         </Card>
         
         <Card className="bg-gradient-to-br from-pink-100 to-pink-200 border-pink-300 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-pink-800">Leads</CardTitle>
-            <CardDescription className="text-pink-700">Total en el período</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <div className="text-3xl font-bold text-pink-900">{filteredLeads.length}</div>
-              <div className="p-2 bg-pink-200 rounded-full shadow-sm">
-                <UserPlus className="h-8 w-8 text-pink-700" />
-              </div>
+          <div className="px-3 py-2 flex justify-between items-center">
+            <div>
+              <h3 className="text-base font-medium text-pink-800">Leads</h3>
+              <p className="text-xs text-pink-600 -mt-0.5">Total en el período</p>
+              <span className="text-2xl font-bold text-pink-900 block mt-0.5">{filteredLeads.length}</span>
             </div>
-          </CardContent>
+            <div className="p-1.5 bg-pink-200 rounded-full shadow-sm">
+              <UserPlus className="h-5 w-5 text-pink-700" />
+            </div>
+          </div>
         </Card>
       </div>
       
