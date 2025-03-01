@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-03-01T15:27:18.436Z",
+  "tables": [
+    "customers",
+    "leads",
+    "sales"
+  ],
+  "recordCounts": {}
+}

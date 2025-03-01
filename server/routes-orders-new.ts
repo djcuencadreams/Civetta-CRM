@@ -2,9 +2,10 @@
  * Rutas de API para pedidos (orders)
  */
 import { Express, Request, Response } from "express";
-import { db } from "../db";
+import { db, dbNew } from "../db";
 import { customers } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { orders, orderItems } from "../db/schema-new";
+import { eq, desc } from "drizzle-orm";
 import { validateBody } from "./validation";
 import { z } from "zod";
 
@@ -126,10 +127,19 @@ export function registerOrderRoutes(app: Express) {
   ];
   
   // Obtener todos los pedidos
-  app.get("/api/orders", (_req: Request, res: Response) => {
+  app.get("/api/orders", async (_req: Request, res: Response) => {
     try {
-      // Usar los datos mock previamente definidos
-      res.json(mockOrders);
+      // Obtener todos los pedidos de la base de datos
+      const orders = await dbNew.query.orders.findMany({
+        orderBy: ({ createdAt }) => desc(createdAt),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
+      
+      // Devolver los pedidos obtenidos de la base de datos
+      res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ error: "Error al obtener pedidos" });
@@ -145,8 +155,14 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({ error: "ID de pedido inválido" });
       }
       
-      // Buscar pedido en datos de ejemplo basado en ID
-      let order = mockOrders.find(o => o.id === orderId) || null;
+      // Buscar pedido en la base de datos
+      const order = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
       
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
@@ -325,6 +341,71 @@ export function registerOrderRoutes(app: Express) {
     }
   });
   
+  // Schema para actualización de estado de pago
+  const paymentStatusUpdateSchema = z.object({
+    paymentStatus: z.string(),
+    reason: z.string().optional(),
+  });
+
+  // Actualizar el estado de pago de un pedido
+  app.patch("/api/orders/:id/payment-status", validateBody(paymentStatusUpdateSchema), async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const { paymentStatus, reason } = req.body;
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({ error: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el estado de pago sea válido
+      const validPaymentStatuses = ['pending', 'paid', 'refunded', 'cancelled'];
+      if (!validPaymentStatuses.includes(paymentStatus)) {
+        return res.status(400).json({ 
+          error: "Estado de pago inválido", 
+          message: "El estado de pago debe ser uno de: pendiente, pagado, reembolsado, cancelado"
+        });
+      }
+      
+      // Buscar el pedido existente en la base de datos
+      const order = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId)
+      });
+      
+      if (!order) {
+        return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+      
+      // Actualizar el estado de pago del pedido en la base de datos
+      await dbNew.update(orders)
+        .set({ 
+          paymentStatus: paymentStatus,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId));
+      
+      // Si hay una razón proporcionada, actualizar las notas
+      if (reason) {
+        const existingNotes = order.notes;
+        const updatedNotes = existingNotes
+          ? `${existingNotes}\n[${new Date().toLocaleString()}] Cambio de estado de pago a ${paymentStatus}: ${reason}`
+          : `[${new Date().toLocaleString()}] Cambio de estado de pago a ${paymentStatus}: ${reason}`;
+        
+        await dbNew.update(orders)
+          .set({ notes: updatedNotes })
+          .where(eq(orders.id, orderId));
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Estado de pago actualizado correctamente",
+        paymentStatus
+      });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      res.status(500).json({ error: "Error al actualizar el estado de pago del pedido" });
+    }
+  });
+  
   // Actualizar el estado de un pedido
   app.patch("/api/orders/:id/status", validateBody(statusUpdateSchema), async (req: Request, res: Response) => {
     try {
@@ -344,23 +425,33 @@ export function registerOrderRoutes(app: Express) {
         });
       }
       
-      // Buscar el pedido existente
-      const orderIndex = mockOrders.findIndex(o => o.id === orderId);
+      // Buscar el pedido existente en la base de datos
+      const order = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId)
+      });
       
-      if (orderIndex === -1) {
+      if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
       
-      // Actualizar el estado del pedido
-      mockOrders[orderIndex].status = status;
-      mockOrders[orderIndex].updatedAt = new Date();
+      // Actualizar el estado del pedido en la base de datos
+      await dbNew.update(orders)
+        .set({ 
+          status: status,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId));
       
-      // Si hay una razón proporcionada (especialmente para cancelaciones), guardarla en notas
+      // Si hay una razón proporcionada (especialmente para cancelaciones), actualizar las notas
       if (reason) {
-        const existingNotes = mockOrders[orderIndex].notes;
-        mockOrders[orderIndex].notes = existingNotes
+        const existingNotes = order.notes;
+        const updatedNotes = existingNotes
           ? `${existingNotes}\n[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`
           : `[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`;
+        
+        await dbNew.update(orders)
+          .set({ notes: updatedNotes })
+          .where(eq(orders.id, orderId));
       }
       
       res.json({ 

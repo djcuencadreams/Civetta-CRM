@@ -15,7 +15,8 @@ import { Loader2 } from "lucide-react";
 
 // Importar estas variantes desde Badge.tsx para mantener consistencia
 import { BadgeProps } from "../ui/badge";
-type BadgeVariant = NonNullable<BadgeProps["variant"]>;
+// Definir variantes con los valores específicos que usamos
+type BadgeVariant = "default" | "secondary" | "destructive" | "success" | "outline" | "pending" | "status" | "info";
 
 const STATUS_CONFIG: Record<string, {
   label: string;
@@ -23,15 +24,15 @@ const STATUS_CONFIG: Record<string, {
 }> = {
   "new": {
     label: "Nuevo",
-    badgeVariant: "outline"
+    badgeVariant: "status"
   },
   "preparing": {
     label: "Preparando",
-    badgeVariant: "secondary"
+    badgeVariant: "pending"
   },
   "shipped": {
     label: "Enviado",
-    badgeVariant: "default"
+    badgeVariant: "info"
   },
   "completed": {
     label: "Completado",
@@ -67,8 +68,21 @@ export function OrderStatusUpdater({
         title: "Estado actualizado",
         description: "El estado del pedido ha sido actualizado correctamente",
       });
+      
+      // Primero invalidar las consultas y luego recargar explícitamente
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      if (onStatusUpdated) onStatusUpdated();
+      
+      // Forzar un refetch inmediato para asegurarnos de que los datos se actualicen
+      queryClient.refetchQueries({ queryKey: ["/api/orders"] });
+      
+      // Agregar mensaje de depuración
+      console.log('Estado del pedido actualizado, recargando datos...');
+      
+      // Llamar al callback de actualización si está definido
+      if (onStatusUpdated) {
+        console.log('Ejecutando callback onStatusUpdated');
+        onStatusUpdated();
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -105,7 +119,7 @@ export function OrderStatusUpdater({
               Actualizando...
             </Badge>
           ) : (
-            <Badge variant={currentConfig.badgeVariant} className="cursor-pointer">
+            <Badge variant={currentConfig.badgeVariant} className="cursor-pointer hover:bg-accent">
               {currentConfig.label}
             </Badge>
           )}

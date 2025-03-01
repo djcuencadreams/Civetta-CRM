@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/dialog";
 import { OrderForm } from "@/components/crm/OrderForm";
 import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
+import { OrderPaymentStatusUpdater } from "@/components/crm/OrderPaymentStatusUpdater";
 import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
 
 // Tipos
@@ -97,7 +98,8 @@ type OrderItem = {
 
 // Utilizar las mismas variantes del componente Badge
 import { BadgeProps } from "@/components/ui/badge";
-type BadgeVariant = NonNullable<BadgeProps["variant"]>;
+// Definir variantes con los valores específicos que usamos
+type BadgeVariant = "default" | "secondary" | "destructive" | "success" | "outline" | "pending" | "status" | "info";
 
 // Componente principal
 export default function OrdersPage() {
@@ -155,9 +157,11 @@ export default function OrdersPage() {
       case "completed":
         return "success";
       case "shipped":
-        return "default";
+        return "info"; // Cambiado de default a info para mejor visibilidad
       case "preparing":
-        return "secondary";
+        return "pending"; // Cambiado de secondary a pending para consistencia
+      case "new":
+        return "status"; // Nuevo estado con variante status
       case "cancelled":
         return "destructive";
       default:
@@ -329,15 +333,12 @@ export default function OrdersPage() {
       },
       cell: ({ row }) => {
         const status = row.getValue("paymentStatus") as string;
-        let variant: BadgeVariant = "outline";
-        
-        if (status === "paid") variant = "success";
-        if (status === "refunded") variant = "destructive";
-        
         return (
-          <Badge variant={variant}>
-            {getPaymentStatusText(status)}
-          </Badge>
+          <OrderPaymentStatusUpdater
+            orderId={row.original.id}
+            currentStatus={status}
+            onStatusUpdated={() => refetch()}
+          />
         );
       },
     },

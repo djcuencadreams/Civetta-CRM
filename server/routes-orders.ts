@@ -513,6 +513,68 @@ export function registerOrderRoutes(app: Express) {
     }
   });
   
+  // Schema para actualización de estado de pago
+  const paymentStatusUpdateSchema = z.object({
+    status: z.string().min(1, { message: "El estado de pago es requerido" }),
+    notes: z.string().optional()
+  });
+  
+  // Endpoint para actualizar el estado de pago de un pedido
+  app.patch("/api/orders/:id/payment-status", validateBody(paymentStatusUpdateSchema), async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const { status, notes } = req.body;
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({ error: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el estado de pago sea válido
+      const validPaymentStatuses = ['pending', 'paid', 'refunded'];
+      if (!validPaymentStatuses.includes(status)) {
+        return res.status(400).json({ 
+          error: "Estado de pago inválido", 
+          message: "El estado de pago debe ser uno de: pendiente, pagado, reembolsado"
+        });
+      }
+      
+      // Verificar que el pedido existe
+      const existingOrder = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+      });
+      
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+      
+      // Actualizar el estado de pago del pedido
+      const updateData: any = { 
+        paymentStatus: status, 
+        updatedAt: new Date() 
+      };
+      
+      // Si hay notas proporcionadas (especialmente para reembolsos), guardarlas
+      if (notes) {
+        updateData.notes = existingOrder.notes 
+          ? `${existingOrder.notes}\n[${new Date().toLocaleString()}] Cambio de pago a ${status}: ${notes}`
+          : `[${new Date().toLocaleString()}] Cambio de pago a ${status}: ${notes}`;
+      }
+      
+      await db.update(orders)
+        .set(updateData)
+        .where(eq(orders.id, orderId));
+      
+      res.json({ 
+        success: true, 
+        message: "Estado de pago actualizado correctamente",
+        status
+      });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      res.status(500).json({ error: "Error al actualizar el estado de pago del pedido" });
+    }
+  });
+
   // Obtener productos para usar en pedidos
   app.get("/api/products", async (_req: Request, res: Response) => {
     try {
