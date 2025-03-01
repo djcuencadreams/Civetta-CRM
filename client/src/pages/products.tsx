@@ -466,20 +466,13 @@ export default function ProductsPage() {
             </p>
           </div>
           <div>
-            {/* Botón independiente para abrir el diálogo */}
-            <Button 
-              className="flex items-center gap-2"
-              onClick={() => {
-                setProductToEdit(undefined);
-                setShowProductForm(true);
-              }}
-            >
-              <PlusCircleIcon className="h-4 w-4" />
-              Nuevo Producto
-            </Button>
-            
-            {/* Diálogo separado del botón */}
             <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <PlusCircleIcon className="h-4 w-4" />
+                  Nuevo Producto
+                </Button>
+              </DialogTrigger>
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                   <DialogTitle>
