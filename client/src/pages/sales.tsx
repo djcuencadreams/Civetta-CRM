@@ -4,11 +4,10 @@ import { SalesForm } from "@/components/crm/SalesForm";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, DollarSign, ArrowRightCircle } from "lucide-react";
+import { Plus, DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "wouter";
-import { CrmNavigation, CrmSubnavigation } from "@/components/layout/CrmNavigation";
 import { Badge } from "@/components/ui/badge";
 
 export default function SalesPage() {
@@ -26,25 +25,10 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      {/* CRM Navigation Component */}
-      <CrmNavigation />
-      
-      {/* CRM Subnavigation - específica para el área de Ventas */}
-      <CrmSubnavigation area="sales" />
-      
       <div className={`flex items-center ${isMobile ? 'flex-col space-y-4 justify-center' : 'justify-between'}`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-6 w-6 text-primary" />
-            <h1 className={`text-2xl font-bold tracking-tight ${isMobile ? 'text-center' : ''}`}>
-              {t("common.sales")}
-            </h1>
-            <Badge variant="outline" className="ml-2">Transacciones</Badge>
-          </div>
-          <p className="text-muted-foreground mt-1">
-            Gestión de oportunidades, transacciones y registro de ventas
-          </p>
-        </div>
+        <h1 className={`text-2xl font-bold tracking-tight ${isMobile ? 'text-center' : ''}`}>
+          {t("common.sales")}
+        </h1>
         <Button 
           onClick={() => setDialogOpen(true)} 
           className="gap-2"
@@ -57,13 +41,7 @@ export default function SalesPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Registro de Ventas
-          </CardTitle>
-          <CardDescription>
-            Visualice y gestione las ventas realizadas a sus clientes
-          </CardDescription>
+          <CardTitle className="text-lg">Ventas</CardTitle>
         </CardHeader>
         <CardContent>
           <SalesList />

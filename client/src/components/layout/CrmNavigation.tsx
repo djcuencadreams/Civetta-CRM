@@ -3,6 +3,7 @@ import { useLocation, Link } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -63,7 +64,7 @@ export function CrmNavigation() {
   const navigationItems = [
     {
       href: '/sales',
-      label: 'Ventas',
+      label: t('common.sales'),
       description: 'Gestión de oportunidades, transacciones y ciclo de ventas',
       icon: DollarSign,
       active: isSalesArea,
@@ -71,7 +72,7 @@ export function CrmNavigation() {
     },
     {
       href: '/orders',
-      label: 'Pedidos',
+      label: t('common.orders'),
       description: 'Gestión de órdenes, envíos y logística',
       icon: ShoppingCart,
       active: isOrdersArea,
@@ -79,7 +80,7 @@ export function CrmNavigation() {
     },
     {
       href: '/customers',
-      label: 'Clientes',
+      label: t('common.customers'),
       description: 'Administración de clientes y leads',
       icon: Users,
       active: isCustomerArea,
@@ -87,7 +88,7 @@ export function CrmNavigation() {
     },
     {
       href: '/products',
-      label: 'Productos',
+      label: t('common.products'),
       description: 'Catálogo e inventario de productos',
       icon: Package,
       active: isProductArea,
@@ -147,14 +148,14 @@ export function CrmSubnavigation({ area }: { area: 'sales' | 'orders' | 'custome
         return [
           {
             href: '/orders',
-            label: 'Todos los pedidos',
+            label: t('orders.newOrder'),
             description: 'Ver y gestionar pedidos',
             icon: ShoppingCart,
             active: location === '/orders'
           },
           {
             href: '/orders/shipping',
-            label: 'Envíos',
+            label: t('orders.shipped'),
             description: 'Gestión de envíos y entregas',
             icon: TruckIcon,
             active: location === '/orders/shipping'

@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { t } from "@/lib/i18n";
 
 // UI
 import { CaretSortIcon, DotsHorizontalIcon } from "@radix-ui/react-icons";
@@ -18,8 +20,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, PlusCircleIcon, ShoppingCart } from "lucide-react";
-import { CrmNavigation, CrmSubnavigation } from "@/components/layout/CrmNavigation";
+import { Loader2, Plus, ShoppingCart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -53,12 +53,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Shell } from "@/components/layout/Shell";
 import { OrderForm } from "@/components/crm/OrderForm";
 import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
 import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
@@ -106,8 +103,10 @@ type BadgeVariant = NonNullable<BadgeProps["variant"]>;
 export default function OrdersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
+  const [location] = useLocation();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
-  const [showOrderForm, setShowOrderForm] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
 
   // Estados para la tabla
@@ -306,8 +305,6 @@ export default function OrdersPage() {
       },
       cell: ({ row }) => {
         const status = row.getValue("status") as string;
-        const variant = getStatusBadgeVariant(status);
-        
         return (
           <OrderStatusUpdater
             orderId={row.original.id}
@@ -400,7 +397,7 @@ export default function OrdersPage() {
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => {
                 setOrderToEdit(order);
-                setShowOrderForm(true);
+                setDialogOpen(true);
               }}>
                 Editar
               </DropdownMenuItem>
@@ -468,29 +465,41 @@ export default function OrdersPage() {
     }
   ];
 
-  // Filtrar pedidos según los filtros aplicados
-  const filteredOrders = orders.filter((order: Order) => {
-    // Si no hay filtros, mostrar todos
-    if (Object.keys(filters).length === 0) return true;
-
-    // Verificar cada filtro
-    return Object.entries(filters).every(([key, value]) => {
-      if (!value) return true;
+  // Filtrar pedidos según los filtros aplicados - versión optimizada
+  const filteredOrders = React.useMemo(() => {
+    // Si no hay filtros, devolver todos los pedidos
+    if (!orders || Object.keys(filters).length === 0) return orders;
+    
+    // Extraer el término de búsqueda para no calcularlo en cada iteración
+    const searchTerm = filters.search ? (filters.search as string).toLowerCase() : null;
+    
+    // Preparar otros filtros para no repetir accesos en cada iteración
+    const otherFilters = Object.entries(filters).filter(([key]) => key !== "search" && filters[key]);
+    
+    return orders.filter((order: Order) => {
+      // Primero verificar filtros específicos que son más rápidos
+      if (otherFilters.length > 0) {
+        const passesSpecificFilters = otherFilters.every(([key, value]) => {
+          return order[key as keyof Order] === value;
+        });
+        
+        if (!passesSpecificFilters) return false;
+      }
       
-      if (key === "search" && value) {
-        const searchTerm = (value as string).toLowerCase();
+      // Luego, si hay término de búsqueda, verificar
+      if (searchTerm) {
         const customerName = order.customer?.name?.toLowerCase() || "";
         const orderNumber = order.orderNumber?.toLowerCase() || "";
+        const orderId = order.id.toString().toLowerCase();
         
         return customerName.includes(searchTerm) || 
                orderNumber.includes(searchTerm) || 
-               order.id.toString().includes(searchTerm);
+               orderId.includes(searchTerm);
       }
       
-      // Para los demás filtros, comparar directamente
-      return order[key as keyof Order] === value;
+      return true;
     });
-  });
+  }, [orders, filters]);
 
   // Inicializar tabla
   const table = useReactTable({
@@ -514,164 +523,153 @@ export default function OrdersPage() {
 
   // Cerrar el formulario después de guardar
   const handleFormClose = () => {
-    setShowOrderForm(false);
+    setDialogOpen(false);
     setOrderToEdit(undefined);
   };
 
   return (
     <div className="space-y-6">
-      {/* CRM Navigation Component */}
-      <CrmNavigation />
-      
-      {/* CRM Subnavigation - específica para el área de Pedidos */}
-      <CrmSubnavigation area="orders" />
-    
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Pedidos</h1>
-            <Badge variant="outline" className="ml-2">Gestión de Órdenes</Badge>
+      <div className={`flex items-center ${isMobile ? 'flex-col space-y-4 justify-center' : 'justify-between'}`}>
+        <h1 className={`text-2xl font-bold tracking-tight ${isMobile ? 'text-center' : ''}`}>
+          {t("common.orders")}
+        </h1>
+        <Button 
+          onClick={() => setDialogOpen(true)} 
+          className="gap-2"
+          size={isMobile ? "sm" : "default"}
+        >
+          <Plus className="h-4 w-4" />
+          {t("orders.newOrder")}
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Gestión de Pedidos</CardTitle>
+          <CardDescription>
+            Administra pedidos, entregas y seguimiento logístico
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <SearchFilterBar
+              searchPlaceholder="Buscar por cliente o número de pedido..."
+              filterOptions={filterOptions}
+              filters={filters}
+              setFilters={setFilters}
+            />
           </div>
-          <p className="text-muted-foreground mt-1">
-            Administre pedidos, entregas y seguimiento logístico
-          </p>
-        </div>
-        <Dialog open={showOrderForm} onOpenChange={setShowOrderForm}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <PlusCircleIcon className="h-4 w-4" />
-                Nuevo Pedido
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {orderToEdit ? "Editar Pedido" : "Crear Nuevo Pedido"}
-                </DialogTitle>
-                <DialogDescription>
-                  {orderToEdit
-                    ? "Modifica los detalles del pedido existente"
-                    : "Ingresa los detalles del nuevo pedido"}
-                </DialogDescription>
-              </DialogHeader>
-              <OrderForm 
-                order={orderToEdit} 
-                onClose={handleFormClose}
-                onSuccess={() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-                  handleFormClose();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Gestión de Pedidos</CardTitle>
-            <CardDescription>
-              Administra todos los pedidos de Civetta Sleepwear y Civetta Bride
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <SearchFilterBar
-                searchPlaceholder="Buscar por cliente o número de pedido..."
-                filterOptions={filterOptions}
-                filters={filters}
-                setFilters={setFilters}
-              />
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Cargando pedidos...</span>
             </div>
-
-            {isLoading ? (
-              <div className="flex justify-center items-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2">Cargando pedidos...</span>
-              </div>
-            ) : error ? (
-              <div className="text-red-500 p-4 text-center">
-                Error al cargar los pedidos. Por favor, intenta de nuevo.
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                          </TableHead>
+          ) : error ? (
+            <div className="text-red-500 p-4 text-center">
+              Error al cargar los pedidos. Por favor, intenta de nuevo.
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && "selected"}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {table.getRowModel().rows?.length ? (
-                      table.getRowModel().rows.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          data-state={row.getIsSelected() && "selected"}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={columns.length}
-                          className="h-24 text-center"
-                        >
-                          No se encontraron pedidos.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div>
-                Página {table.getState().pagination.pageIndex + 1} de{" "}
-                {table.getPageCount()}
-              </div>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                      >
+                        No se encontraron pedidos.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                Siguiente
-              </Button>
+          )}
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div>
+              Página {table.getState().pagination.pageIndex + 1} de{" "}
+              {table.getPageCount()}
             </div>
-          </CardFooter>
-        </Card>
-      </div>
-    </Shell>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+      
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {orderToEdit ? "Editar Pedido" : "Crear Nuevo Pedido"}
+            </DialogTitle>
+            <DialogDescription>
+              {orderToEdit
+                ? "Modifica los detalles del pedido existente"
+                : "Ingresa los detalles del nuevo pedido"}
+            </DialogDescription>
+          </DialogHeader>
+          <OrderForm 
+            order={orderToEdit} 
+            onClose={handleFormClose}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+              handleFormClose();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

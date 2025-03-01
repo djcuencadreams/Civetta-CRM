@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { t } from "@/lib/i18n";
 
 // UI
 import { CaretSortIcon, DotsHorizontalIcon } from "@radix-ui/react-icons";
@@ -80,7 +81,7 @@ type Product = {
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [productToEdit, setProductToEdit] = useState<Product | undefined>(undefined);
   const [showProductForm, setShowProductForm] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
 
@@ -92,7 +93,13 @@ export default function ProductsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
 
-  // Cargar productos
+  // Paginación del lado del cliente - en el futuro se implementará paginación del servidor
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10, // Número de elementos por página 
+  });
+
+  // Cargar productos - memoizado para evitar llamadas innecesarias a la API
   const {
     data: products = [],
     isLoading,
@@ -101,14 +108,13 @@ export default function ProductsPage() {
   } = useQuery({
     queryKey: ["/api/products"],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 1000 * 60 * 5, // 5 minutos antes de considerar los datos obsoletos
   });
 
   // Eliminar un producto
   const deleteMutation = useMutation({
     mutationFn: async (productId: number) => {
-      await apiRequest(`/api/products/${productId}`, {
-        method: "DELETE",
-      });
+      await apiRequest(`/api/products/${productId}`, "DELETE");
     },
     onSuccess: () => {
       toast({
@@ -129,10 +135,7 @@ export default function ProductsPage() {
   // Cambiar estado activo/inactivo
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      await apiRequest(`/api/products/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ active }),
-      });
+      await apiRequest(`/api/products/${id}`, "PATCH", { active });
     },
     onSuccess: () => {
       toast({
@@ -150,8 +153,8 @@ export default function ProductsPage() {
     },
   });
 
-  // Definición de columnas
-  const columns: ColumnDef<Product>[] = [
+  // Definición de columnas - memoizado para evitar recreaciones innecesarias
+  const columns: ColumnDef<Product>[] = useMemo(() => [
     {
       id: "select",
       header: ({ table }) => (
@@ -182,7 +185,7 @@ export default function ProductsPage() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Nombre
+            {t("products.name")}
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -204,7 +207,7 @@ export default function ProductsPage() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Precio
+            {t("products.price")}
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -227,7 +230,7 @@ export default function ProductsPage() {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Stock
+            {t("products.stock")}
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
         );
@@ -243,7 +246,7 @@ export default function ProductsPage() {
     },
     {
       accessorKey: "active",
-      header: "Estado",
+      header: t("products.status"),
       cell: ({ row }) => {
         const isActive = row.getValue("active");
         return (
@@ -255,7 +258,7 @@ export default function ProductsPage() {
     },
     {
       accessorKey: "brand",
-      header: "Marca",
+      header: t("products.brand"),
       cell: ({ row }) => {
         const brand = row.getValue("brand") as string;
         return <div>{brand === "bride" ? "Civetta Bride" : "Civetta Sleepwear"}</div>;
@@ -263,7 +266,7 @@ export default function ProductsPage() {
     },
     {
       accessorKey: "category",
-      header: "Categoría",
+      header: t("products.category"),
       cell: ({ row }) => <div>{row.getValue("category")}</div>,
     },
     {
@@ -281,7 +284,7 @@ export default function ProductsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("products.actions")}</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => {
                 setProductToEdit(product);
                 setShowProductForm(true);
@@ -314,10 +317,10 @@ export default function ProductsPage() {
         );
       },
     },
-  ];
+  ], []);
 
   // Filtros disponibles
-  const filterOptions: FilterOption[] = [
+  const filterOptions: FilterOption[] = useMemo(() => [
     {
       id: "brand",
       label: "Marca",
@@ -347,34 +350,39 @@ export default function ProductsPage() {
         { value: "Accesorios", label: "Accesorios" },
       ],
     },
-  ];
+  ], []);
 
-  // Filtrar productos según los filtros aplicados
-  const filteredProducts = Array.isArray(products) ? products.filter((product: Product) => {
-    // Si no hay filtros, mostrar todos
-    if (Object.keys(filters).length === 0) return true;
-
-    // Verificar cada filtro
-    return Object.entries(filters).every(([key, value]) => {
-      if (!value) return true;
-      
-      if (key === "search" && value) {
-        const searchTerm = (value as string).toLowerCase();
-        return product.name.toLowerCase().includes(searchTerm) || 
-               product.sku.toLowerCase().includes(searchTerm) || 
-               (product.description || "").toLowerCase().includes(searchTerm);
-      }
-      
-      if (key === "active" && value) {
-        return product.active === (value === "true");
-      }
-      
-      // Para los demás filtros, comparar directamente
-      return product[key as keyof Product] === value;
+  // Filtrar productos según los filtros aplicados - usando useMemo para evitar recálculos innecesarios
+  const filteredProducts = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+    
+    // Si no hay filtros, devolver todos los productos
+    if (Object.keys(filters).length === 0) return products;
+    
+    // Aplicar filtros solo cuando sea necesario
+    return products.filter((product: Product) => {
+      // Verificar cada filtro
+      return Object.entries(filters).every(([key, value]) => {
+        if (!value) return true;
+        
+        if (key === "search" && value) {
+          const searchTerm = (value as string).toLowerCase();
+          return product.name.toLowerCase().includes(searchTerm) || 
+                 product.sku.toLowerCase().includes(searchTerm) || 
+                 (product.description || "").toLowerCase().includes(searchTerm);
+        }
+        
+        if (key === "active" && value) {
+          return product.active === (value === "true");
+        }
+        
+        // Para los demás filtros, comparar directamente
+        return product[key as keyof Product] === value;
+      });
     });
-  }) : [];
+  }, [products, filters]); // Solo recalcular cuando cambian los productos o los filtros
 
-  // Inicializar tabla
+  // Inicializar tabla con paginación
   const table = useReactTable({
     data: filteredProducts,
     columns,
@@ -386,11 +394,15 @@ export default function ProductsPage() {
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
+    manualPagination: false, // Cambiará a true cuando se implemente paginación del servidor
+    pageCount: Math.ceil(filteredProducts.length / pagination.pageSize),
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination,
     },
   });
 
@@ -452,12 +464,12 @@ export default function ProductsPage() {
                 product={productToEdit} 
                 onClose={() => {
                   setShowProductForm(false);
-                  setProductToEdit(null);
+                  setProductToEdit(undefined);
                 }}
                 onSuccess={() => {
                   queryClient.invalidateQueries({ queryKey: ["/api/products"] });
                   setShowProductForm(false);
-                  setProductToEdit(null);
+                  setProductToEdit(undefined);
                 }}
               />
             </DialogContent>
