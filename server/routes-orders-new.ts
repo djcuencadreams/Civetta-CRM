@@ -194,43 +194,55 @@ export function registerOrderRoutes(app: Express) {
       const generatedOrderNumber = orderNumber || 
         `ORD-${Math.floor(Date.now() / 1000).toString(36).toUpperCase()}`;
       
-      // Simular creación de pedido con datos mock
-      const newOrder = {
-        id: mockOrders.length + 1,
-        customerId,
-        leadId: leadId || null,
-        orderNumber: generatedOrderNumber,
-        totalAmount,
-        status,
-        paymentStatus,
-        paymentMethod: paymentMethod || null,
-        source: source || "direct",
-        brand: brand || customer.brand,
-        notes: notes || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        customer: {
-          id: customer.id,
-          name: customer.name,
-          email: customer.email
-        },
-        items: items ? items.map((item, index) => ({
-          id: mockOrders.length * 10 + index + 1,
-          orderId: mockOrders.length + 1,
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount || 0,
-          subtotal: item.subtotal,
-          createdAt: new Date()
-        })) : []
-      };
+      // Crear el pedido en la base de datos
+      const [insertedOrder] = await dbNew.insert(orders)
+        .values({
+          customerId,
+          leadId: leadId || null,
+          orderNumber: generatedOrderNumber,
+          totalAmount,
+          status,
+          paymentStatus,
+          paymentMethod: paymentMethod || null,
+          source: source || "direct",
+          brand: brand || customer.brand,
+          notes: notes || null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+        
+      if (!insertedOrder) {
+        return res.status(500).json({ error: "Error al crear el pedido" });
+      }
       
-      // Agregar el nuevo pedido al array de datos mock
-      mockOrders.push(newOrder);
+      // Agregar los items del pedido
+      if (items && items.length > 0) {
+        for (const item of items) {
+          await dbNew.insert(orderItems)
+            .values({
+              orderId: insertedOrder.id,
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount || 0,
+              subtotal: item.subtotal,
+              createdAt: new Date()
+            });
+        }
+      }
       
-      res.status(201).json(newOrder);
+      // Obtener el pedido completo con sus relaciones
+      const newOrderWithRelations = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, insertedOrder.id),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
+      
+      res.status(201).json(newOrderWithRelations);
     } catch (error) {
       console.error("Error creating order:", error);
       res.status(500).json({ error: "Error al crear el pedido" });
@@ -246,64 +258,70 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({ error: "ID de pedido inválido" });
       }
       
-      // Buscar el pedido existente
-      const orderIndex = mockOrders.findIndex(o => o.id === orderId);
+      // Buscar el pedido existente en la base de datos
+      const existingOrder = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          items: true
+        }
+      });
       
-      if (orderIndex === -1) {
+      if (!existingOrder) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
       
       const { customerId, totalAmount, status, paymentStatus, paymentMethod, 
               source, brand, notes, items, orderNumber, leadId } = req.body;
       
-      // Actualizar el pedido
-      mockOrders[orderIndex] = {
-        ...mockOrders[orderIndex],
-        customerId,
-        leadId: leadId || null,
-        orderNumber: orderNumber || mockOrders[orderIndex].orderNumber,
-        totalAmount,
-        status,
-        paymentStatus,
-        paymentMethod: paymentMethod || null,
-        source: source || mockOrders[orderIndex].source,
-        brand: brand || mockOrders[orderIndex].brand,
-        notes: notes || mockOrders[orderIndex].notes,
-        updatedAt: new Date(),
-        items: items ? items.map((item, index) => {
-          if (item.id) {
-            // Actualizar item existente
-            const existingItemIndex = mockOrders[orderIndex].items.findIndex(i => i.id === item.id);
-            
-            if (existingItemIndex !== -1) {
-              return {
-                ...mockOrders[orderIndex].items[existingItemIndex],
-                productId: item.productId,
-                productName: item.productName,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                discount: item.discount || 0,
-                subtotal: item.subtotal
-              };
-            }
-          }
-          
-          // Crear nuevo item
-          return {
-            id: Math.max(...mockOrders[orderIndex].items.map(i => i.id)) + index + 1,
-            orderId,
-            productId: item.productId,
-            productName: item.productName,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount || 0,
-            subtotal: item.subtotal,
-            createdAt: new Date()
-          };
-        }) : mockOrders[orderIndex].items
-      };
+      // Actualizar el pedido en la base de datos
+      await dbNew.update(orders)
+        .set({
+          customerId,
+          leadId: leadId || null,
+          orderNumber: orderNumber || existingOrder.orderNumber,
+          totalAmount,
+          status,
+          paymentStatus,
+          paymentMethod: paymentMethod || null,
+          source: source || existingOrder.source,
+          brand: brand || existingOrder.brand,
+          notes: notes || existingOrder.notes,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId));
       
-      res.json(mockOrders[orderIndex]);
+      // Manejar los items del pedido
+      if (items && items.length > 0) {
+        // Primero, eliminar todos los items existentes para este pedido
+        await dbNew.delete(orderItems)
+          .where(eq(orderItems.orderId, orderId));
+        
+        // Luego insertar los nuevos items
+        for (const item of items) {
+          await dbNew.insert(orderItems)
+            .values({
+              orderId,
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount || 0,
+              subtotal: item.subtotal,
+              createdAt: new Date()
+            });
+        }
+      }
+      
+      // Obtener el pedido actualizado con sus relaciones para devolverlo
+      const updatedOrder = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
+      
+      res.json(updatedOrder);
     } catch (error) {
       console.error("Error updating order:", error);
       res.status(500).json({ error: "Error al actualizar el pedido" });
@@ -319,21 +337,27 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({ error: "ID de pedido inválido" });
       }
       
-      // Buscar el pedido existente
-      const orderIndex = mockOrders.findIndex(o => o.id === orderId);
+      // Verificar que el pedido existe en la base de datos
+      const existingOrder = await dbNew.query.orders.findFirst({
+        where: eq(orders.id, orderId)
+      });
       
-      if (orderIndex === -1) {
+      if (!existingOrder) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
       
-      // Eliminar el pedido
-      const deletedOrderId = mockOrders[orderIndex].id;
-      mockOrders.splice(orderIndex, 1);
+      // Primero eliminar todos los items asociados al pedido
+      await dbNew.delete(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+      
+      // Luego eliminar el pedido
+      await dbNew.delete(orders)
+        .where(eq(orders.id, orderId));
       
       res.json({ 
         success: true, 
         message: "Pedido eliminado correctamente",
-        id: deletedOrderId
+        id: orderId
       });
     } catch (error) {
       console.error("Error deleting order:", error);

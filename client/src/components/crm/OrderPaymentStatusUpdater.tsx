@@ -53,7 +53,7 @@ export function OrderPaymentStatusUpdater({
   // Mutación para actualizar el estado de pago
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ status, notes }: { status: string, notes?: string }) => {
-      return apiRequest("PATCH", `/api/orders/${orderId}/payment-status`, { status, notes });
+      return apiRequest("PATCH", `/api/orders/${orderId}/payment-status`, { paymentStatus: status, reason: notes });
     },
     onSuccess: () => {
       toast({
