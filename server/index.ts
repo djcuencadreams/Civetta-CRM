@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
+import { createServer } from "http";
+import { serviceRegistry, eventListenerService } from "./services";
 
 const app = express();
 app.use(express.json());
@@ -49,8 +51,28 @@ app.use((req, res, next) => {
     // Continue with server startup even if backup scheduling fails
   }
 
-  const server = registerRoutes(app);
+  // Create HTTP server
+  const server = createServer(app);
+
+  // Initialize all services
+  try {
+    await serviceRegistry.initializeAll();
+    log("All services initialized successfully");
+  } catch (error) {
+    log("Failed to initialize services: " + (error as Error).message);
+  }
+
+  // Register routes from service registry
+  serviceRegistry.registerAllRoutes(app);
+  log("Service routes registered successfully");
+
+  // Legacy routes (for backward compatibility)
   registerAdditionalRoutes(app);
+  
+  // Optionally keep the main routes file for routes not yet migrated to services
+  // Comment this out once all routes are migrated to services
+  const legacyServer = registerRoutes(app);
+  log("Legacy routes registered");
 
   // Enhanced error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
