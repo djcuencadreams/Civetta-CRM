@@ -1,4 +1,4 @@
-import { Express, Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import { db } from "@db";
 import { and, eq, desc, gte, lte, like, sql } from "drizzle-orm";
 import { customers, leads, sales } from "@db/schema";
@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { handleWooCommerceWebhook } from './webhooks/woocommerce';
 
 /**
  * Genera un archivo Excel directamente desde los datos
@@ -124,6 +125,9 @@ const upload = multer({
 });
 
 export function registerAdditionalRoutes(app: Express) {
+  // Endpoint for WooCommerce webhooks
+  app.post("/api/webhooks/woocommerce", express.json({ limit: '5mb' }), handleWooCommerceWebhook);
+  
   // Route for exporting customers data
   app.get("/api/export/customers", async (req: Request, res: Response) => {
     try {

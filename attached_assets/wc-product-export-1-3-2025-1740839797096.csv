@@ -1,0 +1,174 @@
+﻿ID,Tipo,SKU,"GTIN, UPC, EAN, or ISBN",Nombre,Publicado,"¿Está destacado?","Visibilidad en el catálogo","Descripción corta",Descripción,"Día en que empieza el precio rebajado","Día en que termina el precio rebajado","Estado del impuesto","Clase de impuesto","¿En inventario?",Inventario,"Cantidad de bajo inventario","¿Permitir reservas de productos agotados?","¿Vendido individualmente?","Peso (kg)","Longitud (cm)","Ancho (cm)","Altura (cm)","¿Permitir valoraciones de clientes?","Nota de compra","Precio rebajado","Precio normal",Categorías,Etiquetas,"Clase de envío",Imágenes,"Límite de descargas","Días de caducidad de la descarga",Superior,"Productos agrupados","Ventas dirigidas","Ventas cruzadas","URL externa","Texto del botón",Posición,Brands,"Nombre del atributo 1","Valor(es) del atributo 1","Atributo visible 1","Atributo global 1","Atributo por defecto 1","Nombre del atributo 2","Valor(es) del atributo 2","Atributo visible 2","Atributo global 2","Meta: two_optimized_date"
+1038,variable,,,"Set de Seda Smeraldo",1,0,visible,,"Set de Seda - 2 piezas: estilo camisero y pantalón\n\nTextura: Seda Satinada",,,none,zero-rate,1,1,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.44.28 p.-m.-topaz-face-upscale-2.9x.jpeg,,,,,,,,,0,,Colores,"Verde Esmeralda",1,0,"Verde Esmeralda",Talla,"S, M, L, XL",1,0,1740505123
+1040,variation,,,"Set de Seda Smeraldo - Verde Esmeralda, S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1038,,,,,,1,,Colores,"Verde Esmeralda",,0,,Talla,S,,0,
+1041,variation,,,"Set de Seda Smeraldo - Verde Esmeralda, M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1038,,,,,,2,,Colores,"Verde Esmeralda",,0,,Talla,M,,0,
+1042,variation,,,"Set de Seda Smeraldo - Verde Esmeralda, L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"42,99",,,,,,,id:1038,,,,,,3,,Colores,"Verde Esmeralda",,0,,Talla,L,,0,
+1043,variation,,,"Set de Seda Smeraldo - Verde Esmeralda, XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1038,,,,,,4,,Colores,"Verde Esmeralda",,0,,Talla,XL,,0,
+1045,variable,,,"Set Piacevole",1,0,visible,,"Set de Terciopelo Rojo Burdeos con detalles en canje, importado desde la India, 4 piezas que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Short</li>\n 	<li>Blusa de Tirantes</li>\n 	<li>Bata</li>\n</ul>\nTextura interior: Algodón",,,none,,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/IMG_0256.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740528945
+1047,variation,,,"Set Piacevole - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"52,50",,,,,,,id:1045,,,,,,1,,Talla,S,,0,,,,,,
+1048,variation,,,"Set Piacevole - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"52,50",,,,,,,id:1045,,,,,,2,,Talla,M,,0,,,,,,
+1049,variation,,,"Set Piacevole - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"52,50",,,,,,,id:1045,,,,,,3,,Talla,L,,0,,,,,,
+1050,variation,,,"Set Piacevole - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"52,50",,,,,,,id:1045,,,,,,4,,Talla,XL,,0,,,,,,
+1052,variable,,,"Set Divine",1,0,visible,,"Set de 3 piezas Lila en seda satinada con print floral que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Blusa de Tirantes</li>\n 	<li>Bata</li>\n</ul>\n&nbsp;",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.39.38 p.-m.-topaz-face-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740526512
+1054,variation,,,"Set Divine - S",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"55,00",,,,,,,id:1052,,,,,,1,,Talla,S,,0,,,,,,
+1055,variation,,,"Set Divine - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"55,00",,,,,,,id:1052,,,,,,2,,Talla,M,,0,,,,,,
+1056,variation,,,"Set Divine - L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"55,00",,,,,,,id:1052,,,,,,3,,Talla,L,,0,,,,,,
+1057,variation,,,"Set Divine - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"55,00",,,,,,,id:1052,,,,,,4,,Talla,XL,,0,,,,,,
+1058,variable,,,"Set Eleganza",1,0,visible,,"Set en seda satinada, 3 piezas con print a rayas e incrustaciones de encaje importado desde la India, que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Blusa de Tirantes</li>\n 	<li>Bata</li>\n</ul>\nColor: Rosa, rayas blancas",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/WhatsApp-Image-2025-01-08-at-10.25.27-AM.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740363531
+1059,variation,,,"Set Eleganza - S",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"49,99",,,,,,,id:1058,,,,,,1,,Talla,S,,0,,,,,,
+1060,variation,,,"Set Eleganza - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1058,,,,,,2,,Talla,M,,0,,,,,,
+1061,variation,,,"Set Eleganza - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1058,,,,,,3,,Talla,L,,0,,,,,,
+1062,variation,,,"Set Eleganza - XL",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"49,99",,,,,,,id:1058,,,,,,4,,Talla,XL,,0,,,,,,
+1064,variable,,,"Set La Signora",1,0,visible,,"Set de 2 piezas en seda mate con puños y bastas en apliques de algodón, print floral en una base blanca que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Blusa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-10-22-a-las-10.30.09 a.-m.-topaz-face-upscale-2.5x.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740839774
+1066,variation,,,"Set La Signora - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1064,,,,,,1,,Talla,S,,0,,,,,,
+1067,variation,,,"Set La Signora - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1064,,,,,,2,,Talla,M,,0,,,,,,
+1068,variation,,,"Set La Signora - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1064,,,,,,3,,Talla,L,,0,,,,,,
+1069,variation,,,"Set La Signora - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1064,,,,,,4,,Talla,XL,,0,,,,,,
+1071,variable,,,"Set il Telaio",1,0,visible,,"Set de 2 piezas en seda mate color vino con print de flores inspirado en Frida Kahlo, que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Blusa manga larga estilo camisero</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-10-22-a-las-10.28.22 a.-m.-topaz-upscale-2.5x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740837582
+1073,variation,,,"Set il Telaio - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1071,,,,,,1,,Talla,S,,0,,,,,,
+1074,variation,,,"Set il Telaio - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1071,,,,,,2,,Talla,M,,0,,,,,,
+1075,variation,,,"Set il Telaio - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1071,,,,,,3,,Talla,L,,0,,,,,,
+1076,variation,,,"Set il Telaio - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1071,,,,,,4,,Talla,XL,,0,,,,,,
+1077,variable,,,"Set Fulang Chang",1,0,visible,,"Set de 2 piezas en seda satinada inspirado en la obra de Frida Kahlo, incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/IMG_9906.jpeg,,,,,,,,,0,,Talla,"S, M, X, XL",1,0,,,,,,1740818521
+1079,variation,,,"Set Fulang Chang - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1077,,,,,,1,,Talla,S,,0,,,,,,
+1080,variation,,,"Set Fulang Chang - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1077,,,,,,2,,Talla,M,,0,,,,,,
+1081,variation,,,"Set Fulang Chang - X",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1077,,,,,,3,,Talla,X,,0,,,,,,
+1082,variation,,,"Set Fulang Chang - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1077,,,,,,4,,Talla,XL,,0,,,,,,
+1083,variable,,,"Set Abitare",1,0,visible,,"Set de 2 piezas en seda satinada, print a rayas, rivete negro que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.42.54 p.-m.-topaz-face-upscale-2.9x.jpeg,,,,,,,,,0,,Tallas,"S, M, L, XL",1,0,,,,,,1740818520
+1085,variation,,,"Set Abitare - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1083,,,,,,1,,Tallas,S,,0,,,,,,
+1086,variation,,,"Set Abitare - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1083,,,,,,2,,Tallas,M,,0,,,,,,
+1087,variation,,,"Set Abitare - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1083,,,,,,3,,Tallas,L,,0,,,,,,
+1088,variation,,,"Set Abitare - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1083,,,,,,4,,Tallas,XL,,0,,,,,,
+1091,variable,,,"Set Raíces",1,0,visible,,"Set de 2 piezas en seda mate que incluye:\n<ul>\n 	<li>Pantalón con elástico ajustable en la cintura</li>\n 	<li>Camisa manga corta</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Imagen-PNG-4440-84F0-1E-0.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818519
+1093,variation,,,"Set Raíces - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1091,,,,,,1,,Talla,S,,0,,,,,,
+1094,variation,,,"Set Raíces - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1091,,,,,,2,,Talla,M,,0,,,,,,
+1095,variation,,,"Set Raíces - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1091,,,,,,3,,Talla,L,,0,,,,,,
+1096,variation,,,"Set Raíces - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1091,,,,,,4,,Talla,XL,,0,,,,,,
+1102,variable,,,"Set Frutti della Terra",1,0,visible,,"Set de 2 piezas en seda satinada en azul indigo inspirado en la obra de Frida Kahlo, que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga corta</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-25-a-las-5.26.05 p.-m.-topaz-face-upscale-3.2x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818520
+1104,variation,,,"Set Frutti della Terra - S",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"39,99",,,,,,,id:1102,,,,,,1,,Talla,S,,0,,,,,,
+1105,variation,,,"Set Frutti della Terra - M",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"39,99",,,,,,,id:1102,,,,,,2,,Talla,M,,0,,,,,,
+1106,variation,,,"Set Frutti della Terra - L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"39,99",,,,,,,id:1102,,,,,,3,,Talla,L,,0,,,,,,
+1107,variation,,,"Set Frutti della Terra - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1102,,,,,,4,,Talla,XL,,0,,,,,,
+1108,variable,,,"Set Estate",1,0,visible,,"Set de 2 piezas en rayón, ideal para climas cálidos y húmedos que incluye:\n<ul>\n 	<li>Bermudas</li>\n 	<li>Camisa manga corta con ribete en color café</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-10-22-a-las-10.29.24 a.-m.-topaz-face-upscale-2.5x.jpeg,,,,,,,,,0,,Tallas,"S, M, L, XL",1,0,,,,,,1740818522
+1110,variation,,,"Set Estate - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,,,,id:1108,,,,,,1,,Tallas,S,,0,,,,,,
+1111,variation,,,"Set Estate - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"32,50",,,,,,,id:1108,,,,,,2,,Tallas,M,,0,,,,,,
+1112,variation,,,"Set Estate - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,,,,id:1108,,,,,,3,,Tallas,L,,0,,,,,,
+1113,variation,,,"Set Estate - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,,,,id:1108,,,,,,4,,Tallas,XL,,0,,,,,,
+1115,variable,,,"Set Verano",1,0,visible,,"Set de 2 piezas en satin blanco con ribete negro que incluye:\n<ul>\n 	<li>Short</li>\n 	<li>Camisa manga corta</li>\n</ul>",,,taxable,,1,,,0,0,,,,,0,,,,Otros,,,,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740517594
+1118,variation,,,"Set Verano - S",1,0,visible,,,,,taxable,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1115,,,,,,1,,Talla,S,,0,,,,,,
+1119,variation,,,"Set Verano - M",1,0,visible,,,,,taxable,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1115,,,,,,2,,Talla,M,,0,,,,,,
+1120,variation,,,"Set Verano - L",1,0,visible,,,,,taxable,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1115,,,,,,3,,Talla,L,,0,,,,,,
+1121,variation,,,"Set Verano - XL",1,0,visible,,,,,taxable,parent,1,1,,0,0,,,,,0,,,"32,50",,,,,,,id:1115,,,,,,4,,Talla,XL,,0,,,,,,
+1122,variable,,,"Set Verano 2",1,0,visible,,"Set de 2 piezas en seda satinada con ribete blanco que incluye:\n<ul>\n 	<li>Short</li>\n 	<li>Camisa manga corta</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,"https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-07-02-at-22.22.57-topaz-faceai-enhance-2.7x.png, https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-06-30-at-23.08.30-topaz-faceai-enhance-2.7x.png",,,,,,,,,0,,Color,"Menta, Negro, Salmón",1,0,,Talla,"S, M, L, XL",1,0,1740807893
+1124,variation,,,"Set Verano 2 - Menta, S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-07-02-at-22.22.57-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,1,,Color,Menta,,0,,Talla,S,,0,
+1125,variation,,,"Set Verano 2 - Menta, M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-07-02-at-22.22.57-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,2,,Color,Menta,,0,,Talla,M,,0,
+1126,variation,,,"Set Verano 2 - Menta, L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-07-02-at-22.22.57-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,3,,Color,Menta,,0,,Talla,L,,0,
+1127,variation,,,"Set Verano 2 - Menta, XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-07-02-at-22.22.57-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,4,,Color,Menta,,0,,Talla,XL,,0,
+1128,variation,,,"Set Verano 2 - Negro, S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-06-30-at-23.08.30-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,5,,Color,Negro,,0,,Talla,S,,0,
+1129,variation,,,"Set Verano 2 - Negro, M",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-06-30-at-23.08.30-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,6,,Color,Negro,,0,,Talla,M,,0,
+1130,variation,,,"Set Verano 2 - Negro, L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-06-30-at-23.08.30-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,7,,Color,Negro,,0,,Talla,L,,0,
+1131,variation,,,"Set Verano 2 - Negro, XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,https://civettas.com/wp-content/uploads/2025/01/Screenshot-2024-06-30-at-23.08.30-topaz-faceai-enhance-2.7x.png,,,id:1122,,,,,,8,,Color,Negro,,0,,Talla,XL,,0,
+1132,variation,,,"Set Verano 2 - Salmón, S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"32,50",,,,,,,id:1122,,,,,,9,,Color,Salmón,,0,,Talla,S,,0,
+1133,variation,,,"Set Verano 2 - Salmón, M",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1122,,,,,,10,,Color,Salmón,,0,,Talla,M,,0,
+1134,variation,,,"Set Verano 2 - Salmón, L",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1122,,,,,,11,,Color,Salmón,,0,,Talla,L,,0,
+1135,variation,,,"Set Verano 2 - Salmón, XL",1,0,visible,,,,,none,parent,0,0,,0,0,,,,,0,,,"32,50",,,,,,,id:1122,,,,,,12,,Color,Salmón,,0,,Talla,XL,,0,
+1138,variable,,,"Set Seduzione",1,0,visible,,"Set 100% seda en 2 piezas en color rosa viejcon detalles en encaje importada desde la india, varilla en el busto para efecto realce. Incluye:\n<ul>\n 	<li>Camisón</li>\n 	<li>Salida de cama</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.42.13 p.-m.-topaz-face-upscale-2.9x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740365074
+1140,variation,,,"Set Seduzione - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"54,99",,,,,,,id:1138,,,,,,1,,Talla,S,,0,,,,,,
+1141,variation,,,"Set Seduzione - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"54,99",,,,,,,id:1138,,,,,,2,,Talla,M,,0,,,,,,
+1142,variation,,,"Set Seduzione - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"54,99",,,,,,,id:1138,,,,,,3,,Talla,L,,0,,,,,,
+1143,variation,,,"Set Seduzione - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"54,99",,,,,,,id:1138,,,,,,4,,Talla,XL,,0,,,,,,
+1144,variable,,,"Set Dolcezza",1,0,visible,,"Mini camisón 100% seda en color Baby Blue con encaje importado desde la india, botón forrado, tirantes ajustables.",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Mujeres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.40.32 p.-m.-topaz-face-upscale-2.9x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818522
+1146,variation,,,"Set Dolcezza - S",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,99",,,,,,,id:1144,,,,,,1,,Talla,S,,0,,,,,,
+1147,variation,,,"Set Dolcezza - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,99",,,,,,,id:1144,,,,,,2,,Talla,M,,0,,,,,,
+1148,variation,,,"Set Dolcezza - L",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,99",,,,,,,id:1144,,,,,,3,,Talla,L,,0,,,,,,
+1149,variation,,,"Set Dolcezza - XL",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,99",,,,,,,id:1144,,,,,,4,,Talla,XL,,0,,,,,,
+1150,variable,,,"Set Hombre",1,0,visible,,"Set de 2 piezas en rayón, ideal para climas cálidos y húmedos, que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.57.45 p.-m.-topaz-face-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818512
+1152,variation,,,"Set Hombre - S",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"40,50",,,,,,,id:1150,,,,,,1,,Talla,S,,0,,,,,,
+1153,variation,,,"Set Hombre - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"40,50",,,,,,,id:1150,,,,,,2,,Talla,M,,0,,,,,,
+1154,variation,,,"Set Hombre - L",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"40,50",,,,,,,id:1150,,,,,,3,,Talla,L,,0,,,,,,
+1155,variation,,,"Set Hombre - XL",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"40,50",,,,,,,id:1150,,,,,,4,,Talla,XL,,0,,,,,,
+1156,variable,,,"Set Hombre 2",1,0,visible,,"Set de 2 piezas en rayón, print a rayas, ideal para clima cálido y húmedo, inclueye:\n<ul>\n 	<li>Bermuda</li>\n 	<li>Camisa manga corta</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.57.16 p.-m.-topaz-face-upscale-3.1x-2.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818513
+1158,variation,,,"Set Hombre 2 - S",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,00",,,,,,,id:1156,,,,,,1,,Talla,S,,0,,,,,,
+1159,variation,,,"Set Hombre 2 - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,00",,,,,,,id:1156,,,,,,2,,Talla,M,,0,,,,,,
+1160,variation,,,"Set Hombre 2 - L",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,00",,,,,,,id:1156,,,,,,3,,Talla,L,,0,,,,,,
+1161,variation,,,"Set Hombre 2 - XL",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"35,00",,,,,,,id:1156,,,,,,4,,Talla,XL,,0,,,,,,
+1162,variable,,,"Set de Hombre 3",1,0,visible,,"Set de 2 piezas en seda satinada, printe de pequeños trivales que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.58.19 p.-m.-topaz-face-upscale-3.1x-2.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818518
+1164,variation,,,"Set de Hombre 3 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1162,,,,,,1,,Talla,S,,0,,,,,,
+1165,variation,,,"Set de Hombre 3 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1162,,,,,,2,,Talla,M,,0,,,,,,
+1166,variation,,,"Set de Hombre 3 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1162,,,,,,3,,Talla,L,,0,,,,,,
+1167,variation,,,"Set de Hombre 3 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1162,,,,,,4,,Talla,XL,,0,,,,,,
+1168,variable,,,"Set de Hombre 4",1,0,visible,,"Set de 2 piezas en seda satinada, 2 bolsillos delanteros que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.59.08 p.-m.-topaz-face-upscale-3.1x.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818512
+1170,variation,,,"Set de Hombre 4 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1168,,,,,,1,,Talla,S,,0,,,,,,
+1171,variation,,,"Set de Hombre 4 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1168,,,,,,2,,Talla,M,,0,,,,,,
+1172,variation,,,"Set de Hombre 4 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1168,,,,,,3,,Talla,L,,0,,,,,,
+1173,variation,,,"Set de Hombre 4 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1168,,,,,,4,,Talla,XL,,0,,,,,,
+1174,variable,,,"Set Hombre 5",1,0,visible,,"Set 2 piezas en seda satinada, ribete negro que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-12-01-a-las-5.53.40 p.-m.-topaz-face-upscale-3.2x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818512
+1176,variation,,,"Set Hombre 5 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1174,,,,,,1,,Talla,S,,0,,,,,,
+1177,variation,,,"Set Hombre 5 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1174,,,,,,2,,Talla,M,,0,,,,,,
+1178,variation,,,"Set Hombre 5 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1174,,,,,,3,,Talla,L,,0,,,,,,
+1179,variation,,,"Set Hombre 5 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1174,,,,,,4,,Talla,XL,,0,,,,,,
+1180,variable,,,"Set de Hombre 6",1,0,visible,,"Set de 2 piezas de seda satinada con print a rayas que inclueye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/pijama-hombre-blanca-rayas01-AI-improved.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818523
+1181,variation,,,"Set de Hombre 6 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1180,,,,,,1,,Talla,S,,0,,,,,,
+1182,variation,,,"Set de Hombre 6 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1180,,,,,,2,,Talla,M,,0,,,,,,
+1183,variation,,,"Set de Hombre 6 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1180,,,,,,3,,Talla,L,,0,,,,,,
+1184,variation,,,"Set de Hombre 6 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1180,,,,,,4,,Talla,XL,,0,,,,,,
+1185,variable,,,"Set de Hombre 7",1,0,visible,,"Set de 2 piezas de seda satinada que incluye:\n<ul>\n 	<li>Pantalón</li>\n 	<li>Camisa manga larga</li>\n</ul>",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Pijamas Hombres",,,https://civettas.com/wp-content/uploads/2025/01/IMG_1785C0E0674B-1-AI-improved-1.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818519
+1187,variation,,,"Set de Hombre 7 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1185,,,,,,1,,Talla,S,,0,,,,,,
+1188,variation,,,"Set de Hombre 7 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1185,,,,,,2,,Talla,M,,0,,,,,,
+1189,variation,,,"Set de Hombre 7 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1185,,,,,,3,,Talla,L,,0,,,,,,
+1190,variation,,,"Set de Hombre 7 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"42,99",,,,,,,id:1185,,,,,,4,,Talla,XL,,0,,,,,,
+1191,simple,,,Kimono,1,0,visible,,"Kimono 100% seda satinada, una solo pieza (incluye cinturón).\n\nCamel print de flores y ribete Baby Blue\n\nTalla única",,,none,zero-rate,1,2,,0,0,,,,,0,,,"50,50","Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-23-a-las-4.44.06 p.-m.-topaz-face-upscale-3.2x.jpeg,,,,,,,,,0,,,,,,,,,,,1740696213
+1193,simple,,,"Kimono 2",1,0,visible,,"Kimono 100% seda satinada, color uva con print mariposa y ribete azul.\n\n1 pieza (incluye cinturón)\n\nTalla única",,,none,zero-rate,1,2,,0,0,,,,,0,,,"50,50","Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-23-a-las-4.41.57 p.-m.-topaz-face-upscale-2.1x.jpeg,,,,,,,,,0,,,,,,,,,,,1740703734
+1195,simple,,,"Kimono 3",1,0,visible,,"Kimono 100% seda satinada, colo blanco con print de ramas y ribete negro.\n\n1 pieza (incluye cinturón)\n\nTalla única",,,none,zero-rate,1,2,,0,0,,,,,0,,,"50,50","Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-23-a-las-4.36.42 p.-m.-topaz-face-upscale-3.2x.jpeg,,,,,,,,,0,,,,,,,,,,,1740718279
+1197,variable,,,"Salida de Cama",1,0,visible,,"Salida de cama en satin en color turquesa.\n\nUna sola pieza (incluye cinturón).",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-23-a-las-4.20.16 p.-m.-topaz-upscale-3.2x.jpeg,,,,,,,,,0,,Talla,"S, M, L",1,0,,,,,,1740519864
+1199,variation,,,"Salida de Cama - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1197,,,,,,1,,Talla,S,,0,,,,,,
+1200,variation,,,"Salida de Cama - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1197,,,,,,2,,Talla,M,,0,,,,,,
+1201,variation,,,"Salida de Cama - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1197,,,,,,3,,Talla,L,,0,,,,,,
+1202,variable,,,"Salida de Cama 2",1,0,visible,,"Salida de cama de satin en color magenta.\n\n1 pieza (incluye cinturón).",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/IMG_AB0869E64FD0-1-topaz-face-upscale-2.3x.jpeg,,,,,,,,,0,,Talla,"S, M, L",1,0,,,,,,1740714759
+1204,variation,,,"Salida de Cama 2 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1202,,,,,,1,,Talla,S,,0,,,,,,
+1205,variation,,,"Salida de Cama 2 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1202,,,,,,2,,Talla,M,,0,,,,,,
+1206,variation,,,"Salida de Cama 2 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1202,,,,,,3,,Talla,L,,0,,,,,,
+1207,variable,,,"Salida de Cama 3",1,0,visible,,"Salida de cama de seda en color rosa vieja.\n\n1 pieza (incluye cinturón).",,,none,zero-rate,1,,,0,0,,,,,0,,,,"Kimonos y Salidas de cama",,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.55.08 p.-m.-topaz-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L",1,0,,,,,,1740739898
+1209,variation,,,"Salida de Cama 3 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1207,,,,,,1,,Talla,S,,0,,,,,,
+1210,variation,,,"Salida de Cama 3 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1207,,,,,,2,,Talla,M,,0,,,,,,
+1211,variation,,,"Salida de Cama 3 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"29,99",,,,,,,id:1207,,,,,,3,,Talla,L,,0,,,,,,
+1225,variable,,,"Lencería 1",1,0,visible,,"Set de 2 piezas en encaje satén (no incluye guantes).\n\nColor: Burdeos",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.36.55 p.-m.-topaz-face-upscale-3.1x-2.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818514
+1227,variation,,,"Lencería 1 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"50,50",,,,,,,id:1225,,,,,,1,,Talla,S,,0,,,,,,
+1228,variation,,,"Lencería 1 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"50,50",,,,,,,id:1225,,,,,,2,,Talla,M,,0,,,,,,
+1229,variation,,,"Lencería 1 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"50,50",,,,,,,id:1225,,,,,,3,,Talla,L,,0,,,,,,
+1230,variation,,,"Lencería 1 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"50,50",,,,,,,id:1225,,,,,,4,,Talla,XL,,0,,,,,,
+1231,variable,,,"Lencería 2",1,0,visible,,"Body con encaje y satén (no incluye guantes).\n\nColor: Negro y Verde",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-10-03-a-las-7.27.16 a.-m.-topaz-face-upscale-2.5x-1.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818518
+1233,variation,,,"Lencería 2 - S",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"45,50",,,,,,,id:1231,,,,,,1,,Talla,S,,0,,,,,,
+1234,variation,,,"Lencería 2 - M",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"45,50",,,,,,,id:1231,,,,,,2,,Talla,M,,0,,,,,,
+1235,variation,,,"Lencería 2 - L",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"45,50",,,,,,,id:1231,,,,,,3,,Talla,L,,0,,,,,,
+1236,variation,,,"Lencería 2 - XL",1,0,visible,,,,,none,parent,1,2,,0,0,,,,,0,,,"45,50",,,,,,,id:1231,,,,,,4,,Talla,XL,,0,,,,,,
+1237,variable,,,"Lencería 3",1,0,visible,,"Set de 2 piezas en encaje y satén (no incluye guantes)\n\nColor: Blanco",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.35.47 p.-m.-topaz-face-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818519
+1239,variation,,,"Lencería 3 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"46,50",,,,,,,id:1237,,,,,,1,,Talla,S,,0,,,,,,
+1240,variation,,,"Lencería 3 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"46,50",,,,,,,id:1237,,,,,,2,,Talla,M,,0,,,,,,
+1241,variation,,,"Lencería 3 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"46,50",,,,,,,id:1237,,,,,,3,,Talla,L,,0,,,,,,
+1242,variation,,,"Lencería 3 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"46,50",,,,,,,id:1237,,,,,,4,,Talla,XL,,0,,,,,,
+1243,variable,,,"Lencería 4",1,0,visible,,"Body en encaje y tul elástico\n\nColor: Blanco",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.34.03 p.-m.-topaz-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818515
+1245,variation,,,"Lencería 4 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"31,50",,,,,,,id:1243,,,,,,1,,Talla,S,,0,,,,,,
+1246,variation,,,"Lencería 4 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"31,50",,,,,,,id:1243,,,,,,2,,Talla,M,,0,,,,,,
+1247,variation,,,"Lencería 4 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"31,50",,,,,,,id:1243,,,,,,3,,Talla,L,,0,,,,,,
+1248,variation,,,"Lencería 4 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"31,50",,,,,,,id:1243,,,,,,4,,Talla,XL,,0,,,,,,
+1249,variable,,,"Lencería 5",1,0,visible,,"Body en encaje y tul elástico\n\nColor: Negro",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.28.31 p.-m.-topaz-face-upscale-2.1x.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818514
+1251,variation,,,"Lencería 5 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1249,,,,,,1,,Talla,S,,0,,,,,,
+1252,variation,,,"Lencería 5 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1249,,,,,,2,,Talla,M,,0,,,,,,
+1253,variation,,,"Lencería 5 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1249,,,,,,3,,Talla,L,,0,,,,,,
+1254,variation,,,"Lencería 5 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"39,99",,,,,,,id:1249,,,,,,4,,Talla,XL,,0,,,,,,
+1255,variable,,,"Lencería 6",1,0,visible,,"Body en encaje y tul eléstico con bata negra\n\nColor: Blanco",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/IMG_0250-topaz-denoise-face.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818516
+1257,variation,,,"Lencería 6 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"43,50",,,,,,,id:1255,,,,,,1,,Talla,S,,0,,,,,,
+1258,variation,,,"Lencería 6 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"43,50",,,,,,,id:1255,,,,,,2,,Talla,M,,0,,,,,,
+1259,variation,,,"Lencería 6 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"43,50",,,,,,,id:1255,,,,,,3,,Talla,L,,0,,,,,,
+1260,variation,,,"Lencería 6 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"43,50",,,,,,,id:1255,,,,,,4,,Talla,XL,,0,,,,,,
+1261,variable,,,"Lencería 7",1,0,visible,,"Set de 2 piezas en razo y encaje importado\n\nColor: Blanco",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.45.48 p.-m.-topaz-face-upscale-3.1x.jpeg,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740817238
+1263,variation,,,"Lencería 7 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"45,99",,,,,,,id:1261,,,,,,1,,Talla,S,,0,,,,,,
+1264,variation,,,"Lencería 7 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"45,99",,,,,,,id:1261,,,,,,2,,Talla,M,,0,,,,,,
+1265,variation,,,"Lencería 7 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"45,99",,,,,,,id:1261,,,,,,3,,Talla,L,,0,,,,,,
+1266,variation,,,"Lencería 7 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"45,99",,,,,,,id:1261,,,,,,4,,Talla,XL,,0,,,,,,
+1268,variable,,,"Lencería 8",1,0,visible,,"Set de 4 piezas en razo y encaje importado\n\nColor: Amarillo",,,none,zero-rate,1,,,0,0,,,,,0,,,,Lencería,,,https://civettas.com/wp-content/uploads/2025/01/Captura-de-pantalla-2024-11-12-a-las-3.34.57 p.-m.-topaz-face-upscale-3.1x.png,,,,,,,,,0,,Talla,"S, M, L, XL",1,0,,,,,,1740818517
+1270,variation,,,"Lencería 8 - S",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1268,,,,,,1,,Talla,S,,0,,,,,,
+1271,variation,,,"Lencería 8 - M",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1268,,,,,,2,,Talla,M,,0,,,,,,
+1272,variation,,,"Lencería 8 - L",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1268,,,,,,3,,Talla,L,,0,,,,,,
+1273,variation,,,"Lencería 8 - XL",1,0,visible,,,,,none,parent,1,1,,0,0,,,,,0,,,"49,99",,,,,,,id:1268,,,,,,4,,Talla,XL,,0,,,,,,
