@@ -316,14 +316,29 @@ export const insertCustomerSchema = createInsertSchema(customers);
 export const insertSaleSchema = createInsertSchema(sales);
 export const insertWebhookSchema = createInsertSchema(webhooks);
 
+
+export const insertProductSchema = createInsertSchema(products);
+export const insertOrderSchema = createInsertSchema(orders);
+export const insertOrderItemSchema = createInsertSchema(orderItems);
+export const insertProductCategorySchema = createInsertSchema(productCategories);
 export const selectCustomerSchema = createSelectSchema(customers);
 export const selectSaleSchema = createSelectSchema(sales);
 export const selectWebhookSchema = createSelectSchema(webhooks);
 export const selectLeadSchema = createSelectSchema(leads);
 
+
+
+export const selectProductSchema = createSelectSchema(products);
+export const selectOrderSchema = createSelectSchema(orders);
+export const selectOrderItemSchema = createSelectSchema(orderItems);
+export const selectProductCategorySchema = createSelectSchema(productCategories);
 // Type exports
 export type Customer = typeof customers.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type Webhook = typeof webhooks.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
 export type LeadActivity = typeof leadActivities.$inferSelect;
+export type Product = typeof products.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type ProductCategory = typeof productCategories.$inferSelect;

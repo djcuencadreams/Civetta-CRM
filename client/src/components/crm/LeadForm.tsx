@@ -55,6 +55,8 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       lastContact: lead?.lastContact ? new Date(lead?.lastContact) : undefined,
       nextFollowUp: lead?.nextFollowUp ? new Date(lead?.nextFollowUp) : undefined,
       brand: lead?.brand || brandEnum.SLEEPWEAR,
+      brandInterest: lead?.brandInterest || '', // Add the brand interest field
+      idNumber: lead?.idNumber || '', // Add the ID number field
     }
   });
 
@@ -75,7 +77,9 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
         notes: data.notes,
         lastContact: data.lastContact,
         nextFollowUp: data.nextFollowUp,
-        brand: brandValue
+        brand: brandValue,
+        brandInterest: data.brandInterest,
+        idNumber: data.idNumber
       };
 
       // Detect if status is 'won' (about to be converted to customer)
@@ -151,6 +155,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
         lastContact: data.lastContact,
         nextFollowUp: data.nextFollowUp,
         brand: data.brand || brandEnum.SLEEPWEAR,
+        brandInterest: data.brandInterest, // Add brand interest information
         idNumber: idNumber.trim() // Add the ID number from the dialog
       };
 
@@ -449,6 +454,40 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
               </Select>
               <FormDescription>
                 Marca por la que el lead inicialmente mostró interés para fines de marketing
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="brandInterest"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Interés específico</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={isViewMode} placeholder="Ej: Pijamas, batas, ropa de novia..." />
+              </FormControl>
+              <FormDescription>
+                Producto o categoría específica que interesa al lead
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="idNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Número de identificación</FormLabel>
+              <FormControl>
+                <Input {...field} disabled={isViewMode} placeholder="Cédula, pasaporte o RUC" />
+              </FormControl>
+              <FormDescription>
+                Solo requerido para convertir a cliente
               </FormDescription>
               <FormMessage />
             </FormItem>

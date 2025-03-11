@@ -1,0 +1,146 @@
+Verificando esquema de base de datos...
+
+Tablas encontradas (9):
+----------------------------------------
+
+Estructura de tabla: customers
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('customers_id_seq'::regclass)
+name                      text            NOT NULL   
+email                     text            NULL       
+phone                     text            NULL       
+whatsapp                  text            NULL       
+address                   text            NULL       
+notes                     text            NULL       
+created_at                timestamp without time zone NOT NULL   DEFAULT now()
+updated_at                timestamp without time zone NOT NULL   DEFAULT now()
+source                    character varying(50) NULL       DEFAULT 'website'::character varying
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+first_name                text            NULL       
+last_name                 text            NULL       
+phone_country             text            NULL       
+street                    text            NULL       
+city                      text            NULL       
+province                  text            NULL       
+delivery_instructions     text            NULL       
+phone_number              text            NULL       
+id_number                 text            NULL       
+
+Estructura de tabla: lead_activities
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('lead_activities_id_seq'::regclass)
+lead_id                   integer         NOT NULL   
+type                      character varying(50) NOT NULL   
+notes                     text            NULL       
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+
+Estructura de tabla: leads
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('leads_id_seq'::regclass)
+name                      text            NOT NULL   
+email                     text            NULL       
+phone                     text            NULL       
+status                    character varying(50) NOT NULL   DEFAULT 'new'::character varying
+source                    character varying(50) NOT NULL   
+notes                     text            NULL       
+converted_to_customer     boolean         NULL       DEFAULT false
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+updated_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+last_contact              timestamp without time zone NULL       
+next_follow_up            timestamp without time zone NULL       
+customer_lifecycle_stage  character varying(50) NULL       
+phone_country             character varying(10) NULL       
+phone_number              character varying(15) NULL       
+street                    text            NULL       
+city                      text            NULL       
+province                  character varying(50) NULL       
+delivery_instructions     text            NULL       
+converted_customer_id     integer         NULL       
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+first_name                text            NULL       
+last_name                 text            NULL       
+id_number                 text            NULL       
+brand_interest            character varying(50) NULL       
+
+Estructura de tabla: order_items
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('order_items_id_seq'::regclass)
+order_id                  integer         NOT NULL   
+product_id                integer         NULL       
+product_name              text            NOT NULL   
+quantity                  integer         NOT NULL   DEFAULT 1
+unit_price                numeric         NOT NULL   
+discount                  numeric         NULL       DEFAULT 0
+subtotal                  numeric         NOT NULL   
+attributes                jsonb           NULL       DEFAULT '{}'::jsonb
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+
+Estructura de tabla: orders
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('orders_id_seq'::regclass)
+customer_id               integer         NULL       
+lead_id                   integer         NULL       
+order_number              text            NULL       
+total_amount              numeric         NOT NULL   
+status                    character varying(50) NULL       DEFAULT 'new'::character varying
+payment_status            character varying(50) NULL       DEFAULT 'pending'::character varying
+payment_method            character varying(50) NULL       
+source                    character varying(50) NULL       DEFAULT 'website'::character varying
+woocommerce_id            integer         NULL       
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+shipping_address          jsonb           NULL       DEFAULT '{}'::jsonb
+billing_address           jsonb           NULL       DEFAULT '{}'::jsonb
+notes                     text            NULL       
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+updated_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+
+Estructura de tabla: product_categories
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('product_categories_id_seq'::regclass)
+name                      text            NOT NULL   
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+
+Estructura de tabla: products
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('products_id_seq'::regclass)
+name                      text            NOT NULL   
+sku                       text            NOT NULL   
+description               text            NULL       
+category_id               integer         NULL       
+price                     numeric         NOT NULL   
+stock                     integer         NULL       DEFAULT 0
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+woocommerce_id            integer         NULL       
+woocommerce_url           text            NULL       
+active                    boolean         NULL       DEFAULT true
+images                    jsonb           NULL       DEFAULT '[]'::jsonb
+attributes                jsonb           NULL       DEFAULT '{}'::jsonb
+created_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+updated_at                timestamp without time zone NOT NULL   DEFAULT CURRENT_TIMESTAMP
+
+Estructura de tabla: sales
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('sales_id_seq'::regclass)
+customer_id               integer         NOT NULL   
+amount                    numeric         NOT NULL   
+status                    text            NOT NULL   
+payment_method            text            NULL       
+notes                     text            NULL       
+created_at                timestamp without time zone NOT NULL   DEFAULT now()
+updated_at                timestamp without time zone NOT NULL   DEFAULT now()
+brand                     character varying(20) NULL       DEFAULT 'sleepwear'::character varying
+order_id                  integer         NULL       
+
+Estructura de tabla: webhooks
+----------------------------------------
+id                        integer         NOT NULL   DEFAULT nextval('webhooks_id_seq'::regclass)
+name                      text            NOT NULL   
+url                       text            NOT NULL   
+event                     text            NOT NULL   
+active                    boolean         NOT NULL   DEFAULT true
+created_at                timestamp without time zone NOT NULL   DEFAULT now()
+
+Todas las tablas requeridas están presentes.
+
+Verificación completada.

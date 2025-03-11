@@ -574,7 +574,7 @@ export function registerRoutes(app: Express): Server {
       const leadId = parseInt(req.params.id);
       const {
         name, email, phone, status, source, notes, 
-        lastContact, nextFollowUp, brand, idNumber
+        lastContact, nextFollowUp, brand, idNumber, brandInterest
       } = req.body;
 
       if (!name?.trim()) {
@@ -585,15 +585,26 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "El número de identificación es requerido" });
       }
 
-      const existingLead = await db.query.leads.findFirst({
-        where: eq(leads.id, leadId)
-      });
+      // Use direct select to ensure we get all fields including the new ones
+      const [existingLead] = await db.select().from(leads).where(eq(leads.id, leadId));
 
       if (!existingLead) {
         return res.status(404).json({ error: "Lead no encontrado" });
       }
 
       // First create the customer with ID number
+      // Format notes to include brand interest if it exists
+      let customerNotes = existingLead.notes || notes || null;
+      
+      // If brandInterest is provided in the request, use it
+      if (brandInterest) {
+        customerNotes = `Interés específico: ${brandInterest}\n${customerNotes || ''}`.trim();
+      } 
+      // Otherwise, if lead has brandInterest field, use that
+      else if (existingLead.brandInterest) {
+        customerNotes = `Interés específico: ${existingLead.brandInterest}\n${customerNotes || ''}`.trim();
+      }
+      
       const [customer] = await db.insert(customers)
         .values({
           name: name.trim(),
@@ -607,7 +618,8 @@ export function registerRoutes(app: Express): Server {
           // Add ID number from the conversion process
           idNumber: idNumber?.trim() || null,
           source: source || 'website',
-          brand: existingLead.brand || brand || 'sleepwear' // Include brand information
+          brand: existingLead.brand || brand || 'sleepwear', // Include brand information
+          notes: customerNotes // Use the prepared notes with brand interest
         })
         .returning();
       
@@ -639,7 +651,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const { name, email, phone, status, source, notes,
         lastContact, nextFollowUp, phoneCountry, street, city,
-        province, deliveryInstructions, brand } = req.body;
+        province, deliveryInstructions, brand, brandInterest, idNumber } = req.body;
 
       if (!name?.trim()) {
         return res.status(400).json({ error: "El nombre es requerido" });
@@ -661,7 +673,9 @@ export function registerRoutes(app: Express): Server {
         nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : null,
         customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
         convertedToCustomer: status === 'won',
-        brand: brand || null
+        brand: brand || null,
+        brandInterest: brandInterest?.trim() || null,
+        idNumber: idNumber?.trim() || null
       }).returning();
 
       res.json(lead[0]);
@@ -675,16 +689,15 @@ export function registerRoutes(app: Express): Server {
     try {
       const {
         name, email, phone, status, source, notes,
-        lastContact, nextFollowUp, brand
+        lastContact, nextFollowUp, brand, brandInterest, idNumber
       } = req.body;
 
       if (!name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
       }
 
-      const existingLead = await db.query.leads.findFirst({
-        where: eq(leads.id, parseInt(req.params.id))
-      });
+      // Use direct select to ensure we get all fields including the new ones
+      const [existingLead] = await db.select().from(leads).where(eq(leads.id, parseInt(req.params.id)));
 
       if (!existingLead) {
         return res.status(404).json({ error: "Lead not found" });
@@ -693,6 +706,18 @@ export function registerRoutes(app: Express): Server {
       // Create customer if status is won
       let convertedCustomerId = existingLead.convertedCustomerId;
       if (status === 'won' && !existingLead.convertedToCustomer) {
+        // Format notes to include brand interest if it exists
+        let customerNotes = existingLead.notes || notes || null;
+        
+        // If brandInterest is provided in the request, use it
+        if (brandInterest) {
+          customerNotes = `Interés específico: ${brandInterest}\n${customerNotes || ''}`.trim();
+        } 
+        // Otherwise, if lead has brandInterest field, use that
+        else if (existingLead.brandInterest) {
+          customerNotes = `Interés específico: ${existingLead.brandInterest}\n${customerNotes || ''}`.trim();
+        }
+        
         const [customer] = await db.insert(customers)
           .values({
             name: name.trim(),
@@ -703,11 +728,11 @@ export function registerRoutes(app: Express): Server {
             city: existingLead.city || null,
             province: existingLead.province || null,
             deliveryInstructions: existingLead.deliveryInstructions || null,
-            // The idNumber will be empty here since leads don't track it,
-            // it needs to be added later when creating invoices or shipping labels
-            idNumber: null,
+            // Add ID number if provided during lead update
+            idNumber: idNumber?.trim() || null,
             source: source || 'website',
-            brand: existingLead.brand || brand || 'sleepwear' // Include brand information
+            brand: existingLead.brand || brand || 'sleepwear', // Include brand information
+            notes: customerNotes // Use the prepared notes with brand interest
           })
           .returning();
         convertedCustomerId = customer.id;
@@ -723,6 +748,8 @@ export function registerRoutes(app: Express): Server {
           status,
           source: source || 'website',
           brand: brand || existingLead.brand, // Ensure brand is preserved
+          brandInterest: brandInterest?.trim() || existingLead.brandInterest, // Keep existing brandInterest if not provided
+          idNumber: idNumber?.trim() || existingLead.idNumber, // Keep existing idNumber if not provided
           notes: notes?.trim() || null,
           customerLifecycleStage: status === 'won' ? 'customer' : 'lead',
           convertedToCustomer: status === 'won',
@@ -990,6 +1017,8 @@ export function registerRoutes(app: Express): Server {
               source: item.source || 'import',
               notes: item.notes || null,
               brand: brandValue, // Normalized brand value
+              brandInterest: item.brandInterest || null, // Include brand interest information
+              idNumber: item.idNumber || null, // Include ID number if available
               customerLifecycleStage: 'lead',
               convertedToCustomer: false,
               createdAt: new Date(),
