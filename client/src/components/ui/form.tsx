@@ -72,13 +72,30 @@ const FormItemContext = React.createContext<FormItemContextValue>(
 
 const FormItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & { 
+    fullWidth?: boolean,
+    spacing?: 'tight' | 'normal' | 'loose',
+    mobileSpacing?: 'tighter' | 'tight' | 'normal',
+  }
+>(({ className, fullWidth = true, spacing = 'normal', mobileSpacing = 'tight', ...props }, ref) => {
   const id = React.useId()
 
   return (
     <FormItemContext.Provider value={{ id }}>
-      <div ref={ref} className={cn("space-y-2", className)} {...props} />
+      <div 
+        ref={ref} 
+        className={cn(
+          mobileSpacing === 'tighter' && "space-y-1 sm:space-y-2",
+          mobileSpacing === 'tight' && "space-y-1.5 sm:space-y-2",
+          mobileSpacing === 'normal' && "space-y-2",
+          spacing === 'tight' && "sm:space-y-1.5",
+          spacing === 'normal' && "sm:space-y-2",
+          spacing === 'loose' && "sm:space-y-3",
+          fullWidth && "w-full", 
+          className
+        )} 
+        {...props} 
+      />
     </FormItemContext.Provider>
   )
 })
@@ -86,14 +103,20 @@ FormItem.displayName = "FormItem"
 
 const FormLabel = React.forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
->(({ className, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> & { 
+    responsive?: boolean 
+  }
+>(({ className, responsive = true, ...props }, ref) => {
   const { error, formItemId } = useFormField()
 
   return (
     <Label
       ref={ref}
-      className={cn(error && "text-destructive", className)}
+      className={cn(
+        error && "text-destructive", 
+        responsive && "text-sm sm:text-base", 
+        className
+      )}
       htmlFor={formItemId}
       {...props}
     />
@@ -103,14 +126,25 @@ FormLabel.displayName = "FormLabel"
 
 const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
-  React.ComponentPropsWithoutRef<typeof Slot>
->(({ ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof Slot> & {
+    size?: 'default' | 'sm' | 'lg',
+    mobileSize?: 'xs' | 'sm' | 'default'
+  }
+>(({ size = 'default', mobileSize = 'sm', className, ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
 
   return (
     <Slot
       ref={ref}
       id={formItemId}
+      className={cn(
+        mobileSize === 'xs' && "text-xs sm:text-sm",
+        mobileSize === 'sm' && "text-sm",
+        size === 'sm' && "sm:text-sm",
+        size === 'default' && "sm:text-base",
+        size === 'lg' && "sm:text-lg",
+        className
+      )}
       aria-describedby={
         !error
           ? `${formDescriptionId}`
@@ -133,7 +167,7 @@ const FormDescription = React.forwardRef<
     <p
       ref={ref}
       id={formDescriptionId}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-xs sm:text-sm text-muted-foreground", className)}
       {...props}
     />
   )
@@ -155,7 +189,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-sm font-medium text-destructive", className)}
+      className={cn("text-xs sm:text-sm font-medium text-destructive", className)}
       {...props}
     >
       {body}

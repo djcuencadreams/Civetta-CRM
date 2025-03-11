@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "../hooks/use-is-mobile";
 import { t } from "@/lib/i18n";
 
 // UI
@@ -86,6 +87,7 @@ type Product = {
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [productToEdit, setProductToEdit] = useState<Product | undefined>(undefined);
   const [showProductForm, setShowProductForm] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
@@ -497,13 +499,13 @@ export default function ProductsPage() {
   return (
     <Shell>
       <div className="container mx-auto py-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Inventario</h1>
+        <div className={`${isMobile ? 'flex flex-col gap-3' : 'flex justify-between items-center'} mb-6`}>
+          <h1 className="text-2xl md:text-3xl font-bold">Inventario</h1>
           <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
             <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
+              <Button className={`flex items-center gap-2 ${isMobile ? 'w-full' : ''}`}>
                 <PlusCircleIcon className="h-4 w-4" />
-                Nuevo Producto
+                {isMobile ? "Añadir producto" : "Nuevo Producto"}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
@@ -555,71 +557,74 @@ export default function ProductsPage() {
                 onReset={() => setFilters({})}
               />
             </div>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-hidden">
               {isLoading ? (
                 <div className="w-full h-96 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {table.getRowModel().rows?.length ? (
-                      table.getRowModel().rows.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          data-state={row.getIsSelected() && "selected"}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </TableCell>
+                <div className="w-full overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id} className={isMobile ? "text-xs px-2" : ""}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={columns.length}
-                          className="h-24 text-center"
-                        >
-                          No se encontraron productos.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            data-state={row.getIsSelected() && "selected"}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id} className={isMobile ? "text-xs px-2 py-3" : ""}>
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={columns.length}
+                            className="h-24 text-center"
+                          >
+                            No se encontraron productos.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-              <div className="flex-1 text-sm text-muted-foreground">
+            <div className={`${isMobile ? 'flex flex-col space-y-4' : 'flex items-center justify-end space-x-2'} py-4`}>
+              <div className={`${isMobile ? 'text-center' : 'flex-1'} text-sm text-muted-foreground`}>
                 {table.getFilteredSelectedRowModel().rows.length} de{" "}
                 {table.getFilteredRowModel().rows.length} fila(s) seleccionada(s).
               </div>
-              <div className="space-x-2">
+              <div className={`${isMobile ? 'flex w-full' : 'space-x-2'}`}>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
+                  className={isMobile ? 'flex-1 mr-2' : ''}
                 >
                   Anterior
                 </Button>
@@ -628,6 +633,7 @@ export default function ProductsPage() {
                   size="sm"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
+                  className={isMobile ? 'flex-1' : ''}
                 >
                   Siguiente
                 </Button>

@@ -5,6 +5,7 @@ import * as z from "zod";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "../../hooks/use-is-mobile";
 
 import {
   Form,
@@ -95,6 +96,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productType, setProductType] = useState(product?.product_type || "simple");
   const [parentProducts, setParentProducts] = useState<Product[]>([]);
+  const isMobile = useIsMobile();
 
   // Obtener categorías de productos
   const { data: categoriesData } = useQuery<Category[]>({
@@ -314,15 +316,15 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
         {/* Campo oculto que mantiene el tipo de producto para compatibilidad */}
         <input type="hidden" {...form.register("product_type")} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Nombre del Producto</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nombre del producto" {...field} />
+                  <Input placeholder="Nombre del producto" className="w-full" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -333,10 +335,10 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
             control={form.control}
             name="sku"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>SKU</FormLabel>
                 <FormControl>
-                  <Input placeholder="SKU del producto" {...field} />
+                  <Input placeholder="SKU del producto" className="w-full" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -348,11 +350,12 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           control={form.control}
           name="description"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="w-full">
               <FormLabel>Descripción</FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Descripción del producto"
+                  className="w-full"
                   {...field}
                   value={field.value || ""}
                 />
@@ -362,12 +365,12 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
           <FormField
             control={form.control}
             name="price"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Precio</FormLabel>
                 <FormControl>
                   <Input
@@ -375,6 +378,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
                     step="0.01"
                     min="0"
                     placeholder="0.00"
+                    className="w-full"
                     {...field}
                   />
                 </FormControl>
@@ -387,7 +391,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
             control={form.control}
             name="stock"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Stock</FormLabel>
                 <FormControl>
                   <Input
@@ -395,6 +399,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
                     step="1"
                     min="0"
                     placeholder="0"
+                    className="w-full"
                     {...field}
                   />
                 </FormControl>
@@ -404,19 +409,19 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
           <FormField
             control={form.control}
             name="brand"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Marca</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value || "sleepwear"}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecciona una marca" />
                     </SelectTrigger>
                   </FormControl>
@@ -434,14 +439,14 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
             control={form.control}
             name="category_id"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Categoría</FormLabel>
                 <Select
                   onValueChange={(value) => field.onChange(parseInt(value))}
                   defaultValue={field.value?.toString() || ""}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecciona una categoría">
                         {field.value && <CategoryBadge categoryId={field.value} />}
                       </SelectValue>
@@ -484,19 +489,19 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
             
             <div className="space-y-4 py-2">
               {/* Talla y color son manejados especialmente porque son los más comunes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
                 <FormField
                   control={form.control}
                   name="talla"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="w-full">
                       <FormLabel>Talla</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value || ""}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Selecciona la talla" />
                           </SelectTrigger>
                         </FormControl>
@@ -518,14 +523,14 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
                   control={form.control}
                   name="color"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="w-full">
                       <FormLabel>Color</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value || ""}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Selecciona el color" />
                           </SelectTrigger>
                         </FormControl>
@@ -579,16 +584,21 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           )}
         />
 
-        <div className="flex justify-end space-x-2 pt-4">
+        <div className={`${isMobile ? 'flex flex-col-reverse space-y-2 space-y-reverse' : 'flex justify-end space-x-2'} pt-4`}>
           <Button
             variant="outline"
             onClick={onClose}
             type="button"
             disabled={isSubmitting}
+            className={isMobile ? 'w-full mt-2' : ''}
           >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className={isMobile ? 'w-full' : ''}
+          >
             {isSubmitting && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}

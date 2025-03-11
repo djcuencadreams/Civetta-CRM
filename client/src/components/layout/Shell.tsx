@@ -2,7 +2,7 @@ import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "../../hooks/use-is-mobile";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShellProps {
@@ -53,13 +53,13 @@ export function Shell({ children }: ShellProps) {
           isMobile ? "fixed z-50 h-full" : "hidden md:block"
         )} 
       />
-      <main className="flex-1 overflow-y-auto w-full">
+      <main className="flex-1 overflow-y-auto w-full md:ml-0 lg:ml-0">
         {!isOnline && (
           <div className="bg-yellow-100 p-2 text-center text-yellow-800">
             Modo sin conexión - Algunas funciones pueden estar limitadas
           </div>
         )}
-        <div className="container px-4 py-6 md:px-6 lg:px-8">
+        <div className="container px-2 py-4 md:px-6 lg:px-8 mx-auto">
           {children}
         </div>
       </main>
