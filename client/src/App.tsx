@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useState } from 'react'
 import { Route, Switch } from 'wouter'
 import { Shell } from './components/layout/Shell'
+import { logError } from './lib/errorHandler'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -19,6 +20,28 @@ import NotFound from './pages/not-found'
 function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
+  
+  // Set up global error handler
+  useEffect(() => {
+    // Set up a global error handler for uncaught errors
+    const handleGlobalError = (event: ErrorEvent) => {
+      event.preventDefault();
+      logError(event.error || new Error(event.message), {
+        source: 'window.onerror',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+    };
+    
+    // Add global error event listener
+    window.addEventListener('error', handleGlobalError);
+    
+    // Cleanup function when component unmounts
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+    };
+  }, []);
 
   return (
     <Shell>
