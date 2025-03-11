@@ -11,6 +11,7 @@ import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimpleSpreadsheetImporter } from "./SimpleSpreadsheetImporter";
 import { WordPressIntegration } from "../integrations/WordPressIntegration";
+import { WhatsAppIntegration } from "../integrations/WhatsAppIntegration";
 import { EmailConfiguration } from "./EmailConfiguration";
 import { t } from "@/lib/i18n";
 
@@ -45,13 +46,7 @@ export function ConfigurationPanel() {
     }
   });
 
-  // Handle WhatsApp configuration
-  const handleWhatsAppConfigure = () => {
-    toast({
-      title: "WhatsApp Business",
-      description: "Configuración de WhatsApp Business en progreso.",
-    });
-  };
+  // WhatsApp configuration is now handled by the WhatsAppIntegration component
 
   // Handle Slack configuration
   const handleSlackConfigure = () => {
@@ -71,20 +66,8 @@ export function ConfigurationPanel() {
         </TabsList>
 
         <TabsContent value="integrations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <SiWhatsapp className="h-5 w-5" />
-                WhatsApp Business
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Conecta con WhatsApp Business API para enviar notificaciones automáticas.
-              </p>
-              <Button variant="outline" onClick={handleWhatsAppConfigure}>{t("integrations.configure")}</Button>
-            </CardContent>
-          </Card>
+          {/* WhatsApp Business Integration */}
+          <WhatsAppIntegration />
 
           <Card>
             <CardHeader>

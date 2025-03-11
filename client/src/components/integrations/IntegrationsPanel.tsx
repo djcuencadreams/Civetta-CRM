@@ -10,10 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { WordPressIntegration } from "./WordPressIntegration";
-import { SpreadsheetImportComponent } from "../configuration/SpreadsheetImportComponent";
+import { WhatsAppIntegration } from "./WhatsAppIntegration";
+import { FileSpreadsheet } from "lucide-react";
 
 export function IntegrationsPanel() {
   const { toast } = useToast();
@@ -47,14 +47,6 @@ export function IntegrationsPanel() {
     }
   });
 
-  // Handle WhatsApp configuration
-  const handleWhatsAppConfigure = () => {
-    toast({
-      title: "WhatsApp Business",
-      description: "La integración con WhatsApp Business está en desarrollo. Estará disponible pronto.",
-    });
-  };
-
   // Handle Slack configuration
   const handleSlackConfigure = () => {
     toast({
@@ -72,20 +64,8 @@ export function IntegrationsPanel() {
         </TabsList>
 
         <TabsContent value="integrations" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <SiWhatsapp className="h-5 w-5" />
-                WhatsApp Business
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Conecta con WhatsApp Business API para enviar notificaciones automáticas.
-              </p>
-              <Button variant="outline" onClick={handleWhatsAppConfigure}>{t("integrations.configure")}</Button>
-            </CardContent>
-          </Card>
+          {/* WhatsApp Integration Component */}
+          <WhatsAppIntegration />
 
           <Card>
             <CardHeader>
@@ -170,7 +150,22 @@ export function IntegrationsPanel() {
 
         <TabsContent value="import" className="space-y-6">
           {/* Include Spreadsheet import component instead of PDF import */}
-          <SpreadsheetImportComponent />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSpreadsheet className="h-5 w-5" />
+                Importar datos desde Excel o CSV
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Importe datos de clientes, leads o ventas desde archivos Excel o CSV.
+              </p>
+              <Button variant="outline" onClick={() => window.location.href="/configuracion?tab=import"}>
+                Ir a Importación de Datos
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* WordPress integration import section */}
           <Card>

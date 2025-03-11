@@ -213,11 +213,27 @@ export const sales = pgTable("sales", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
+// WhatsApp message table for storing message interactions
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: serial("id").primaryKey(),
+  messageSid: text("message_sid"), // Twilio message SID
+  fromNumber: text("from_number").notNull(), // Phone number that sent the message
+  toNumber: text("to_number").notNull(), // Phone number that received the message
+  messageBody: text("message_body").notNull(), // Content of the message
+  direction: varchar("direction", { length: 10 }).notNull(), // 'incoming' or 'outgoing'
+  customerId: integer("customer_id").references(() => customers.id), // Associated customer if any
+  leadId: integer("lead_id").references(() => leads.id), // Associated lead if any
+  mediaUrl: text("media_url"), // URL of any media attached to the message
+  status: varchar("status", { length: 20 }).default("delivered"), // Message status: delivered, failed, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
 // Define relations
 export const customerRelations = relations(customers, ({ many }) => ({
   sales: many(sales),
   orders: many(orders),
-  leads: many(leads, { relationName: "convertedLeads" })
+  leads: many(leads, { relationName: "convertedLeads" }),
+  whatsappMessages: many(whatsappMessages, { relationName: "customerMessages" })
 }));
 
 export const leadRelations = relations(leads, ({ one, many }) => ({
@@ -227,7 +243,8 @@ export const leadRelations = relations(leads, ({ one, many }) => ({
     relationName: "convertedLeads"
   }),
   activities: many(leadActivities),
-  orders: many(orders)
+  orders: many(orders),
+  whatsappMessages: many(whatsappMessages, { relationName: "leadMessages" })
 }));
 
 export const leadActivityRelations = relations(leadActivities, ({ one }) => ({
@@ -269,6 +286,19 @@ export const orderItemRelations = relations(orderItems, ({ one }) => ({
   product: one(products, {
     fields: [orderItems.productId],
     references: [products.id]
+  })
+}));
+
+export const whatsappMessageRelations = relations(whatsappMessages, ({ one }) => ({
+  customer: one(customers, {
+    fields: [whatsappMessages.customerId],
+    references: [customers.id],
+    relationName: "customerMessages"
+  }),
+  lead: one(leads, {
+    fields: [whatsappMessages.leadId],
+    references: [leads.id],
+    relationName: "leadMessages"
   })
 }));
 
@@ -321,12 +351,12 @@ export const insertProductSchema = createInsertSchema(products);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export const insertProductCategorySchema = createInsertSchema(productCategories);
+export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages);
 export const selectCustomerSchema = createSelectSchema(customers);
 export const selectSaleSchema = createSelectSchema(sales);
 export const selectWebhookSchema = createSelectSchema(webhooks);
 export const selectLeadSchema = createSelectSchema(leads);
-
-
+export const selectWhatsappMessageSchema = createSelectSchema(whatsappMessages);
 
 export const selectProductSchema = createSelectSchema(products);
 export const selectOrderSchema = createSelectSchema(orders);
@@ -342,3 +372,4 @@ export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type ProductCategory = typeof productCategories.$inferSelect;
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
