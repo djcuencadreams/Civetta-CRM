@@ -2,8 +2,10 @@ import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "../../hooks/use-is-mobile";
+import { useIsMobile, useBreakpoint } from "../../hooks/use-is-mobile";
+import { useDeviceInfo } from "../../hooks/use-device-type";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface ShellProps {
   children: React.ReactNode;
@@ -11,8 +13,24 @@ interface ShellProps {
 
 export function Shell({ children }: ShellProps) {
   const isMobile = useIsMobile();
+  const { deviceType, isPortrait } = useDeviceInfo();
+  const breakpoint = useBreakpoint();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = React.useState(true);
+  const [sidebarVisible, setSidebarVisible] = React.useState(false);
+
+  // Toggle sidebar visibility for small devices
+  const toggleSidebar = () => setSidebarVisible(prev => !prev);
+  
+  // Get current location path for routing
+  const [location] = useLocation();
+
+  // Auto-hide sidebar when route changes on mobile
+  React.useEffect(() => {
+    if (deviceType === 'mobile' || (deviceType === 'tablet' && isPortrait)) {
+      setSidebarVisible(false);
+    }
+  }, [location, deviceType, isPortrait]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -46,20 +64,60 @@ export function Shell({ children }: ShellProps) {
     };
   }, [toast]);
 
+  // Responsive layout classes using pure Tailwind
+  const mainClasses = cn(
+    "flex-1 overflow-y-auto w-full transition-all duration-200",
+    // Responsive margin and padding
+    "ml-0 md:ml-0 lg:ml-0",
+    // Bottom padding for mobile navigation area
+    "pb-16 md:pb-8 lg:pb-4"
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Sidebar with responsive visibility control */}
       <Sidebar 
         className={cn(
-          isMobile ? "fixed z-50 h-full" : "hidden md:block"
+          // Responsive visibility with proper transitions
+          deviceType === 'desktop' ? "hidden md:block" : 
+            sidebarVisible ? "fixed z-50 h-full w-full sm:w-72 animate-in slide-in-from-left duration-300" : "hidden",
+          "shadow-lg" // Add shadow for better visibility
         )} 
+        onClose={() => deviceType !== 'desktop' && setSidebarVisible(false)}
       />
-      <main className="flex-1 overflow-y-auto w-full md:ml-0 lg:ml-0">
+      
+      {/* Mobile sidebar trigger button with improved touch area */}
+      {(deviceType === 'mobile' || (deviceType === 'tablet' && isPortrait)) && (
+        <button 
+          onClick={toggleSidebar}
+          className="fixed bottom-4 left-4 z-50 rounded-full w-12 h-12 flex items-center justify-center 
+                     bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 
+                     transition-all touch-manipulation active:scale-95"
+          aria-label="Menú"
+        >
+          <span className="text-xl">{sidebarVisible ? "✕" : "☰"}</span>
+        </button>
+      )}
+      
+      <main className={mainClasses}>
+        {/* Offline notification banner */}
         {!isOnline && (
-          <div className="bg-yellow-100 p-2 text-center text-yellow-800">
+          <div className="bg-yellow-100 p-2 text-center text-sm md:text-base text-yellow-800 sticky top-0 z-40 shadow-sm">
             Modo sin conexión - Algunas funciones pueden estar limitadas
           </div>
         )}
-        <div className="container px-2 py-4 md:px-6 lg:px-8 mx-auto">
+        
+        {/* Responsive content container */}
+        <div className={cn(
+          "container mx-auto transition-all",
+          // Responsive padding based on screen size
+          "px-2 py-2",                           // xxs default
+          "xs:px-3 xs:py-3",                     // xs (375px+)
+          "sm:px-3 sm:py-3",                     // sm (640px+)
+          "md:px-4 md:py-4",                     // md (768px+)
+          "lg:px-6 lg:py-5",                     // lg (1024px+)
+          "xl:px-8 xl:py-6"                      // xl (1280px+)
+        )}>
           {children}
         </div>
       </main>

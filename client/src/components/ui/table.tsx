@@ -6,19 +6,22 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement> & { 
     responsive?: boolean,
-    compact?: boolean
+    compact?: boolean,
+    mobileFriendly?: boolean
   }
->(({ className, responsive = true, compact = false, ...props }, ref) => (
+>(({ className, responsive = true, compact = false, mobileFriendly = false, ...props }, ref) => (
   <div className="relative w-full overflow-auto">
     <div className={cn(
       "w-full", 
-      responsive ? "overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0" : "overflow-x-auto"
+      responsive ? "overflow-x-auto -mx-2 sm:-mx-0 px-2 sm:px-0" : "overflow-x-auto",
+      mobileFriendly && "rounded-lg border shadow-sm"
     )}>
       <table
         ref={ref}
         className={cn(
           "w-full caption-bottom", 
-          compact ? "text-xs sm:text-sm" : "text-sm",
+          compact ? "text-xs sm:text-sm" : "text-xs sm:text-sm md:text-base",
+          mobileFriendly && "border-collapse",
           className
         )}
         {...props}
@@ -66,14 +69,18 @@ TableFooter.displayName = "TableFooter"
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement> & { 
-    compact?: boolean
+    compact?: boolean,
+    active?: boolean,
+    mobileFriendly?: boolean
   }
->(({ className, compact = false, ...props }, ref) => (
+>(({ className, compact = false, active = false, mobileFriendly = false, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      compact && "h-10 sm:h-12",
+      compact ? "h-10 sm:h-12" : "h-12 sm:h-14",
+      active && "bg-muted/30",
+      mobileFriendly && "flex flex-col sm:table-row border rounded-lg mb-2 sm:mb-0 sm:rounded-none sm:border-0 sm:border-b",
       className
     )}
     {...props}
@@ -87,17 +94,19 @@ const TableHead = React.forwardRef<
     hiddenOnMobile?: boolean,
     compact?: boolean,
     truncate?: boolean,
-    maxWidth?: string
+    maxWidth?: string,
+    mobileFriendly?: boolean
   }
->(({ className, hiddenOnMobile, compact = false, truncate = false, maxWidth, ...props }, ref) => (
+>(({ className, hiddenOnMobile, compact = false, truncate = false, maxWidth, mobileFriendly = false, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
       "h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
       hiddenOnMobile && "hidden sm:table-cell",
-      compact && "text-xs sm:text-sm",
+      compact ? "text-xs sm:text-sm" : "text-sm sm:text-base",
       truncate && "truncate",
       maxWidth && `max-w-[${maxWidth}]`,
+      mobileFriendly && "py-2 px-4 bg-muted/10",
       className
     )}
     {...props}
@@ -111,9 +120,11 @@ const TableCell = React.forwardRef<
     hiddenOnMobile?: boolean, 
     priorityOnMobile?: 'high' | 'medium' | 'low',
     truncate?: boolean,
-    maxWidth?: string
+    maxWidth?: string,
+    mobileFriendly?: boolean,
+    label?: string
   }
->(({ className, hiddenOnMobile, priorityOnMobile, truncate = false, maxWidth, ...props }, ref) => (
+>(({ className, hiddenOnMobile, priorityOnMobile, truncate = false, maxWidth, mobileFriendly = false, label, ...props }, ref) => (
   <td
     ref={ref}
     className={cn(
@@ -124,10 +135,18 @@ const TableCell = React.forwardRef<
       priorityOnMobile === 'low' && "text-xs text-muted-foreground sm:text-sm sm:text-foreground",
       truncate && "truncate",
       maxWidth && `max-w-[${maxWidth}]`,
+      mobileFriendly && "flex flex-row justify-between items-center border-b sm:table-cell sm:border-0 p-4 sm:p-3",
       className
     )}
     {...props}
-  />
+  >
+    {mobileFriendly && label ? (
+      <>
+        <span className="font-medium text-xs text-muted-foreground sm:hidden">{label}:</span>
+        <div className="text-right sm:text-left">{props.children}</div>
+      </>
+    ) : props.children}
+  </td>
 ))
 TableCell.displayName = "TableCell"
 

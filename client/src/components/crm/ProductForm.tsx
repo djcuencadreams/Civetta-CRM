@@ -316,7 +316,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
         {/* Campo oculto que mantiene el tipo de producto para compatibilidad */}
         <input type="hidden" {...form.register("product_type")} />
 
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="name"
@@ -365,7 +365,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           )}
         />
 
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="price"
@@ -409,7 +409,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           />
         </div>
 
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="brand"
@@ -489,7 +489,7 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
             
             <div className="space-y-4 py-2">
               {/* Talla y color son manejados especialmente porque son los más comunes */}
-              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="talla"
@@ -584,20 +584,20 @@ export function ProductForm({ product, onClose, onSuccess }: ProductFormProps) {
           )}
         />
 
-        <div className={`${isMobile ? 'flex flex-col-reverse space-y-2 space-y-reverse' : 'flex justify-end space-x-2'} pt-4`}>
+        <div className="flex flex-col-reverse md:flex-row space-y-2 space-y-reverse md:space-y-0 md:justify-end md:space-x-2 pt-4">
           <Button
             variant="outline"
             onClick={onClose}
             type="button"
             disabled={isSubmitting}
-            className={isMobile ? 'w-full mt-2' : ''}
+            className="w-full md:w-auto mt-2 md:mt-0"
           >
             Cancelar
           </Button>
           <Button 
             type="submit" 
             disabled={isSubmitting}
-            className={isMobile ? 'w-full' : ''}
+            className="w-full md:w-auto"
           >
             {isSubmitting && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

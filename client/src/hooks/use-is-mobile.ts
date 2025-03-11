@@ -61,11 +61,13 @@ export function useBreakpoint() {
     if (typeof window === 'undefined') return 'md';
     
     const width = window.innerWidth;
+    if (width < breakpoints.xs) return 'xxs';
     if (width < breakpoints.sm) return 'xs';
     if (width < breakpoints.md) return 'sm';
     if (width < breakpoints.lg) return 'md';
     if (width < breakpoints.xl) return 'lg';
-    return 'xl';
+    if (width < breakpoints['2xl']) return 'xl';
+    return '2xl';
   }
   
   useEffect(() => {

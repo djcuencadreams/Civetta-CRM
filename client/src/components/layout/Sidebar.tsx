@@ -2,7 +2,7 @@ import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart,
   PieChart, LineChart, TrendingUp, ShoppingCart, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "../../hooks/use-is-mobile";
 import { useState } from "react";
 
 const navigation = [
@@ -48,10 +48,21 @@ const navigation = [
   }
 ];
 
-export function Sidebar({ className }: { className?: string }) {
+interface SidebarProps {
+  className?: string;
+  onClose?: () => void;
+}
+
+export function Sidebar({ className, onClose }: SidebarProps) {
   const [location] = useLocation();
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Handler for closing sidebar and notifying parent component
+  const handleClose = () => {
+    setIsOpen(false);
+    if (onClose) onClose();
+  };
 
   if (isMobile && !isOpen) {
     return (
@@ -65,15 +76,20 @@ export function Sidebar({ className }: { className?: string }) {
   }
 
   return (
-    <aside className={cn("h-screen w-64 border-r bg-background", 
-      isMobile && "shadow-lg fixed z-50",
+    <aside className={cn(
+      "h-screen border-r bg-background transition-all duration-300", 
+      isMobile ? "w-full sm:w-72 shadow-lg fixed z-50" : "w-64",
       className
     )}>
       <div className="p-4 border-b flex justify-between items-center">
         <h1 className="text-xl font-bold">CIVETTA CRM</h1>
         {isMobile && (
-          <button onClick={() => setIsOpen(false)} className="p-2">
-            ✕
+          <button 
+            onClick={handleClose} 
+            className="p-2 rounded-full hover:bg-muted"
+            aria-label="Cerrar menú"
+          >
+            <span className="text-lg">✕</span>
           </button>
         )}
       </div>
@@ -81,17 +97,23 @@ export function Sidebar({ className }: { className?: string }) {
         <div className="flex-1 space-y-1">
           {navigation.map((item) => {
             const Icon = item.icon;
+            const isActive = location === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => isMobile && setIsOpen(false)}
+                onClick={isMobile ? handleClose : undefined}
                 className={cn(
-                  "group flex items-center rounded-md px-2 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  location === item.href ? "bg-accent" : "transparent"
+                  "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  isActive ? "bg-accent text-accent-foreground" : "text-foreground",
+                  isMobile ? "text-base py-3" : "text-sm py-2.5"
                 )}
               >
-                <Icon className="mr-2 h-4 w-4" />
+                <Icon className={cn(
+                  "mr-3 h-4 w-4",
+                  isMobile && "h-5 w-5"
+                )} />
                 {item.label}
               </Link>
             );
