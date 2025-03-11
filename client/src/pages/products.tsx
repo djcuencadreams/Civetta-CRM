@@ -71,8 +71,13 @@ type Product = {
   stock: number;
   active: boolean;
   brand: string | null;
-  category: string | null;
-  wooCommerceId: number | null;
+  category_id: number | null;
+  category_name?: string;
+  woocommerce_id: number | null;
+  woocommerce_parent_id: number | null;
+  product_type: string | null;
+  attributes: Record<string, any> | null;
+  images: any[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -190,9 +195,23 @@ export default function ProductsPage() {
           </Button>
         );
       },
-      cell: ({ row }) => (
-        <div className="font-medium">{row.getValue("name")}</div>
-      ),
+      cell: ({ row }) => {
+        const product = row.original;
+        const isVariation = product.product_type === "variation" && product.woocommerce_parent_id;
+        
+        // Para variaciones, mostrar un indicador visual
+        return (
+          <div className="font-medium">
+            {isVariation && (
+              <div className="flex items-center">
+                <span className="ml-1 mr-2 text-muted-foreground">↳</span>
+                <span>{row.getValue("name")}</span>
+              </div>
+            )}
+            {!isVariation && row.getValue("name")}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "sku",
@@ -236,7 +255,13 @@ export default function ProductsPage() {
         );
       },
       cell: ({ row }) => {
-        const stock = parseInt(row.getValue("stock"));
+        const stockValue = row.getValue("stock");
+        // Verificar si el stock es null, undefined o NaN
+        if (stockValue === null || stockValue === undefined || isNaN(Number(stockValue))) {
+          return <div className="text-right font-medium text-muted-foreground">-</div>;
+        }
+        
+        const stock = parseInt(String(stockValue));
         return (
           <div className={`text-right font-medium ${stock <= 5 ? "text-red-500" : ""}`}>
             {stock}
@@ -265,9 +290,26 @@ export default function ProductsPage() {
       },
     },
     {
-      accessorKey: "category",
+      accessorKey: "category_name",
       header: t("products.category"),
-      cell: ({ row }) => <div>{row.getValue("category")}</div>,
+      cell: ({ row }) => <div>{row.getValue("category_name") || "Sin categoría"}</div>,
+    },
+    {
+      accessorKey: "product_type",
+      header: "Tipo",
+      cell: ({ row }) => {
+        const productType = row.getValue("product_type") as string;
+        const variant = 
+          productType === "simple" ? "default" : 
+          productType === "variable" ? "success" : 
+          productType === "variation" ? "secondary" : "outline";
+        
+        let label = "Simple";
+        if (productType === "variable") label = "Variable";
+        if (productType === "variation") label = "Variación";
+        
+        return <Badge variant={variant}>{label}</Badge>;
+      },
     },
     {
       id: "actions",
@@ -340,7 +382,18 @@ export default function ProductsPage() {
       ],
     },
     {
-      id: "category",
+      id: "product_type",
+      label: "Tipo de Producto",
+      type: "select",
+      options: [
+        { value: "simple", label: "Simple" },
+        { value: "variable", label: "Variable" },
+        { value: "variation", label: "Variación" },
+      ],
+    },
+    // Este filtro de categoría debería obtener categorías dinámicamente en el futuro
+    {
+      id: "category_name",
       label: "Categoría",
       type: "select",
       options: [
@@ -348,6 +401,7 @@ export default function ProductsPage() {
         { value: "Calzado", label: "Calzado" },
         { value: "Bodas", label: "Bodas" },
         { value: "Accesorios", label: "Accesorios" },
+        { value: "Pijamas Mujeres", label: "Pijamas Mujeres" }, // Añadida para Set Abitare
       ],
     },
   ], []);
@@ -375,6 +429,9 @@ export default function ProductsPage() {
         if (key === "active" && value) {
           return product.active === (value === "true");
         }
+        
+        // Para los filtros de selección, verificar si es "todos" (valor especial)
+        if (value === "todos") return true;
         
         // Para los demás filtros, comparar directamente
         return product[key as keyof Product] === value;

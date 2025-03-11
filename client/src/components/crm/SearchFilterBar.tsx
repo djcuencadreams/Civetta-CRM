@@ -205,15 +205,15 @@ export function SearchFilterBar({
                       )}
                       {option.type === 'select' && option.options && (
                         <Select
-                          value={(filters[option.id] || 'all') as string} //default to all
+                          value={(filters[option.id] || 'todos') as string} //default a todos
                           onValueChange={(value) => handleFilterChange(option.id, value)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={`Seleccionar ${option.label.toLowerCase()}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {/* Fix: Using "all" as a value instead of empty string */}
-                            <SelectItem value="all">Todos</SelectItem>
+                            {/* Asegurarse de que todos los valores sean válidos y no vacíos */}
+                            <SelectItem value="todos">Todos</SelectItem>
                             {option.options.map((opt) => (
                               <SelectItem key={opt.value} value={opt.value}>
                                 {opt.label}
@@ -254,8 +254,8 @@ export function SearchFilterBar({
               {Object.entries(filters).map(([key, value]) => {
                 if (!value || (Array.isArray(value) && value.length === 0) || key === '_searchText') return null;
 
-                // Skip "all" values in filters
-                if (value === "all") return null;
+                // Omitir valores "todos" en los filtros
+                if (value === "todos") return null;
 
                 const option = filterOptions.find(opt => opt.id === key);
                 if (!option) return null;

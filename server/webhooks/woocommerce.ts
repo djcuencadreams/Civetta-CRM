@@ -278,11 +278,15 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       return { success: false, message: 'Datos de producto inválidos' };
     }
     
-    // Si el producto no es simple, no procesarlo
-    if (wooProduct.type !== 'simple') {
+    // Soporte para productos variables y simples
+    const isVariable = wooProduct.type === 'variable';
+    const isVariation = wooProduct.type === 'variation';
+    const isSimple = wooProduct.type === 'simple';
+    
+    if (!isSimple && !isVariable && !isVariation) {
       return { 
         success: false, 
-        message: `Producto ${wooProduct.name} (ID: ${wooProduct.id}) omitido por ser de tipo: ${wooProduct.type}`
+        message: `Producto ${wooProduct.name} (ID: ${wooProduct.id}) omitido por ser de tipo no soportado: ${wooProduct.type}`
       };
     }
     
@@ -290,13 +294,15 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
     let categoryId = null;
     let brand = 'sleepwear'; // Valor predeterminado
     
-    if (wooProduct.categories && wooProduct.categories.length > 0) {
+    // Solo procesar categorías para productos principales (no variaciones)
+    if ((isSimple || isVariable) && wooProduct.categories && wooProduct.categories.length > 0) {
       const mainCategory = wooProduct.categories[0];
+      const categoryName = typeof mainCategory === 'string' ? mainCategory : mainCategory.name;
       
-      // Intentar buscar la categoría por nombre, ya que no tenemos woocommerce_category_id
+      // Intentar buscar la categoría por nombre
       const categoryResult = await db.$client.query(
         `SELECT * FROM product_categories WHERE name ILIKE $1 LIMIT 1`,
-        [mainCategory.name]
+        [categoryName]
       );
       
       if (categoryResult.rows.length > 0) {
@@ -305,11 +311,11 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
         brand = category.brand;
       } else {
         // Si no encontramos una categoría existente, creemos una nueva
-        console.log(`Creando nueva categoría para WooCommerce: ${mainCategory.name}`);
+        console.log(`Creando nueva categoría para WooCommerce: ${categoryName}`);
         try {
           const newCategoryResult = await db.$client.query(
             `INSERT INTO product_categories (name, brand) VALUES ($1, $2) RETURNING *`,
-            [mainCategory.name, brand]
+            [categoryName, brand]
           );
           
           if (newCategoryResult.rows.length > 0) {
@@ -328,15 +334,51 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       alt: img.alt || ''
     })) || [];
     
-    // Preparar los atributos
+    // Preparar los atributos - procesar correctamente los formatos de atributos de WooCommerce
     const attributes: {[key: string]: string} = {};
     
     if (wooProduct.attributes && Array.isArray(wooProduct.attributes)) {
       wooProduct.attributes.forEach((attr: any) => {
-        if (attr.name && attr.options && attr.options.length > 0) {
-          attributes[attr.name] = attr.options.join(', ');
+        // Manejar diferentes formatos de atributos
+        const attrName = attr.name || attr.attribute_name || '';
+        let attrValues: string[] = [];
+        
+        if (attr.options && Array.isArray(attr.options)) {
+          attrValues = attr.options;
+        } else if (attr.option) {
+          // Para variaciones individuales
+          attrValues = [attr.option];
+        }
+        
+        if (attrName && attrValues.length > 0) {
+          attributes[attrName] = attrValues.join(', ');
         }
       });
+    }
+    
+    // Agregar atributos de talla y color si están presentes en la variación
+    if (isVariation) {
+      if (wooProduct.attributes) {
+        for (const attr of wooProduct.attributes) {
+          if (attr.name === 'Talla' || attr.name === 'Color' || attr.name === 'Tallas' || attr.name === 'Colores') {
+            attributes[attr.name] = attr.option || '';
+          }
+        }
+      }
+    }
+    
+    // Normalizar el precio (convertir de formato europeo a decimal si es necesario)
+    let price = 0;
+    if (wooProduct.price) {
+      // Reemplazar coma por punto si el precio usa formato europeo (42,99)
+      const priceStr = String(wooProduct.price).replace(',', '.');
+      price = parseFloat(priceStr);
+    }
+    
+    // Obtener parent_id para variaciones
+    let parentId = null;
+    if (isVariation && wooProduct.parent_id) {
+      parentId = wooProduct.parent_id;
     }
     
     // Verificar si el producto ya existe en nuestro sistema usando SQL nativo
@@ -347,28 +389,40 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
     
     const existingProduct = existingProductQuery.rows.length > 0 ? existingProductQuery.rows[0] : null;
     
+    // Datos comunes para inserción y actualización
+    const productName = wooProduct.name;
+    const productSku = wooProduct.sku || `WOO-${wooProduct.id}`;
+    const productDesc = wooProduct.description || wooProduct.short_description || null;
+    const productStock = isVariable ? null : (wooProduct.stock_quantity || 0);
+    const isActive = wooProduct.status === 'publish';
+    const productUrl = wooProduct.permalink || null;
+    const productType = isVariable ? 'variable' : (isVariation ? 'variation' : 'simple');
+    
     if (!existingProduct) {
-      // Crear el producto en nuestro sistema usando SQL nativo para evitar problemas de esquema
+      // Crear el producto en nuestro sistema usando SQL nativo
       const sql = `
         INSERT INTO products (
           name, sku, description, category_id, 
-          price, stock, brand, woocommerce_id, 
+          price, stock, brand, woocommerce_id,
+          woocommerce_parent_id, product_type,
           woocommerce_url, active, images, attributes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
       
       const result = await db.$client.query(sql, [
-        wooProduct.name,
-        wooProduct.sku || `WOO-${wooProduct.id}`,
-        wooProduct.description || null,
+        productName,
+        productSku,
+        productDesc,
         categoryId,
-        parseFloat(wooProduct.price || '0'),
-        wooProduct.stock_quantity || 0,
+        price,
+        productStock,
         brand,
         wooProduct.id,
-        wooProduct.permalink || null,
-        wooProduct.status === 'publish',
+        parentId,
+        productType,
+        productUrl,
+        isActive,
         JSON.stringify(images),
         JSON.stringify(attributes)
       ]);
@@ -378,10 +432,10 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       return { 
         success: true, 
         productId: newProduct.id,
-        message: `Producto ${wooProduct.name} (ID: ${wooProduct.id}) creado correctamente`
+        message: `Producto ${productName} (ID: ${wooProduct.id}, Tipo: ${productType}) creado correctamente`
       };
     } else {
-      // Actualizar el producto existente usando SQL nativo para evitar problemas de esquema
+      // Actualizar el producto existente usando SQL nativo
       const sql = `
         UPDATE products 
         SET name = $1, 
@@ -390,26 +444,30 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
             category_id = $4, 
             price = $5, 
             stock = $6, 
-            brand = $7, 
-            woocommerce_url = $8, 
-            active = $9, 
-            images = $10, 
-            attributes = $11,
+            brand = $7,
+            woocommerce_parent_id = $8,
+            product_type = $9,
+            woocommerce_url = $10, 
+            active = $11, 
+            images = $12, 
+            attributes = $13,
             updated_at = NOW()
-        WHERE woocommerce_id = $12
+        WHERE woocommerce_id = $14
         RETURNING *
       `;
       
       const result = await db.$client.query(sql, [
-        wooProduct.name,
-        wooProduct.sku || `WOO-${wooProduct.id}`,
-        wooProduct.description || null,
+        productName,
+        productSku,
+        productDesc,
         categoryId,
-        parseFloat(wooProduct.price || '0'),
-        wooProduct.stock_quantity || 0,
+        price,
+        productStock,
         brand,
-        wooProduct.permalink || null,
-        wooProduct.status === 'publish',
+        parentId,
+        productType,
+        productUrl,
+        isActive,
         JSON.stringify(images),
         JSON.stringify(attributes),
         wooProduct.id
@@ -418,7 +476,7 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       return { 
         success: true, 
         productId: existingProduct.id,
-        message: `Producto ${wooProduct.name} (ID: ${wooProduct.id}) actualizado correctamente`
+        message: `Producto ${productName} (ID: ${wooProduct.id}, Tipo: ${productType}) actualizado correctamente`
       };
     }
   } catch (error) {

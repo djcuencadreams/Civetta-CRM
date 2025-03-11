@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import { db } from "@db";
 import { and, eq, desc, gte, lte, like, sql } from "drizzle-orm";
-import { customers, leads, sales } from "@db/schema";
+import { customers, leads, sales, productCategories, products } from "@db/schema";
 import * as XLSX from 'xlsx';
 import multer from 'multer';
 import fs from 'fs';
@@ -125,6 +125,50 @@ const upload = multer({
 });
 
 export function registerAdditionalRoutes(app: Express) {
+  // Endpoint for product categories
+  app.get("/api/categories", async (_req: Request, res: Response) => {
+    try {
+      // Get all product categories
+      const result = await db.$client.query(`
+        SELECT * FROM product_categories ORDER BY name ASC
+      `);
+      
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching product categories:', error);
+      res.status(500).json({ error: "Error al obtener categorías de productos" });
+    }
+  });
+  
+  // Endpoint for retrieving products by type
+  app.get("/api/products", async (req: Request, res: Response) => {
+    try {
+      const { type } = req.query;
+      
+      let queryStr = `
+        SELECT p.*, pc.name as category_name
+        FROM products p
+        LEFT JOIN product_categories pc ON p.category_id = pc.id
+      `;
+      
+      const queryParams: any[] = [];
+      
+      // Filter by product type if specified
+      if (type) {
+        queryStr += ` WHERE p.product_type = $${queryParams.length + 1}`;
+        queryParams.push(type);
+      }
+      
+      queryStr += ` ORDER BY p.created_at DESC`;
+      
+      const result = await db.$client.query(queryStr, queryParams);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      res.status(500).json({ error: "Error al obtener productos" });
+    }
+  });
+  
   // Endpoint for WooCommerce webhooks
   app.post("/api/webhooks/woocommerce", express.json({ limit: '5mb' }), handleWooCommerceWebhook);
   
