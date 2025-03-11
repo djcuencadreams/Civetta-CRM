@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { v4 as uuidv4 } from 'uuid';
+import { Request, Response, NextFunction } from 'express';
 
 // Configure pino logger
 const logger = pino({
@@ -79,6 +80,57 @@ export function logError(
 }
 
 /**
+ * Request logging middleware for Express
+ * Logs information about each incoming request and its response
+ */
+export function requestLoggerMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // Generate a unique request ID if not provided
+  const requestId = req.headers['x-request-id'] as string || uuidv4();
+  
+  // Set the request ID header on response
+  res.setHeader('X-Request-ID', requestId);
+  
+  // Record start time
+  const startTime = process.hrtime();
+  
+  // Create a request-specific logger
+  const reqLogger = logger.child({
+    requestId,
+    method: req.method,
+    url: req.originalUrl || req.url,
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  
+  // Log incoming request
+  reqLogger.info('Request received');
+  
+  // Log response when complete
+  res.on('finish', () => {
+    // Calculate response time
+    const hrDuration = process.hrtime(startTime);
+    const responseTimeMs = hrDuration[0] * 1000 + hrDuration[1] / 1000000;
+    
+    const logData = {
+      statusCode: res.statusCode,
+      responseTimeMs: Math.round(responseTimeMs),
+      contentLength: res.get('content-length') || 0
+    };
+    
+    // Log with appropriate level based on response code
+    if (res.statusCode >= 500) {
+      reqLogger.error(logData, 'Request failed with server error');
+    } else if (res.statusCode >= 400) {
+      reqLogger.warn(logData, 'Request failed with client error');
+    } else {
+      reqLogger.info(logData, 'Request completed successfully');
+    }
+  });
+  
+  next();
+}
+
+/**
  * Express error handler middleware
  * @param err Error object
  * @param req Express request
@@ -87,9 +139,9 @@ export function logError(
  */
 export function errorHandler(
   err: any,
-  req: any,
-  res: any,
-  next: any
+  req: Request,
+  res: Response,
+  next: NextFunction
 ): void {
   // Generate a unique error ID
   const errorId = uuidv4();
@@ -101,6 +153,7 @@ export function errorHandler(
     method: req.method,
     ip: req.ip,
     origin: req.get('origin') || req.get('host'),
+    requestId: req.headers['x-request-id'] || 'unknown',
   });
   
   // Determine if this is a known error with a status code
@@ -116,6 +169,43 @@ export function errorHandler(
   
   // Send the response
   res.status(statusCode).json(errorResponse);
+}
+
+/**
+ * Custom API Error class with built-in status code handling
+ */
+export class ApiError extends Error {
+  statusCode: number;
+  
+  constructor(message: string, statusCode: number = 500) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+  }
+  
+  static badRequest(message: string) {
+    return new ApiError(message, 400);
+  }
+  
+  static unauthorized(message: string = 'Unauthorized') {
+    return new ApiError(message, 401);
+  }
+  
+  static forbidden(message: string = 'Forbidden') {
+    return new ApiError(message, 403);
+  }
+  
+  static notFound(message: string = 'Resource not found') {
+    return new ApiError(message, 404);
+  }
+  
+  static conflict(message: string = 'Resource conflict') {
+    return new ApiError(message, 409);
+  }
+  
+  static internal(message: string = 'Internal Server Error') {
+    return new ApiError(message, 500);
+  }
 }
 
 // Export the default logger

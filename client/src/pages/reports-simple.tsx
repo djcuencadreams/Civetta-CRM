@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/queryClient';
+import { logError } from '@/lib/errorHandler';
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/queryClient';
-import { ServerStatusIndicator } from '@/components/ServerHealth';
-import { withErrorBoundary } from '@/components/ErrorBoundary';
-import { logError } from '@/lib/errorHandler';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ServerStatusIndicator } from '@/components/ServerHealth';
 
 // Sample component with error handling
 function ReportsSimplePage() {

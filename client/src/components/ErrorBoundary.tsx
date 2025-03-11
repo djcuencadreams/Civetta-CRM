@@ -52,7 +52,7 @@ export function ErrorFallback({ error, resetErrorBoundary, errorInfo }: Fallback
           <div className="mb-4">
             <div className="text-sm font-medium mb-1">Component Stack:</div>
             <div className="text-xs p-2 bg-muted rounded max-h-[200px] overflow-auto font-mono">
-              {errorInfo.componentStack.split('\n').map((line, i) => 
+              {errorInfo.componentStack?.split('\n').map((line, i) => 
                 <div key={i} className="whitespace-nowrap">{line}</div>
               )}
             </div>

@@ -45,11 +45,13 @@ export const useServerHealth = create<ServerHealthState>((set, get) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const healthData = await api<{
+      type HealthResponse = {
         status: string;
         message?: string;
         details?: Record<string, any>;
-      }>('/api/health', { 
+      };
+      
+      const healthData = await api<HealthResponse>('/api/health', { 
         signal: controller.signal 
       });
       
