@@ -8,6 +8,7 @@ import { customersService } from './customers.service';
 import { ordersService } from './orders.service';
 import { inventoryService } from './inventory.service';
 import { eventListenerService } from './event-listener.service';
+import { wooCommerceService } from './woocommerce.service';
 
 // Register all services
 serviceRegistry.register(leadsService);
@@ -15,6 +16,7 @@ serviceRegistry.register(customersService);
 serviceRegistry.register(ordersService);
 serviceRegistry.register(inventoryService);
 serviceRegistry.register(eventListenerService);
+serviceRegistry.register(wooCommerceService);
 
 // Export all services and registry
 export {
@@ -23,5 +25,6 @@ export {
   customersService,
   ordersService,
   inventoryService,
-  eventListenerService
+  eventListenerService,
+  wooCommerceService
 };
