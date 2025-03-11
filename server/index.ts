@@ -1,10 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
+import { registerEmailRoutes } from "./routes-email";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
+import { registerEmailEventHandlers } from "./lib/email.service";
 
 const app = express();
 app.use(express.json());
@@ -68,6 +70,14 @@ app.use((req, res, next) => {
 
   // Legacy routes (for backward compatibility)
   registerAdditionalRoutes(app);
+  
+  // Register email routes
+  registerEmailRoutes(app);
+  log("Email routes registered");
+  
+  // Register email event handlers
+  registerEmailEventHandlers();
+  log("Email event handlers registered");
   
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services

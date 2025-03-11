@@ -11,6 +11,7 @@ import { SiSlack, SiWhatsapp, SiZapier, SiWordpress } from "react-icons/si";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimpleSpreadsheetImporter } from "./SimpleSpreadsheetImporter";
 import { WordPressIntegration } from "../integrations/WordPressIntegration";
+import { EmailConfiguration } from "./EmailConfiguration";
 import { t } from "@/lib/i18n";
 
 export function ConfigurationPanel() {
@@ -63,8 +64,9 @@ export function ConfigurationPanel() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="integrations">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="integrations">Integraciones</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="import">Importación de datos</TabsTrigger>
         </TabsList>
 
@@ -163,6 +165,11 @@ export function ConfigurationPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-6">
+          {/* Configuración de Email */}
+          <EmailConfiguration />
         </TabsContent>
 
         <TabsContent value="import" className="space-y-6">
