@@ -18,6 +18,7 @@ export default function LeadsPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.split('?')[1]);
     if (searchParams.get('new') === 'true') {
+      setSelectedLead(undefined); // Limpiar el lead seleccionado
       setDialogOpen(true);
     }
   }, [location]);
@@ -29,7 +30,10 @@ export default function LeadsPage() {
           Leads
         </h1>
         <Button 
-          onClick={() => setDialogOpen(true)} 
+          onClick={() => {
+            setSelectedLead(undefined); // Limpiar el lead seleccionado
+            setDialogOpen(true);
+          }} 
           className="gap-2"
           size={isMobile ? "sm" : "default"}
         >
@@ -45,7 +49,12 @@ export default function LeadsPage() {
         }}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setSelectedLead(undefined); // Limpiar el lead seleccionado al cerrar el diálogo
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -59,7 +68,7 @@ export default function LeadsPage() {
             lead={selectedLead}
             onClose={() => {
               setDialogOpen(false);
-              setSelectedLead(undefined);
+              // No necesitamos limpiar selectedLead aquí porque ya lo hacemos en onOpenChange
             }}
           />
         </DialogContent>

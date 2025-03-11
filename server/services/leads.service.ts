@@ -59,6 +59,24 @@ export class LeadsService implements Service {
       validateBody(leadConversionSchema), 
       this.convertLeadToCustomer.bind(this)
     );
+    
+    // Simple conversion endpoint (without additional data)
+    app.post("/api/leads/:id/convert", 
+      validateParams(leadIdSchema),
+      async (req: Request, res: Response) => {
+        const self = this;
+        try {
+          const { id } = req.params;
+          const leadId = parseInt(id);
+          
+          const result = await self.convertLeadById(leadId);
+          res.json(result);
+        } catch (error: any) {
+          console.error('Error converting lead:', error);
+          res.status(500).json({ error: "Error al convertir lead: " + error.message });
+        }
+      }
+    );
   }
 
   /**
@@ -209,42 +227,34 @@ export class LeadsService implements Service {
 
       // If status changed to 'converted', convert lead to customer automatically
       if (status === 'converted' && existingLead.status !== 'converted') {
-        // Create new customer from lead data
-        const [customer] = await db.insert(customers).values({
-          name: name.trim(),
-          firstName,
-          lastName,
-          email: email?.trim() || existingLead.email,
-          phone: phone?.trim() || existingLead.phone,
-          phoneCountry: phoneCountry?.trim() || existingLead.phoneCountry,
-          street: street?.trim() || existingLead.street,
-          city: city?.trim() || existingLead.city,
-          province: province?.trim() || existingLead.province,
-          deliveryInstructions: deliveryInstructions?.trim() || existingLead.deliveryInstructions,
-          idNumber: idNumber?.trim() || existingLead.idNumber,
-          source: source || existingLead.source || 'website',
-          brand: brand || existingLead.brand || 'sleepwear',
-          notes: notes?.trim() || existingLead.notes,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }).returning();
-
-        // Update lead to mark as converted
-        await db.update(leads).set({
-          convertedToCustomer: true,
-          convertedCustomerId: customer.id,
-          status: 'converted',
-          updatedAt: new Date()
-        }).where(eq(leads.id, leadId));
-
-        console.log(`Created new customer (id: ${customer.id}) from lead ${leadId}`);
-
-        // Emit lead converted event
-        appEvents.emit(EventTypes.LEAD_CONVERTED, { 
-          lead: existingLead, 
-          customer 
-        });
-
+        // First update the lead with the new information
+        await db.update(leads)
+          .set({
+            name: name.trim(),
+            firstName,
+            lastName,
+            email: email?.trim() || null,
+            phone: phone?.trim() || null,
+            phoneCountry: phoneCountry?.trim() || null,
+            street: street?.trim() || null,
+            city: city?.trim() || null,
+            province: province?.trim() || null,
+            deliveryInstructions: deliveryInstructions?.trim() || null,
+            brandInterest: brandInterest?.trim() || existingLead.brandInterest,
+            idNumber: idNumber?.trim() || existingLead.idNumber,
+            notes: notes?.trim() || null,
+            // Don't update status yet as we'll do that in convertLeadById
+            source: source || existingLead.source,
+            brand: brand || existingLead.brand,
+            lastContact: lastContact ? new Date(lastContact) : existingLead.lastContact,
+            nextFollowUp: nextFollowUp ? new Date(nextFollowUp) : existingLead.nextFollowUp,
+            updatedAt: new Date()
+          })
+          .where(eq(leads.id, leadId));
+        
+        // Now use our reusable conversion function
+        const result = await this.convertLeadById(leadId);
+        
         res.json({
           id: leadId,
           name: name.trim(),
@@ -254,8 +264,7 @@ export class LeadsService implements Service {
           phone: phone?.trim() || existingLead.phone,
           status: 'converted',
           convertedToCustomer: true,
-          convertedCustomerId: customer.id,
-          // Include other updated fields...
+          convertedCustomerId: result.customer,
           updatedAt: new Date()
         });
         return;
@@ -332,7 +341,101 @@ export class LeadsService implements Service {
   }
 
   /**
-   * Convert a lead to a customer
+   * Convert a lead to a customer by ID (standalone function)
+   * This can be called from other parts of the application
+   * 
+   * @param leadId ID of the lead to convert
+   * @returns Object with the result of the conversion
+   */
+  async convertLeadById(leadId: number): Promise<{
+    lead: number;
+    customer: number;
+    success: boolean;
+  }> {
+    // Use direct select to ensure we get all fields
+    const [existingLead] = await db.select().from(leads).where(eq(leads.id, leadId));
+
+    if (!existingLead) {
+      throw new Error("Lead no encontrado");
+    }
+
+    // Check if the lead has already been converted
+    if (existingLead.convertedToCustomer && existingLead.convertedCustomerId) {
+      return {
+        lead: existingLead.id,
+        customer: existingLead.convertedCustomerId,
+        success: true
+      };
+    }
+
+    // Split name into first and last name
+    let firstName = existingLead.firstName || existingLead.name;
+    let lastName = existingLead.lastName || '';
+    
+    if (!existingLead.firstName && !existingLead.lastName) {
+      const nameParts = existingLead.name.trim().split(' ');
+      if (nameParts.length > 1) {
+        firstName = nameParts[0];
+        lastName = nameParts.slice(1).join(' ');
+      }
+    }
+
+    // Format notes to include brand interest if it exists
+    let customerNotes = existingLead.notes || null;
+    
+    if (existingLead.brandInterest) {
+      customerNotes = `Interés específico: ${existingLead.brandInterest}\n${customerNotes || ''}`.trim();
+    }
+    
+    const [customer] = await db.insert(customers)
+      .values({
+        name: existingLead.name.trim(),
+        firstName,
+        lastName,
+        email: existingLead.email,
+        phone: existingLead.phone,
+        phoneCountry: existingLead.phoneCountry,
+        // Copy lead's address info to customer
+        street: existingLead.street,
+        city: existingLead.city,
+        province: existingLead.province,
+        deliveryInstructions: existingLead.deliveryInstructions,
+        idNumber: existingLead.idNumber,
+        source: existingLead.source || 'website',
+        brand: existingLead.brand || 'sleepwear',
+        notes: customerNotes,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    // Then update lead to mark as converted
+    await db.update(leads)
+      .set({
+        convertedToCustomer: true,
+        convertedCustomerId: customer.id,
+        status: 'converted',
+        updatedAt: new Date()
+      })
+      .where(eq(leads.id, leadId));
+
+    console.log(`Converted lead ${existingLead.id} to customer ${customer.id}`);
+    
+    // Emit lead converted event
+    appEvents.emit(EventTypes.LEAD_CONVERTED, { 
+      lead: existingLead, 
+      customer 
+    });
+    
+    return { 
+      lead: existingLead.id, 
+      customer: customer.id,
+      success: true
+    };
+  }
+
+  /**
+   * Convert a lead to a customer (API endpoint handler)
    */
   async convertLeadToCustomer(req: Request, res: Response): Promise<void> {
     try {
@@ -352,59 +455,26 @@ export class LeadsService implements Service {
         return;
       }
 
-      // Format notes to include brand interest if it exists
-      let customerNotes = existingLead.notes || notes || null;
-      
-      // If brandInterest is provided in the request, use it
-      if (brandInterest) {
-        customerNotes = `Interés específico: ${brandInterest}\n${customerNotes || ''}`.trim();
-      } 
-      // Otherwise, if lead has brandInterest field, use that
-      else if (existingLead.brandInterest) {
-        customerNotes = `Interés específico: ${existingLead.brandInterest}\n${customerNotes || ''}`.trim();
-      }
-      
-      const [customer] = await db.insert(customers)
-        .values({
-          name: name.trim(),
-          email: email?.trim() || null,
-          phone: phone?.trim() || null,
-          // Copy lead's address info to customer if available
-          street: existingLead.street || null,
-          city: existingLead.city || null,
-          province: existingLead.province || null,
-          deliveryInstructions: existingLead.deliveryInstructions || null,
-          // Add ID number from the conversion process
-          idNumber: idNumber?.trim() || null,
-          source: source || 'website',
-          brand: existingLead.brand || brand || 'sleepwear', // Include brand information
-          notes: customerNotes // Use the prepared notes with brand interest
-        })
-        .returning();
-      
-      // Then update lead to mark as converted
+      // First update the lead with the additional information from the request
       await db.update(leads)
         .set({
-          convertedToCustomer: true,
-          convertedCustomerId: customer.id,
-          status: 'converted',
+          name: name.trim(),
+          email: email?.trim() || existingLead.email,
+          phone: phone?.trim() || existingLead.phone,
+          // Don't update status yet - the conversion will do that
+          brandInterest: brandInterest?.trim() || existingLead.brandInterest,
+          idNumber: idNumber?.trim() || existingLead.idNumber,
+          notes: notes?.trim() || existingLead.notes,
+          source: source || existingLead.source,
+          brand: brand || existingLead.brand,
           updatedAt: new Date()
         })
         .where(eq(leads.id, leadId));
-
-      console.log(`Converted lead ${existingLead.id} to customer ${customer.id} with ID number`);
       
-      // Emit lead converted event
-      appEvents.emit(EventTypes.LEAD_CONVERTED, { 
-        lead: existingLead, 
-        customer 
-      });
+      // Use our standalone function to perform the conversion
+      const result = await this.convertLeadById(leadId);
       
-      res.json({ 
-        lead: existingLead.id, 
-        customer: customer.id,
-        success: true
-      });
+      res.json(result);
     } catch (error: any) {
       console.error('Error converting lead with ID number:', error);
       res.status(500).json({ error: "Error al convertir lead: " + error.message });

@@ -90,9 +90,9 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
       }
 
       if (lead) {
-        return apiRequest(`/api/leads/${lead.id}`, 'PUT', payload);
+        return apiRequest('PUT', `/api/leads/${lead.id}`, payload);
       } else {
-        return apiRequest('/api/leads', 'POST', payload);
+        return apiRequest('POST', '/api/leads', payload);
       }
     },
     onError: (error: Error) => {
@@ -118,7 +118,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!lead) return null;
-      return apiRequest(`/api/leads/${lead.id}`, 'DELETE');
+      return apiRequest('DELETE', `/api/leads/${lead.id}`);
     },
     onError: (error: Error) => {
       toast({
@@ -159,7 +159,7 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
         idNumber: idNumber.trim() // Add the ID number from the dialog
       };
 
-      return apiRequest(`/api/leads/${lead.id}/convert-with-id`, 'PUT', payload);
+      return apiRequest('PUT', `/api/leads/${lead.id}/convert-with-id`, payload);
     },
     onError: (error: Error) => {
       toast({
