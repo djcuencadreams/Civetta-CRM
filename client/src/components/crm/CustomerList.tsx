@@ -1,13 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { User, Phone, Mail, MapPin } from "lucide-react";
+import { User, Phone, Mail, MapPin, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "@/lib/i18n";
 import { type Customer, brandEnum } from "@db/schema";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
+import { useToast } from "@/hooks/use-toast";
+import { useErrorHandler } from "@/hooks/use-error-handler";
+import { captureError as logError } from "@/lib/error-handling/monitoring";
 
 // Extended Customer type with optional mode for view/edit
 type CustomerWithMode = Customer & {
@@ -26,6 +29,8 @@ export function CustomerList({
   const [searchText, setSearchText] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const { handleError } = useErrorHandler();
+  const { toast } = useToast();
 
   // Merge external filters when provided
   useEffect(() => {
@@ -37,10 +42,23 @@ export function CustomerList({
     }
   }, [externalFilters]);
 
-  const { data: customers, isLoading } = useQuery<Customer[]>({
+  // Use the query client with improved error handling
+  const { 
+    data: customers, 
+    isLoading, 
+    isError, 
+    error 
+  } = useQuery<Customer[]>({
     queryKey: ["/api/customers", brand, filters], // Add filters to queryKey
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 60000, // 1 minute
+    retry: 1,
     select: (data) => {
+      // Ensure we always have an array, even if the API returns null or undefined
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
       // Filter customers by name (non-empty) and brand if specified
       let filtered = data?.filter(customer => customer.name?.trim());
 
@@ -52,64 +70,94 @@ export function CustomerList({
       return filtered;
     }
   });
+  
+  // Handle any errors with our custom error handler
+  useEffect(() => {
+    if (isError && error) {
+      handleError(error, { 
+        context: 'Customer List',
+        operation: 'loading customer data',
+        showToast: true
+      });
+    }
+  }, [isError, error, handleError]);
 
   // Apply filters whenever customers, searchText, or filters change
   useEffect(() => {
-    if (!customers) {
-      setFilteredCustomers([]);
-      return;
-    }
+    try {
+      // Ensure customers is an array (defensive programming)
+      if (!customers || !Array.isArray(customers)) {
+        setFilteredCustomers([]);
+        return;
+      }
 
-    let result = [...customers];
+      let result = [...customers];
 
-    // Apply text search across multiple fields
-    if (searchText) {
-      const lowerSearch = searchText.toLowerCase();
-      result = result.filter(customer => {
-        return (
-          (customer.name && customer.name.toLowerCase().includes(lowerSearch)) ||
-          (customer.email && customer.email.toLowerCase().includes(lowerSearch)) ||
-          (customer.phone && customer.phone.toLowerCase().includes(lowerSearch)) ||
-          (customer.address && customer.address.toLowerCase().includes(lowerSearch))
+      // Apply text search across multiple fields
+      if (searchText) {
+        const lowerSearch = searchText.toLowerCase();
+        result = result.filter(customer => {
+          return (
+            (customer.name && customer.name.toLowerCase().includes(lowerSearch)) ||
+            (customer.email && customer.email.toLowerCase().includes(lowerSearch)) ||
+            (customer.phone && customer.phone.toLowerCase().includes(lowerSearch)) ||
+            (customer.address && customer.address.toLowerCase().includes(lowerSearch))
+          );
+        });
+      }
+
+      // Apply advanced filters - Updated to use "all" instead of empty string
+      if (filters.source && filters.source !== "all") {
+        result = result.filter(customer => customer.source === filters.source);
+      }
+      
+      // Filter customers by identification number status
+      if (filters.hasIdNumber && filters.hasIdNumber !== "all") {
+        if (filters.hasIdNumber === "yes") {
+          result = result.filter(customer => customer.idNumber !== null && customer.idNumber !== "");
+        } else if (filters.hasIdNumber === "no") {
+          result = result.filter(customer => !customer.idNumber);
+        }
+      }
+
+      if (filters.brand && filters.brand !== "all" && !brand) {
+        // Only apply brand filter here if not already filtered by prop
+        result = result.filter(customer => customer.brand === filters.brand);
+      }
+
+      if (filters.city && filters.city !== "") {
+        result = result.filter(customer => 
+          customer.address && 
+          customer.address.toLowerCase().includes(filters.city as string)
         );
+      }
+
+      if (filters.province && filters.province !== "all") {
+        result = result.filter(customer => 
+          customer.address && 
+          customer.address.toLowerCase().includes(filters.province as string)
+        );
+      }
+
+      setFilteredCustomers(result);
+    } catch (error) {
+      // Log the error with structured error handling
+      logError(error, { 
+        component: 'CustomerList', 
+        operation: 'filter_and_sort',
+        filters: JSON.stringify(filters),
+        brand 
+      });
+      setFilteredCustomers([]);
+      
+      // Show toast notification for unexpected filter errors
+      toast({
+        title: "Error al procesar filtros",
+        description: "Ha ocurrido un error al filtrar los datos. Se han restablecido los filtros.",
+        variant: "destructive"
       });
     }
-
-    // Apply advanced filters - Updated to use "all" instead of empty string
-    if (filters.source && filters.source !== "all") {
-      result = result.filter(customer => customer.source === filters.source);
-    }
-    
-    // Filter customers by identification number status
-    if (filters.hasIdNumber && filters.hasIdNumber !== "all") {
-      if (filters.hasIdNumber === "yes") {
-        result = result.filter(customer => customer.idNumber !== null && customer.idNumber !== "");
-      } else if (filters.hasIdNumber === "no") {
-        result = result.filter(customer => !customer.idNumber);
-      }
-    }
-
-    if (filters.brand && filters.brand !== "all" && !brand) {
-      // Only apply brand filter here if not already filtered by prop
-      result = result.filter(customer => customer.brand === filters.brand);
-    }
-
-    if (filters.city && filters.city !== "") {
-      result = result.filter(customer => 
-        customer.address && 
-        customer.address.toLowerCase().includes(filters.city as string)
-      );
-    }
-
-    if (filters.province && filters.province !== "all") {
-      result = result.filter(customer => 
-        customer.address && 
-        customer.address.toLowerCase().includes(filters.province as string)
-      );
-    }
-
-    setFilteredCustomers(result);
-  }, [customers, searchText, filters, brand]);
+  }, [customers, searchText, filters, brand, toast]);
 
   // Get brand display name
   const getBrandDisplayName = (brandValue: string | null) => {
@@ -217,6 +265,33 @@ export function CustomerList({
             </CardContent>
           </Card>
         ))}
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-destructive/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-destructive mb-4">
+              <AlertCircle className="h-5 w-5" />
+              <h3 className="font-medium">Error al cargar los datos</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Se ha producido un error al intentar cargar los datos de clientes. 
+              Por favor, intente nuevamente en unos momentos.
+            </p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/customers"] })}
+              size="sm"
+              variant="outline"
+            >
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

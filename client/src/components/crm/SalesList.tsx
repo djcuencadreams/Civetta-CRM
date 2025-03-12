@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { es } from "date-fns/locale";
-import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
 import { OrderStatusUpdater } from "./OrderStatusUpdater";
@@ -16,6 +16,7 @@ import { SalesForm } from "./SalesForm";
 import { Edit, CheckCircle, Package, Truck, ShoppingBag, XCircle, Trash2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { captureError as logError } from "@/lib/error-handling/monitoring";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 // Definir el tipo Customer basado en lo que devuelve la API
 type Customer = {
@@ -97,6 +98,7 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { handleError } = useErrorHandler();
   
   // Función para manejar la edición de una venta
   const handleEditSale = (sale: Sale) => {
@@ -145,27 +147,37 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
     }
   }, [externalFilters]);
 
-  const { data: sales, isLoading, isError, error: queryError } = useQuery<SaleWithCustomer[]>({
+  // Use the query client with the improved error handling
+  const { data: sales, isLoading, isError, error } = useQuery<SaleWithCustomer[]>({
     queryKey: ["/api/sales", brand, filters],
-    queryFn: () => getQueryFn<SaleWithCustomer[]>("/api/sales")(),
-    retry: 2,
-    onError: (error: Error) => {
-      logError(error, { 
-        component: 'SalesList', 
-        operation: 'fetchSales',
-        brand: brand || 'all', 
-        filters: JSON.stringify(filters)
-      });
-    },
-    select: (data) => {
+    queryFn: getQueryFn<SaleWithCustomer[]>(),
+    staleTime: 60000, // 1 minute
+    retry: 1,
+    select: data => {
+      // Ensure we always have an array, even if the API returns null or undefined
+      if (!data || !Array.isArray(data)) {
+        return [];
+      }
+      
       // Apply brand filter if specified
-      if (brand) {
+      if (brand && Array.isArray(data)) {
         return data.filter(sale => sale.brand === brand);
       }
+      
       return data;
-    },
-    placeholderData: [] // Provide empty array as placeholder to prevent undefined
+    }
   });
+  
+  // Handle any errors with our custom error handler
+  useEffect(() => {
+    if (isError && error) {
+      handleError(error, { 
+        context: 'Sales List',
+        operation: 'loading sales data',
+        showToast: true
+      });
+    }
+  }, [isError, error, handleError]);
 
   // Apply filters and sorting whenever sales, searchText, or filters change
   useEffect(() => {

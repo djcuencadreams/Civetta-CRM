@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query';
 import { logError } from '@/lib/error-handling';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,10 +20,23 @@ export async function api<T>(
   
   try {
     // Log request in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log(`🔄 [${requestId}] Request: ${options.method || 'GET'} ${url}`);
       if (options.body) {
         console.log(`Request Body: ${options.body}`);
+      }
+    }
+    
+    // For requests with AbortSignal, we'll handle abort errors specially
+    const abortSignal = options.signal;
+    let abortHandled = false;
+    
+    // If we have an abort signal, set up our handler
+    if (abortSignal) {
+      // Check if already aborted (would throw immediately)
+      if (abortSignal.aborted) {
+        console.debug(`Request aborted before start: ${options.method || 'GET'} ${url}`);
+        return {} as T; // Return empty object instead of throwing
       }
     }
     
@@ -59,7 +72,7 @@ export async function api<T>(
     const data = await response.json();
     
     // Log response in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log(`✅ [${requestId}] Response: ${response.status} (${responseTime}ms)`);
     }
     
@@ -92,10 +105,10 @@ export async function api<T>(
     const responseTime = Date.now() - startTime;
     
     // Handle AbortError more gracefully (often happens during component unmounting)
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       // Don't log abort errors as they are typically intentional and not actual errors
-      console.debug(`Request aborted: ${options.method || 'GET'} ${url}`);
-      throw error; // Still throw so React Query can handle it properly
+      console.debug(`Request aborted safely: ${options.method || 'GET'} ${url}`);
+      return {} as T; // Return empty result instead of throwing
     }
     
     // Only log errors that weren't already logged in the API error handling
@@ -128,8 +141,18 @@ export function getQueryFn<T>(options?: QueryFnOptions) {
     // Use the first element in query key as the endpoint
     const endpoint = context.queryKey[0] as string;
     
-    // Make the API request with abort signal if provided
-    return api<T>(endpoint, { signal: context.signal });
+    try {
+      // Make the API request with abort signal if provided
+      return await api<T>(endpoint, { signal: context.signal });
+    } catch (error) {
+      // If the error is an AbortError, return an empty result instead of throwing
+      // This prevents React Query from showing errors when components unmount
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.debug(`Request aborted safely: GET ${endpoint}`);
+        return {} as T;
+      }
+      throw error;
+    }
   };
 }
 
@@ -172,24 +195,72 @@ export async function apiRequest<T, U = any>(
   }
 }
 
+// Helper to determine if an error is an abort error
+export function isAbortError(error: unknown): boolean {
+  return error instanceof Error && 
+    (error.name === 'AbortError' || error.message.includes('aborted'));
+}
+
 // Create and export the React Query client instance with enhanced error handling
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error: Error) => {
+      retry: (failureCount, error: unknown) => {
         // Don't retry for AbortError or 404s
-        if (error instanceof Error) {
-          if (error.name === 'AbortError') return false;
-          if ((error as any).statusCode === 404) return false;
-        }
+        if (isAbortError(error)) return false;
+        if (error && typeof error === 'object' && 'statusCode' in error && (error as any).statusCode === 404) return false;
         return failureCount < 2; // Only retry twice for other errors
       },
+      // Don't refresh on window focus to avoid unnecessary requests
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      // Cache data for 5 minutes (reduces network requests)
+      staleTime: 1000 * 60 * 5,
+      // Important: adding this flag prevents React Query from throwing
+      // when a component unmounts during a query
+      gcTime: 1000 * 60 * 5, // 5 minutes
     },
     mutations: {
+      // No retry for mutations - they should be explicitly retried by the user
+      retry: false
     }
   },
+  // Global query event listeners
+  queryCache: new QueryCache({
+    onError: (error: unknown, query: any) => {
+      if (isAbortError(error)) {
+        // Don't log abort errors as they are typically intentional
+        console.debug(`Request aborted (expected behavior for ${query.queryKey})`);
+        return;
+      }
+      
+      // Log all other errors with context
+      logError(error, { 
+        source: 'queryCache',
+        queryKey: Array.isArray(query.queryKey) 
+          ? query.queryKey.join('/')
+          : String(query.queryKey),
+        metadata: query.meta
+      });
+    }
+  }),
+  // Global mutation event listeners
+  mutationCache: new MutationCache({
+    onError: (error: unknown, mutation: any) => {
+      if (isAbortError(error)) {
+        console.debug(`Mutation aborted (expected behavior)`);
+        return;
+      }
+      
+      // Log all other errors with context
+      logError(error, { 
+        source: 'mutationCache',
+        mutationKey: mutation.options?.mutationKey?.toString() || 'unknown',
+        variables: mutation.state?.variables 
+          ? JSON.stringify(mutation.state.variables).substring(0, 200) 
+          : 'none' // Limit string length
+      });
+    }
+  })
 });
 
 // Export the React Query utils

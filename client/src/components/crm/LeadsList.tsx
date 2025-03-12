@@ -1,13 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card } from "@/components/ui/card";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 import { type Lead } from "@db/schema";
 import { useState, useEffect } from "react";
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, queryClient } from "@/lib/queryClient";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
+import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { captureError as logError } from "@/lib/error-handling/monitoring";
 
 interface LeadsListProps {
   onSelect: (lead: Lead) => void;
@@ -18,6 +23,9 @@ export function LeadsList({ onSelect }: LeadsListProps) {
   const [searchText, setSearchText] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
+  
+  // Get error handler from our custom hook
+  const { handleError } = useErrorHandler();
 
   const { data: leads, isLoading, isError, error } = useQuery<Lead[]>({ 
     queryKey: ["/api/leads"],
@@ -26,144 +34,162 @@ export function LeadsList({ onSelect }: LeadsListProps) {
     gcTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
+  // Handle any errors with our custom error handler
   useEffect(() => {
-    if (isError) {
-      console.error('Leads fetch error:', error);
-      toast({
-        title: "Error al cargar leads",
-        description: error instanceof Error ? error.message : "No se pudieron cargar los leads. Por favor, intente nuevamente.",
-        variant: "destructive",
+    if (isError && error) {
+      handleError(error, { 
+        context: 'Leads List',
+        operation: 'loading leads data',
+        showToast: true
       });
     }
-  }, [isError, error, toast]);
+  }, [isError, error, handleError]);
 
   // Apply filters whenever leads, searchText, or filters change
   useEffect(() => {
-    if (!leads) {
+    try {
+      // Ensure leads is an array (defensive programming)
+      if (!leads || !Array.isArray(leads)) {
+        setFilteredLeads([]);
+        return;
+      }
+
+      // Start with only active leads (not converted to customers)
+      let result = leads.filter(lead => !lead.convertedToCustomer);
+
+      // Apply text search across multiple fields
+      if (searchText) {
+        const lowerSearch = searchText.toLowerCase();
+        result = result.filter(lead => {
+          return (
+            (lead.name && lead.name.toLowerCase().includes(lowerSearch)) ||
+            (lead.email && lead.email.toLowerCase().includes(lowerSearch)) ||
+            (lead.phone && lead.phone.toLowerCase().includes(lowerSearch)) ||
+            (lead.notes && lead.notes.toLowerCase().includes(lowerSearch))
+          );
+        });
+      }
+
+      // Apply advanced filters
+      if (filters.status && filters.status !== "all") {
+        result = result.filter(lead => lead.status === filters.status);
+      }
+
+      if (filters.source && filters.source !== "all") {
+        result = result.filter(lead => lead.source === filters.source);
+      }
+
+      if (filters.brand && filters.brand !== "all") {
+        result = result.filter(lead => lead.brand === filters.brand);
+      }
+
+      // Fix for date filters - safely handle all potential value types
+      if (filters.lastContactFrom) {
+        // Ensure we're working with a single value, not an array
+        const filterValue = Array.isArray(filters.lastContactFrom)
+          ? filters.lastContactFrom[0]
+          : filters.lastContactFrom;
+
+        if (filterValue) {
+          // Convert to Date if it's not already
+          const fromDate = filterValue instanceof Date
+            ? filterValue
+            : new Date(String(filterValue));
+
+          if (!isNaN(fromDate.getTime())) {
+            result = result.filter(lead => {
+              if (!lead.lastContact) return false;
+              const lastContactDate = new Date(lead.lastContact);
+              return lastContactDate >= fromDate;
+            });
+          }
+        }
+      }
+
+      if (filters.lastContactTo) {
+        // Ensure we're working with a single value, not an array
+        const filterValue = Array.isArray(filters.lastContactTo)
+          ? filters.lastContactTo[0]
+          : filters.lastContactTo;
+
+        if (filterValue) {
+          // Convert to Date if it's not already
+          const toDate = filterValue instanceof Date
+            ? filterValue
+            : new Date(String(filterValue));
+
+          if (!isNaN(toDate.getTime())) {
+            result = result.filter(lead => {
+              if (!lead.lastContact) return false;
+              const lastContactDate = new Date(lead.lastContact);
+              return lastContactDate <= toDate;
+            });
+          }
+        }
+      }
+
+      if (filters.nextFollowUpFrom) {
+        // Ensure we're working with a single value, not an array
+        const filterValue = Array.isArray(filters.nextFollowUpFrom)
+          ? filters.nextFollowUpFrom[0]
+          : filters.nextFollowUpFrom;
+
+        if (filterValue) {
+          // Convert to Date if it's not already
+          const fromDate = filterValue instanceof Date
+            ? filterValue
+            : new Date(String(filterValue));
+
+          if (!isNaN(fromDate.getTime())) {
+            result = result.filter(lead => {
+              if (!lead.nextFollowUp) return false;
+              const nextFollowUpDate = new Date(lead.nextFollowUp);
+              return nextFollowUpDate >= fromDate;
+            });
+          }
+        }
+      }
+
+      if (filters.nextFollowUpTo) {
+        // Ensure we're working with a single value, not an array
+        const filterValue = Array.isArray(filters.nextFollowUpTo)
+          ? filters.nextFollowUpTo[0]
+          : filters.nextFollowUpTo;
+
+        if (filterValue) {
+          // Convert to Date if it's not already
+          const toDate = filterValue instanceof Date
+            ? filterValue
+            : new Date(String(filterValue));
+
+          if (!isNaN(toDate.getTime())) {
+            result = result.filter(lead => {
+              if (!lead.nextFollowUp) return false;
+              const nextFollowUpDate = new Date(lead.nextFollowUp);
+              return nextFollowUpDate <= toDate;
+            });
+          }
+        }
+      }
+
+      setFilteredLeads(result);
+    } catch (error) {
+      // Log the error with structured error handling
+      logError(error, { 
+        component: 'LeadsList', 
+        operation: 'filter_and_sort',
+        filters: JSON.stringify(filters),
+      });
       setFilteredLeads([]);
-      return;
-    }
-
-    // Start with only active leads (not converted to customers)
-    let result = leads.filter(lead => !lead.convertedToCustomer);
-
-    // Apply text search across multiple fields
-    if (searchText) {
-      const lowerSearch = searchText.toLowerCase();
-      result = result.filter(lead => {
-        return (
-          (lead.name && lead.name.toLowerCase().includes(lowerSearch)) ||
-          (lead.email && lead.email.toLowerCase().includes(lowerSearch)) ||
-          (lead.phone && lead.phone.toLowerCase().includes(lowerSearch)) ||
-          (lead.notes && lead.notes.toLowerCase().includes(lowerSearch))
-        );
+      
+      // Show toast notification for unexpected filter errors
+      toast({
+        title: "Error al procesar filtros",
+        description: "Ha ocurrido un error al filtrar los datos. Se han restablecido los filtros.",
+        variant: "destructive"
       });
     }
-
-    // Apply advanced filters
-    if (filters.status && filters.status !== "all") {
-      result = result.filter(lead => lead.status === filters.status);
-    }
-
-    if (filters.source && filters.source !== "all") {
-      result = result.filter(lead => lead.source === filters.source);
-    }
-
-    if (filters.brand && filters.brand !== "all") {
-      result = result.filter(lead => lead.brand === filters.brand);
-    }
-
-    // Fix for date filters - safely handle all potential value types
-    if (filters.lastContactFrom) {
-      // Ensure we're working with a single value, not an array
-      const filterValue = Array.isArray(filters.lastContactFrom)
-        ? filters.lastContactFrom[0]
-        : filters.lastContactFrom;
-
-      if (filterValue) {
-        // Convert to Date if it's not already
-        const fromDate = filterValue instanceof Date
-          ? filterValue
-          : new Date(String(filterValue));
-
-        if (!isNaN(fromDate.getTime())) {
-          result = result.filter(lead => {
-            if (!lead.lastContact) return false;
-            const lastContactDate = new Date(lead.lastContact);
-            return lastContactDate >= fromDate;
-          });
-        }
-      }
-    }
-
-    if (filters.lastContactTo) {
-      // Ensure we're working with a single value, not an array
-      const filterValue = Array.isArray(filters.lastContactTo)
-        ? filters.lastContactTo[0]
-        : filters.lastContactTo;
-
-      if (filterValue) {
-        // Convert to Date if it's not already
-        const toDate = filterValue instanceof Date
-          ? filterValue
-          : new Date(String(filterValue));
-
-        if (!isNaN(toDate.getTime())) {
-          result = result.filter(lead => {
-            if (!lead.lastContact) return false;
-            const lastContactDate = new Date(lead.lastContact);
-            return lastContactDate <= toDate;
-          });
-        }
-      }
-    }
-
-    if (filters.nextFollowUpFrom) {
-      // Ensure we're working with a single value, not an array
-      const filterValue = Array.isArray(filters.nextFollowUpFrom)
-        ? filters.nextFollowUpFrom[0]
-        : filters.nextFollowUpFrom;
-
-      if (filterValue) {
-        // Convert to Date if it's not already
-        const fromDate = filterValue instanceof Date
-          ? filterValue
-          : new Date(String(filterValue));
-
-        if (!isNaN(fromDate.getTime())) {
-          result = result.filter(lead => {
-            if (!lead.nextFollowUp) return false;
-            const nextFollowUpDate = new Date(lead.nextFollowUp);
-            return nextFollowUpDate >= fromDate;
-          });
-        }
-      }
-    }
-
-    if (filters.nextFollowUpTo) {
-      // Ensure we're working with a single value, not an array
-      const filterValue = Array.isArray(filters.nextFollowUpTo)
-        ? filters.nextFollowUpTo[0]
-        : filters.nextFollowUpTo;
-
-      if (filterValue) {
-        // Convert to Date if it's not already
-        const toDate = filterValue instanceof Date
-          ? filterValue
-          : new Date(String(filterValue));
-
-        if (!isNaN(toDate.getTime())) {
-          result = result.filter(lead => {
-            if (!lead.nextFollowUp) return false;
-            const nextFollowUpDate = new Date(lead.nextFollowUp);
-            return nextFollowUpDate <= toDate;
-          });
-        }
-      }
-    }
-
-    setFilteredLeads(result);
-  }, [leads, searchText, filters]);
+  }, [leads, searchText, filters, toast]);
 
   const funnelStages = {
     new: "bg-blue-500",
@@ -253,7 +279,48 @@ export function LeadsList({ onSelect }: LeadsListProps) {
     setFilters({});
   };
 
-  if (isLoading) return <div>Cargando leads...</div>;
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <Skeleton className="h-6 w-1/4 mb-2" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-destructive/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-destructive mb-4">
+              <AlertCircle className="h-5 w-5" />
+              <h3 className="font-medium">Error al cargar los datos</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Se ha producido un error al intentar cargar los datos de leads. 
+              Por favor, intente nuevamente en unos momentos.
+            </p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/leads"] })}
+              size="sm"
+              variant="outline"
+            >
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const activeLeads = leads?.filter(lead => !lead.convertedToCustomer) ?? [];
 
