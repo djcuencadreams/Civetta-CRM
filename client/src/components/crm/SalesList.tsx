@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { SalesForm } from "./SalesForm";
 import { Edit, CheckCircle, Package, Truck, ShoppingBag, XCircle, Trash2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { captureError as logError } from "@/lib/error-handling/monitoring";
 
 // Definir el tipo Customer basado en lo que devuelve la API
 type Customer = {
@@ -112,7 +113,7 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
   // Mutación para eliminar una venta
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/sales/${id}`);
+      return apiRequest({ method: "DELETE", url: `/api/sales/${id}` });
     },
     onSuccess: (data) => {
       toast({
@@ -144,106 +145,130 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
     }
   }, [externalFilters]);
 
-  const { data: sales, isLoading } = useQuery<SaleWithCustomer[]>({
+  const { data: sales, isLoading, isError, error: queryError } = useQuery<SaleWithCustomer[]>({
     queryKey: ["/api/sales", brand, filters],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryFn: () => getQueryFn<SaleWithCustomer[]>("/api/sales")(),
+    retry: 2,
+    onError: (error: Error) => {
+      logError(error, { 
+        component: 'SalesList', 
+        operation: 'fetchSales',
+        brand: brand || 'all', 
+        filters: JSON.stringify(filters)
+      });
+    },
     select: (data) => {
       // Apply brand filter if specified
       if (brand) {
         return data.filter(sale => sale.brand === brand);
       }
       return data;
-    }
+    },
+    placeholderData: [] // Provide empty array as placeholder to prevent undefined
   });
 
   // Apply filters and sorting whenever sales, searchText, or filters change
   useEffect(() => {
-    if (!sales) {
+    try {
+      // Ensure sales is an array (defensive programming)
+      const salesArray = Array.isArray(sales) ? sales : [];
+      
+      if (salesArray.length === 0) {
+        setFilteredSales([]);
+        return;
+      }
+
+      let result = [...salesArray];
+
+      // Apply text search across multiple fields
+      if (searchText) {
+        const lowerSearch = searchText.toLowerCase();
+        result = result.filter(sale => {
+          return (
+            (sale.customer?.name && sale.customer.name.toLowerCase().includes(lowerSearch)) ||
+            (sale.notes && sale.notes.toLowerCase().includes(lowerSearch)) ||
+            (sale.amount && sale.amount.toString().includes(lowerSearch))
+          );
+        });
+      }
+
+      // Apply advanced filters - Fixed to use "all" instead of empty string
+      if (filters.status && filters.status !== "all") {
+        result = result.filter(sale => sale.status === filters.status);
+      }
+
+      if (filters.brand && filters.brand !== "all" && !brand) {
+        // Only apply brand filter here if not already filtered by prop
+        result = result.filter(sale => sale.brand === filters.brand);
+      }
+
+      if (filters.minAmount && !isNaN(Number(filters.minAmount))) {
+        const minAmount = Number(filters.minAmount);
+        result = result.filter(sale => Number(sale.amount) >= minAmount);
+      }
+
+      if (filters.maxAmount && !isNaN(Number(filters.maxAmount))) {
+        const maxAmount = Number(filters.maxAmount);
+        result = result.filter(sale => Number(sale.amount) <= maxAmount);
+      }
+
+      if (filters.dateFrom && filters.dateFrom instanceof Date) {
+        result = result.filter(sale => {
+          const saleDate = new Date(sale.createdAt);
+          return saleDate >= (filters.dateFrom as Date);
+        });
+      }
+
+      if (filters.dateTo && filters.dateTo instanceof Date) {
+        result = result.filter(sale => {
+          const saleDate = new Date(sale.createdAt);
+          return saleDate <= (filters.dateTo as Date);
+        });
+      }
+
+      // Apply sorting
+      result.sort((a, b) => {
+        let valueA, valueB;
+
+        switch (sortField) {
+          case "amount":
+            valueA = Number(a.amount);
+            valueB = Number(b.amount);
+            break;
+          case "customerName":
+            // Usar el nombre del cliente o por ID si no está disponible
+            valueA = a.customer?.name?.toLowerCase() || String(a.customerId);
+            valueB = b.customer?.name?.toLowerCase() || String(b.customerId);
+            break;
+          case "status":
+            valueA = a.status;
+            valueB = b.status;
+            break;
+          case "createdAt":
+          default:
+            valueA = new Date(a.createdAt).getTime();
+            valueB = new Date(b.createdAt).getTime();
+        }
+
+        // Apply sort direction
+        if (sortDirection === "asc") {
+          return valueA > valueB ? 1 : -1;
+        } else {
+          return valueA < valueB ? 1 : -1;
+        }
+      });
+
+      setFilteredSales(result);
+    } catch (error) {
+      // Log the error with structured error handling
+      logError(error, { 
+        component: 'SalesList', 
+        operation: 'filter_and_sort',
+        filters: JSON.stringify(filters),
+        brand 
+      });
       setFilteredSales([]);
-      return;
     }
-
-    let result = [...sales];
-
-    // Apply text search across multiple fields
-    if (searchText) {
-      const lowerSearch = searchText.toLowerCase();
-      result = result.filter(sale => {
-        return (
-          (sale.customer?.name && sale.customer.name.toLowerCase().includes(lowerSearch)) ||
-          (sale.notes && sale.notes.toLowerCase().includes(lowerSearch)) ||
-          (sale.amount && sale.amount.toString().includes(lowerSearch))
-        );
-      });
-    }
-
-    // Apply advanced filters - Fixed to use "all" instead of empty string
-    if (filters.status && filters.status !== "all") {
-      result = result.filter(sale => sale.status === filters.status);
-    }
-
-    if (filters.brand && filters.brand !== "all" && !brand) {
-      // Only apply brand filter here if not already filtered by prop
-      result = result.filter(sale => sale.brand === filters.brand);
-    }
-
-    if (filters.minAmount && !isNaN(Number(filters.minAmount))) {
-      const minAmount = Number(filters.minAmount);
-      result = result.filter(sale => Number(sale.amount) >= minAmount);
-    }
-
-    if (filters.maxAmount && !isNaN(Number(filters.maxAmount))) {
-      const maxAmount = Number(filters.maxAmount);
-      result = result.filter(sale => Number(sale.amount) <= maxAmount);
-    }
-
-    if (filters.dateFrom && filters.dateFrom instanceof Date) {
-      result = result.filter(sale => {
-        const saleDate = new Date(sale.createdAt);
-        return saleDate >= (filters.dateFrom as Date);
-      });
-    }
-
-    if (filters.dateTo && filters.dateTo instanceof Date) {
-      result = result.filter(sale => {
-        const saleDate = new Date(sale.createdAt);
-        return saleDate <= (filters.dateTo as Date);
-      });
-    }
-
-    // Apply sorting
-    result.sort((a, b) => {
-      let valueA, valueB;
-
-      switch (sortField) {
-        case "amount":
-          valueA = Number(a.amount);
-          valueB = Number(b.amount);
-          break;
-        case "customerName":
-          // Usar el nombre del cliente o por ID si no está disponible
-          valueA = a.customer?.name?.toLowerCase() || String(a.customerId);
-          valueB = b.customer?.name?.toLowerCase() || String(b.customerId);
-          break;
-        case "status":
-          valueA = a.status;
-          valueB = b.status;
-          break;
-        case "createdAt":
-        default:
-          valueA = new Date(a.createdAt).getTime();
-          valueB = new Date(b.createdAt).getTime();
-      }
-
-      // Apply sort direction
-      if (sortDirection === "asc") {
-        return valueA > valueB ? 1 : -1;
-      } else {
-        return valueA < valueB ? 1 : -1;
-      }
-    });
-
-    setFilteredSales(result);
   }, [sales, searchText, filters, brand, sortField, sortDirection]);
 
   // Get brand display name
@@ -326,6 +351,7 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
     }
   };
 
+  // Show loading state
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -337,6 +363,33 @@ export function SalesList({ brand, filters: externalFilters }: { brand?: string,
             </CardContent>
           </Card>
         ))}
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-destructive/50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-destructive mb-4">
+              <AlertCircle className="h-5 w-5" />
+              <h3 className="font-medium">Error al cargar los datos</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Se ha producido un error al intentar cargar los datos de ventas. 
+              Por favor, intente nuevamente en unos momentos.
+            </p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/sales"] })}
+              size="sm"
+              variant="outline"
+            >
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

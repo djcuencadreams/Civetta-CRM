@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@/lib/queryClient';
-import { logError } from '@/lib/errorHandler';
-import { withErrorBoundary } from '@/components/ErrorBoundary';
+import { captureError as logError } from '@/lib/error-handling/monitoring';
+import { withErrorBoundary } from '@/components/error-boundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

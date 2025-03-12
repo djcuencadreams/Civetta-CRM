@@ -136,14 +136,15 @@ export function ServerStatusIndicator(): JSX.Element {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge 
-            variant={badgeVariant} 
-            className="cursor-pointer" 
-            onClick={() => checkServer()}
-          >
-            {status === ServerHealthStatus.UNKNOWN ? 'Status: Checking...' : `Server: ${status}`}
-          </Badge>
+        <TooltipTrigger>
+          <span onClick={() => checkServer()}>
+            <Badge 
+              variant={badgeVariant} 
+              className="cursor-pointer"
+            >
+              {status === ServerHealthStatus.UNKNOWN ? 'Status: Checking...' : `Server: ${status}`}
+            </Badge>
+          </span>
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <div className="text-xs">

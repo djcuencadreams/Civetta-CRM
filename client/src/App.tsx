@@ -2,7 +2,9 @@ import React, { useEffect } from 'react'
 import { useState } from 'react'
 import { Route, Switch } from 'wouter'
 import { Shell } from './components/layout/Shell'
-import { logError } from './lib/errorHandler'
+import { logError } from '@/lib/error-handling'
+import ErrorBoundary from '@/components/error-boundary'
+import { ServerStatusIndicator } from './components/ServerHealth'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -44,43 +46,50 @@ function App() {
   }, []);
 
   return (
-    <Shell>
-      <Switch>
-        <Route path="/">
-          <Dashboard />
-        </Route>
-        <Route path="/customers">
-          <Customers />
-        </Route>
-        <Route path="/leads">
-          <Leads />
-        </Route>
-        <Route path="/sales">
-          <Sales />
-        </Route>
-        <Route path="/orders">
-          <Orders />
-        </Route>
-        <Route path="/products">
-          <Products />
-        </Route>
-        <Route path="/reports">
-          <SimpleReports />
-        </Route>
-        <Route path="/reports-new">
-          <EnhancedReports />
-        </Route>
-        <Route path="/reports-advanced">
-          <Reports />
-        </Route>
-        <Route path="/configuration">
-          <Configuration />
-        </Route>
-        <Route>
-          <NotFound />
-        </Route>
-      </Switch>
-    </Shell>
+    <ErrorBoundary>
+      <Shell>
+        {/* Server status indicator at the app level */}
+        <div className="fixed bottom-4 right-4 z-50">
+          <ServerStatusIndicator />
+        </div>
+        
+        <Switch>
+          <Route path="/">
+            <Dashboard />
+          </Route>
+          <Route path="/customers">
+            <Customers />
+          </Route>
+          <Route path="/leads">
+            <Leads />
+          </Route>
+          <Route path="/sales">
+            <Sales />
+          </Route>
+          <Route path="/orders">
+            <Orders />
+          </Route>
+          <Route path="/products">
+            <Products />
+          </Route>
+          <Route path="/reports">
+            <SimpleReports />
+          </Route>
+          <Route path="/reports-new">
+            <EnhancedReports />
+          </Route>
+          <Route path="/reports-advanced">
+            <Reports />
+          </Route>
+          <Route path="/configuration">
+            <Configuration />
+          </Route>
+          <Route>
+            <NotFound />
+          </Route>
+        </Switch>
+      </Shell>
+    </ErrorBoundary>
   )
 }
 

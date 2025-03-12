@@ -1,120 +1,167 @@
+/**
+ * Client-side error handling utilities
+ * This file provides structured error logging and handling functions for the frontend
+ */
+
 import { v4 as uuidv4 } from 'uuid';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
-/**
- * Error levels following standard logging conventions
- */
-export enum ErrorLevel {
-  ERROR = 'error',
-  WARNING = 'warning',
+// Logging levels
+export enum LogLevel {
+  DEBUG = 'debug',
   INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+  CRITICAL = 'critical'
 }
 
 /**
- * Interface for error context data
+ * Structured error logging with context
+ * 
+ * @param error The error object
+ * @param context Additional context information about where and how the error occurred
+ * @returns A unique error ID for tracking
  */
-export interface ErrorContext {
-  [key: string]: any;
-}
-
-/**
- * Log an error to the browser console with enhanced formatting
- * @param error Error object or error message string
- * @param context Additional context for the error
- * @param level Error severity level
- * @returns Generated error ID for reference
- */
-export function logError(
-  error: Error | unknown,
-  context: ErrorContext = {},
-  level: ErrorLevel = ErrorLevel.ERROR
-): string {
-  // Generate a unique ID for this error unless it already has one
-  const errorId = context.errorId || uuidv4();
+export function logError(error: unknown, context: Record<string, any> = {}): string {
+  // Generate a unique error ID for tracking
+  const errorId = uuidv4();
   
-  // Extract error details
-  const errorDetails = error instanceof Error
-    ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      }
-    : {
-        message: String(error),
-      };
+  // Extract error message and stack
+  const errorObj = error instanceof Error 
+    ? { message: error.message, stack: error.stack } 
+    : { message: String(error) };
   
-  // Create a structured log entry
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    ...errorDetails,
-    ...context,
+  // Structure the log with all relevant information
+  const logData = {
     errorId,
+    timestamp: new Date().toISOString(),
+    ...errorObj,
+    ...context
   };
   
-  // Log to console with appropriate level
-  if (level === ErrorLevel.ERROR) {
-    console.error(`[ERROR-${errorId}]`, logEntry);
-  } else if (level === ErrorLevel.WARNING) {
-    console.warn(`[WARN-${errorId}]`, logEntry);
-  } else {
-    console.info(`[INFO-${errorId}]`, logEntry);
-  }
+  // Log to console for development and monitoring tools
+  console.error('[ERROR]', logData);
   
+  // Return the error ID for reference
   return errorId;
 }
 
 /**
- * Log a warning to the browser console
- * @param message Warning message
- * @param context Additional context for the warning
- * @returns Generated warning ID for reference
+ * Log a warning message with context
+ * @param message Warning message to log
+ * @param context Additional context information 
  */
-export function logWarning(
-  message: string,
-  context: ErrorContext = {}
-): string {
-  return logError(new Error(message), context, ErrorLevel.WARNING);
+export function logWarning(message: string, context: Record<string, any> = {}): string {
+  // Generate a unique warning ID for tracking
+  const logId = uuidv4();
+  
+  // Structure the log with all relevant information
+  const logData = {
+    logId,
+    level: LogLevel.WARNING,
+    timestamp: new Date().toISOString(),
+    message,
+    ...context
+  };
+  
+  // Log to console for development and monitoring tools
+  console.warn('[WARNING]', logData);
+  
+  // Return the log ID for reference
+  return logId;
 }
 
 /**
- * Log an info message to the browser console
- * @param message Info message
- * @param context Additional context for the info message
- * @returns Generated message ID for reference
+ * React hook for error handling with toast notifications
  */
-export function logInfo(
-  message: string,
-  context: ErrorContext = {}
-): string {
-  return logError(new Error(message), context, ErrorLevel.INFO);
+export function useErrorHandler() {
+  const { toast } = useToast();
+  
+  /**
+   * Handle an error with a toast notification and logging
+   * @param error The error object
+   * @param context Additional context information
+   * @param showToast Whether to show a toast notification (default: true)
+   * @returns The error ID for reference
+   */
+  const handleError = (error: unknown, context: Record<string, any> = {}, showToast: boolean = true) => {
+    const errorId = logError(error, context);
+    
+    // Only show toast if requested (default) to avoid redundant UI feedback
+    if (showToast) {
+      toast({
+        title: "Error",
+        description: formatApiError(error) || `Ocurrió un error. ID: ${errorId.substring(0, 8)}`,
+        variant: "destructive",
+      });
+    }
+    
+    return errorId;
+  };
+  
+  /**
+   * Create an error handler function for a specific component
+   */
+  const createComponentErrorHandler = (componentName: string) => {
+    return (error: unknown, additionalContext: Record<string, any> = {}) => {
+      return handleError(error, { component: componentName, ...additionalContext });
+    };
+  };
+  
+  return { handleError, createComponentErrorHandler };
 }
 
 /**
- * Show an error toast notification with the error message and ID
- * @param error Error object or message
- * @param title Optional custom title
+ * Format API error messages in a user-friendly way
+ * @param error The error from an API request
+ * @returns A user-friendly error message
  */
-export function showErrorToast(
-  error: Error | unknown,
-  title = 'An error occurred'
-): void {
-  // Extract message from various error types
-  const message = error instanceof Error
-    ? error.message
-    : typeof error === 'string'
-      ? error
-      : 'Unknown error';
+export function formatApiError(error: unknown): string {
+  if (error instanceof Error) {
+    // For connection errors
+    if (error.message.includes('Failed to fetch') || error.message.includes('Network Error')) {
+      return 'No se pudo conectar con el servidor. Verifique su conexión a internet.';
+    }
+    
+    // For timeout errors
+    if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+      return 'La solicitud tardó demasiado tiempo. Intente nuevamente.';
+    }
+    
+    return error.message;
+  }
   
-  // Extract error ID if available
-  const errorId = error instanceof Error 
-    ? (error as any).errorId 
-    : undefined;
+  // For non-Error objects, convert to string
+  return String(error);
+}
+
+/**
+ * Handle and track common API response errors
+ * @param response The fetch API response
+ * @returns The error message and status code if there's an error, null otherwise
+ */
+export async function handleApiResponse(response: Response): Promise<{ error: string, statusCode: number } | null> {
+  if (!response.ok) {
+    const statusCode = response.status;
+    let errorMessage = `Error ${statusCode}`;
+    
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      // If we can't parse the JSON, just use the status text
+      errorMessage = response.statusText || errorMessage;
+    }
+    
+    // Log the error
+    logError(new Error(errorMessage), { 
+      statusCode, 
+      endpoint: response.url,
+      apiError: true 
+    });
+    
+    return { error: errorMessage, statusCode };
+  }
   
-  // Show toast notification
-  toast({
-    variant: 'destructive',
-    title,
-    description: `${message}${errorId ? ` (Ref: ${errorId.substring(0, 8)})` : ''}`,
-  });
+  return null;
 }

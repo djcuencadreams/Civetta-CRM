@@ -7,7 +7,8 @@ import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
 import { registerEmailEventHandlers } from "./lib/email.service";
-import logger, { createLogger, requestLoggerMiddleware, errorHandler } from "./lib/logger";
+import logger, { createLogger, requestLoggerMiddleware } from "./lib/logger";
+import { initializeErrorHandling } from "./lib/error-handling";
 
 // Create a logger instance for the express server
 const serverLogger = createLogger("server");
@@ -56,6 +57,23 @@ app.use(requestLoggerMiddleware);
   log("Email event handlers registered");
   
   // Add health check endpoint
+  app.get('/api/test-error', (_req: Request, res: Response) => {
+    // This endpoint intentionally throws an error for testing
+    throw new Error('Test error for error handling system');
+  });
+
+  // API info endpoint
+  app.get('/api', (_req: Request, res: Response) => {
+    res.json({ 
+      message: 'CRM API server is running',
+      endpoints: {
+        health: '/api/health',
+        testError: '/api/test-error'
+      },
+      documentation: 'See client application for UI'
+    });
+  });
+
   app.get('/api/health', (_req: Request, res: Response) => {
     // Collect health information about various parts of the application
     const health = {
@@ -80,19 +98,23 @@ app.use(requestLoggerMiddleware);
   });
   log("Health check endpoint registered");
   
+  // Set up Vite or static serving BEFORE registering API routes and error handling
+  // This ensures frontend routes take precedence over API routes for non-API paths
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+    log("Vite middleware registered");
+  } else {
+    serveStatic(app);
+    log("Static file serving registered");
+  }
+
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services
   const legacyServer = registerRoutes(app);
   log("Legacy routes registered");
 
-  // Enhanced error handling middleware with structured logging
-  app.use(errorHandler);
-
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // Initialize enhanced error handling middleware
+  initializeErrorHandling(app);
 
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, "0.0.0.0", () => {
