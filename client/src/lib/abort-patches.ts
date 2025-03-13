@@ -3,80 +3,31 @@
  * to properly handle abort errors instead of suppressing them
  */
 
-import { createTrackedAbortController } from './abort-helpers';
-import { applyRuntimeErrorPluginFix } from './abort-patches-fix';
+import { abortReasons } from './abort-helpers';
 
-// Store reasons for each AbortSignal
-const abortReasons = new WeakMap<AbortSignal, string>();
-
-/**
- * Apply necessary patches to properly handle AbortController errors
- * The key principle is to properly handle errors at their source,
- * not just suppress them from UI.
- */
-export function applyAbortPatches(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  // Apply specific fix for Vite runtime error plugin - in development only
-  if (import.meta.env.DEV) {
-    applyRuntimeErrorPluginFix();
-  }
-
-  console.debug('AbortController and fetch API patched to properly handle abort errors');
-}
-
-
-/**
- * Add a global error handler to filter out abort errors
- */
-function addGlobalErrorFilter(): void {
+// Map to store abort reasons for debugging
+export function createTrackedAbortController(reason: string = 'Request aborted') {
+  const controller = new AbortController();
+  abortReasons.set(controller.signal, reason);
   if (typeof window !== 'undefined') {
-    const originalOnError = window.onerror;
-
-    window.onerror = function(message, source, lineno, colno, error) {
-      // Check if this is an abort error
-      if (
-        error && 
-        (error.name === 'AbortError' || 
-         (typeof message === 'string' && 
-          (message.includes('abort') || 
-           message.includes('signal is aborted')))
-        )
-      ) {
-        console.debug('Suppressed abort error:', message);
-        return true; // Prevent the error from propagating
-      }
-
-      // Otherwise, use the original handler if it exists
-      if (originalOnError) {
-        return originalOnError.call(this, message, source, lineno, colno, error);
-      }
-
-      return false; // Let the error propagate
-    };
-
-    // Also handle unhandled promise rejections
-    window.addEventListener('unhandledrejection', function(event) {
-      const error = event.reason;
-
-      // Check if this is an abort error
-      if (
-        error && 
-        (error.name === 'AbortError' || 
-         (typeof error.message === 'string' && 
-          (error.message.includes('abort') || 
-           error.message.includes('signal is aborted')))
-        )
-      ) {
-        console.debug('Suppressed abort error:', error.message);
-        event.preventDefault(); // Prevent the error from propagating
-      }
-    });
+    (window as any).__activeAbortControllers = (window as any).__activeAbortControllers || new Set();
+    (window as any).__activeAbortControllers.add(controller);
   }
+  return controller;
 }
 
 // No longer patching AbortController or fetch API
 // Instead, expose the helper function
 export { createTrackedAbortController };
+
+// Set up global error handlers for AbortError
+if (typeof window !== 'undefined') {
+  // Simple unhandled rejection handler focused only on AbortErrors
+  window.addEventListener('unhandledrejection', event => {
+    const error = event.reason;
+    if (error && error.name === 'AbortError') {
+      console.debug('Fetch request aborted:', error);
+      event.preventDefault();
+    }
+  });
+}
