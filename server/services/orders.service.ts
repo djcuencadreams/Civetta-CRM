@@ -1,5 +1,5 @@
 import { Express, Request, Response } from "express";
-import { db } from "@db";
+import { dbNew } from "@db";
 import { orders, orderItems, customers } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -100,7 +100,7 @@ export class OrdersService implements Service {
    */
   async getAllOrders(_req: Request, res: Response): Promise<void> {
     try {
-      const result = await db.query.orders.findMany({
+      const result = await dbNew.query.orders.findMany({
         orderBy: [desc(orders.createdAt)],
         with: {
           customer: true,
@@ -122,7 +122,7 @@ export class OrdersService implements Service {
       const { id } = req.params;
       const orderId = parseInt(id);
       
-      const result = await db.query.orders.findFirst({
+      const result = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
           customer: true,
@@ -151,7 +151,7 @@ export class OrdersService implements Service {
       const { customerId, items, ...orderDetails } = orderData;
 
       // Check if customer exists
-      const customer = await db.query.customers.findFirst({
+      const customer = await dbNew.query.customers.findFirst({
         where: eq(customers.id, customerId)
       });
 
@@ -163,11 +163,11 @@ export class OrdersService implements Service {
       // Calculate total amount from items if not specified
       let totalAmount = orderDetails.totalAmount;
       if (!totalAmount && items?.length > 0) {
-        totalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+        totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
       }
 
       // Create the order
-      const [order] = await db.insert(orders).values({
+      const [order] = await dbNew.insert(orders).values({
         customerId,
         leadId: orderDetails.leadId || null,
         orderNumber: orderDetails.orderNumber || this.generateOrderNumber(),
@@ -184,7 +184,7 @@ export class OrdersService implements Service {
 
       // Create order items
       if (items && items.length > 0) {
-        const orderItemsData = items.map(item => ({
+        const orderItemsData = items.map((item: any) => ({
           orderId: order.id,
           productId: item.productId || null,
           productName: item.productName,
@@ -195,11 +195,11 @@ export class OrdersService implements Service {
           createdAt: new Date()
         }));
 
-        await db.insert(orderItems).values(orderItemsData);
+        await dbNew.insert(orderItems).values(orderItemsData);
       }
 
       // Get the complete order with items
-      const completeOrder = await db.query.orders.findFirst({
+      const completeOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, order.id),
         with: {
           customer: true,
@@ -228,7 +228,7 @@ export class OrdersService implements Service {
       const { customerId, items, ...orderDetails } = orderData;
 
       // Check if order exists
-      const existingOrder = await db.query.orders.findFirst({
+      const existingOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
           items: true
@@ -241,7 +241,7 @@ export class OrdersService implements Service {
       }
 
       // Check if customer exists
-      const customer = await db.query.customers.findFirst({
+      const customer = await dbNew.query.customers.findFirst({
         where: eq(customers.id, customerId)
       });
 
@@ -253,11 +253,11 @@ export class OrdersService implements Service {
       // Calculate total amount from items if provided
       let totalAmount = orderDetails.totalAmount;
       if (items?.length > 0) {
-        totalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+        totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
       }
 
       // Update the order
-      const [updatedOrder] = await db.update(orders)
+      const [updatedOrder] = await dbNew.update(orders)
         .set({
           customerId,
           leadId: orderDetails.leadId ?? existingOrder.leadId,
@@ -277,10 +277,10 @@ export class OrdersService implements Service {
       // Handle order items update if provided
       if (items && items.length > 0) {
         // Delete existing items
-        await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+        await dbNew.delete(orderItems).where(eq(orderItems.orderId, orderId));
 
         // Create new order items
-        const orderItemsData = items.map(item => ({
+        const orderItemsData = items.map((item: any) => ({
           orderId: orderId,
           productId: item.productId || null,
           productName: item.productName,
@@ -291,11 +291,11 @@ export class OrdersService implements Service {
           createdAt: new Date()
         }));
 
-        await db.insert(orderItems).values(orderItemsData);
+        await dbNew.insert(orderItems).values(orderItemsData);
       }
 
       // Get the complete updated order with items
-      const completeOrder = await db.query.orders.findFirst({
+      const completeOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
           customer: true,
@@ -322,7 +322,7 @@ export class OrdersService implements Service {
       const orderId = parseInt(id);
 
       // Check if order exists
-      const existingOrder = await db.query.orders.findFirst({
+      const existingOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -332,10 +332,10 @@ export class OrdersService implements Service {
       }
 
       // Delete order items first (maintain referential integrity)
-      await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+      await dbNew.delete(orderItems).where(eq(orderItems.orderId, orderId));
       
       // Now delete the order
-      await db.delete(orders).where(eq(orders.id, orderId));
+      await dbNew.delete(orders).where(eq(orders.id, orderId));
 
       // Emit order deleted event
       appEvents.emit(EventTypes.ORDER_DELETED, existingOrder);
@@ -357,7 +357,7 @@ export class OrdersService implements Service {
       const { status, reason } = req.body;
 
       // Check if order exists
-      const existingOrder = await db.query.orders.findFirst({
+      const existingOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -367,7 +367,7 @@ export class OrdersService implements Service {
       }
 
       // Update order status
-      const [updatedOrder] = await db.update(orders)
+      const [updatedOrder] = await dbNew.update(orders)
         .set({
           status,
           notes: reason 
@@ -403,7 +403,7 @@ export class OrdersService implements Service {
       const { paymentStatus, paymentMethod, reason } = req.body;
 
       // Check if order exists
-      const existingOrder = await db.query.orders.findFirst({
+      const existingOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -413,7 +413,7 @@ export class OrdersService implements Service {
       }
 
       // Update order payment status
-      const [updatedOrder] = await db.update(orders)
+      const [updatedOrder] = await dbNew.update(orders)
         .set({
           paymentStatus,
           paymentMethod: paymentMethod || existingOrder.paymentMethod,

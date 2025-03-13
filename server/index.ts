@@ -6,8 +6,10 @@ import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
+import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
 
+const logger = pino({ level: 'info' });
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -84,27 +86,16 @@ app.use((req, res, next) => {
   const legacyServer = registerRoutes(app);
   log("Legacy routes registered");
 
-  // Enhanced error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    const errorId = Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
-
-    // Log detailed error information with a unique error ID
-    console.error(`[ERROR-${errorId}]`, {
-      message: err.message,
-      stack: err.stack,
-      status,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!res.headersSent) {
-      res.status(status).json({ 
-        message, 
-        errorId,
-        timestamp: new Date().toISOString()
-      });
+  // Global error handling middleware
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    if (req.aborted) {
+      logger.info({ error: err.message }, 'Client aborted request.');
+      return; // Abort silently (no HTTP response needed)
     }
+
+    logger.error({ error: err.message, stack: err.stack }, 'Unhandled server error.');
+
+    res.status(500).json({ error: 'Internal Server Error' });
   });
 
   if (app.get("env") === "development") {

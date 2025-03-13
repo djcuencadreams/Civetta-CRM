@@ -125,6 +125,11 @@ const upload = multer({
 });
 
 export function registerAdditionalRoutes(app: Express) {
+  // Test endpoint to trigger error handling middleware
+  app.get("/api/test-error", (_req: Request, _res: Response) => {
+    throw new Error("Test error for error handling middleware");
+  });
+  
   // Endpoint for product categories
   app.get("/api/categories", async (_req: Request, res: Response) => {
     try {
