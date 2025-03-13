@@ -2,8 +2,8 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { logError } from '@/lib/error-handling';
-import { queryClient, isAbortError } from '@/lib/queryClient';
+import { isAbortError, logError } from '@/lib/global-error-handler';
+import { queryClient } from '@/lib/queryClient';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -30,11 +30,28 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     };
   }
 
+  /**
+   * Handle errors during rendering, using our enhanced detection for AbortErrors
+   * We specifically only ignore genuine fetch abort signals, never generic errors 
+   * that happen to mention "abort" somewhere in their message
+   */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Don't show the error UI for aborted fetch requests
-    // (these happen during navigation or when components unmount)
-    if (isAbortError(error)) {
-      console.debug(`ErrorBoundary: Ignoring abort error in UI: ${error.message}`);
+    // Use enhanced isAbortError with verbose flag for detailed logging
+    if (isAbortError(error, { verbose: true })) {
+      // Use our enhanced logging function to log suppression with detailed context
+      logError(error, {
+        component: 'ErrorBoundary',
+        lifecycle: 'getDerivedStateFromError',
+        action: 'suppressed',
+        errorType: 'abortError',
+        suppressReason: 'Fetch abort signal during render phase'
+      }, {
+        suppressAbortErrors: true,
+        detailedAbortLogs: true,
+        logLevel: 'debug'
+      });
+      
+      // For abort errors, return a clean state to prevent UI disruption
       return { 
         hasError: false,
         error: null,
@@ -42,7 +59,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       };
     }
     
-    // For other errors, update state to show the fallback UI
+    // For all other errors, update state to show the fallback UI
     return { 
       hasError: true,
       error,
@@ -50,18 +67,43 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     };
   }
 
+  /**
+   * After an error is caught, log it appropriately using our enhanced system
+   * This only logs real errors, not expected abort signals from network requests
+   */
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Don't log abort errors as they're expected and not actual errors
-    if (isAbortError(error)) {
-      console.debug(`ErrorBoundary: Not logging abort error: ${error.message}`);
+    // Check if this is a genuine AbortController signal
+    if (isAbortError(error, { verbose: true })) {
+      // Use our enhanced logging for detailed contextual information
+      logError(error, {
+        component: 'ErrorBoundary',
+        lifecycle: 'componentDidCatch',
+        action: 'ignored',
+        errorType: 'abortError',
+        componentStack: errorInfo?.componentStack ? 
+          errorInfo.componentStack.split('\n').slice(0, 5).join('\n') : 
+          'Component stack unavailable'
+      }, {
+        suppressAbortErrors: true,
+        detailedAbortLogs: true,
+        logLevel: 'debug'
+      });
       return;
     }
     
-    // Log other errors to our error tracking system
+    // For all other errors, log with full context using error level
     logError(error, {
       component: 'ErrorBoundary',
+      lifecycle: 'componentDidCatch',
+      action: 'logged',
+      errorType: error.name || 'Error',
       react: true,
-      componentStack: errorInfo.componentStack
+      componentStack: errorInfo?.componentStack || 'Component stack unavailable',
+      timestamp: new Date().toISOString()
+    }, {
+      suppressAbortErrors: true,
+      detailedAbortLogs: false,
+      logLevel: 'error'
     });
   }
 

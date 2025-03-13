@@ -1,0 +1,76 @@
+Implement the following precise changes to permanently fix the AbortController error issues:
+
+### Step 1: Revert AbortController overwrite (Critical fix)
+- Completely remove the custom overwrite of `window.AbortController`. 
+- Instead, create a helper factory function to track abort controllers internally without overwriting browser-native APIs.
+
+Replace this problematic section:
+
+const OriginalAbortController = window.AbortController;
+window.AbortController = function() {
+  const controller = new OriginalAbortController();
+  if (typeof window !== 'undefined') {
+    (window as any).__activeAbortControllers.add(controller);
+  }
+  return controller;
+} as any;
+window.AbortController.prototype = OriginalAbortController.prototype;
+
+With this corrected approach:
+
+// Create a helper function without overwriting global AbortController
+export function createTrackedAbortController(reason: string = 'Request aborted') {
+  const controller = new AbortController();
+  abortReasons.set(controller.signal, reason);
+  if (typeof window !== 'undefined') {
+    (window as any).__activeAbortControllers = (window as any).__activeAbortControllers || new Set();
+    (window as any).__activeAbortControllers.add(controller);
+  }
+  return controller;
+}
+
+Never overwrite `window.AbortController`.
+
+---
+
+### Step 2: Adjust Fetch API patches (Less intrusive)
+- Don't return fake "empty responses" on aborts, let genuine abort errors propagate naturally.
+- Remove the entire patchFetchAPI function completely.
+- Restore the original browser fetch behavior (no overwriting window.fetch).
+
+Remove completely this function:
+
+function patchFetchAPI() { ... }
+
+---
+
+### Step 3: Simplify Global Error Handling (best practice)
+- Keep minimal logic to filter abort signals, but don’t overly aggressively suppress other fetch errors.
+- Clearly log aborts at debug level, allowing non-abort critical errors to propagate visibly.
+
+Example simplified listener for unhandled promise rejections:
+
+window.addEventListener('unhandledrejection', event => {
+  const error = event.reason;
+  if (error && error.name === 'AbortError') {
+    console.debug('Fetch request aborted:', error);
+    event.preventDefault();
+  }
+});
+
+---
+
+### Step 4: Adjust Vite Configuration (prevent overlays)
+- Explicitly prevent Vite from showing unnecessary overlays for abort signals.
+
+In `vite.config.js`, set clearly:
+
+server: {
+  hmr: {
+    overlay: false
+  }
+}
+
+---
+
+### **After implementing the above, carefully restart the dev server.**

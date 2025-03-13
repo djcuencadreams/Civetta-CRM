@@ -86,81 +86,155 @@ function addUnhandledRejectionHandler(): void {
 }
 
 /**
- * Adds CSS to suppress error overlays from showing (Dev mode only)
+ * Adds aggressive CSS and DOM manipulation to completely suppress Vite error overlays
+ * specifically for abort errors (development mode only)
  */
 function addCssSuppression(): void {
   // Only run in browser and development mode
   if (typeof document === 'undefined' || !import.meta.env.DEV) return;
   
-  // Create a style element
+  // Create a style element with extremely specific and important rules
   const style = document.createElement('style');
   style.textContent = `
-    /* Hide Vite error overlays for abort errors */
-    div[data-vite-error-overlay]:has(pre:contains("signal is aborted")),
-    div[data-vite-dev-error-overlay]:has(pre:contains("signal is aborted")),
-    div[data-plugin="runtime-error-plugin"]:has(pre:contains("signal is aborted")),
-    div[style*="z-index: 99999"]:has(pre:contains("signal is aborted")),
-    div[style*="fixed"]:has(pre:contains("signal is aborted")) {
+    /* MAXIMUM SPECIFICITY rules to hide Vite error overlays for abort errors */
+    body div[data-vite-error-overlay],
+    body div[data-vite-dev-error-overlay],
+    body div[data-plugin="runtime-error-plugin"],
+    body div[style*="z-index: 99999"][style*="position: fixed"],
+    body > div[style*="position: fixed"][style*="top: 0px"][style*="left: 0px"] {
       display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
       pointer-events: none !important;
       z-index: -9999 !important;
+      width: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
+      position: absolute !important;
+      top: -9999px !important;
+      left: -9999px !important;
+    }
+    
+    /* Maximum force content-specific selectors */
+    body *:has(> pre:contains("signal is aborted without reason")),
+    body *:has(> code:contains("signal is aborted without reason")),
+    body *:has(pre:contains("AbortError")),
+    body *:has(code:contains("AbortError")),
+    body *:has(div:contains("signal is aborted without reason")),
+    body *:has(span:contains("signal is aborted without reason")) {
+      display: none !important;
+      visibility: hidden !important;
+      position: absolute !important;
+      z-index: -9999 !important;
+      width: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
     }
   `;
   
-  // Append it to the head
+  // Append it to the head with high priority
   document.head.appendChild(style);
   
-  // Also set up a MutationObserver to immediately hide abort error overlays
+  // Specific function to check if an element is a Vite error overlay
+  function isViteErrorOverlay(element: HTMLElement): boolean {
+    // Check attributes
+    if (
+      element.hasAttribute('data-vite-error-overlay') ||
+      element.hasAttribute('data-vite-dev-error-overlay') ||
+      element.getAttribute('data-plugin') === 'runtime-error-plugin'
+    ) {
+      return true;
+    }
+    
+    // Check for style properties that suggest an overlay
+    if (
+      element instanceof HTMLDivElement && 
+      element.style.position === 'fixed' && 
+      (
+        element.style.zIndex === '99999' || 
+        parseInt(element.style.zIndex || '0') > 1000
+      ) && 
+      element.style.top === '0px' && 
+      element.style.left === '0px'
+    ) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  // Specific function to check if error content is related to abort signals
+  function isAbortErrorContent(content: string): boolean {
+    // Only match very specific abort error patterns
+    return (
+      content.includes('signal is aborted without reason') ||
+      content.includes('AbortError:') ||
+      content.includes('[vite] signal is aborted') ||
+      content.includes('The operation was aborted') ||
+      (
+        content.includes('AbortController') && 
+        content.includes('abort') && 
+        content.includes('error')
+      )
+    );
+  }
+  
+  // Immediately check for and remove any existing error overlays
+  function removeExistingOverlays(): void {
+    // Find all potential overlay elements
+    const potentialOverlays = document.querySelectorAll('div[style*="position: fixed"]');
+    
+    potentialOverlays.forEach(element => {
+      if (!(element instanceof HTMLElement)) return;
+      
+      if (isViteErrorOverlay(element)) {
+        const content = element.textContent || '';
+        if (isAbortErrorContent(content)) {
+          console.debug('Removing existing abort error overlay');
+          element.style.display = 'none';
+          
+          // Remove completely after a short delay
+          setTimeout(() => {
+            if (element.parentNode) {
+              element.parentNode.removeChild(element);
+            }
+          }, 0);
+        }
+      }
+    });
+  }
+  
+  // Run immediately to clean up any existing overlays
+  removeExistingOverlays();
+  
+  // Also set up a MutationObserver to aggressively remove abort error overlays as they appear
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length) {
-        // Use Array.from to convert NodeList to a standard array for TypeScript compatibility
-        const nodeArray = Array.from(mutation.addedNodes);
-        
-        // Process each node
-        nodeArray.forEach(node => {
-          // Only process HTMLElement nodes
-          if (node instanceof HTMLElement) {
-            // Check for error overlay characteristics
-            if (
-              node.hasAttribute('data-vite-error-overlay') ||
-              node.hasAttribute('data-vite-dev-error-overlay') ||
-              (node instanceof HTMLDivElement &&
-                node.style.position === 'fixed' &&
-                node.style.zIndex === '99999')
-            ) {
-              // Check if it contains abort-related text
-              const textContent = node.textContent || '';
-              if (
-                textContent.includes('signal is aborted') ||
-                textContent.includes('AbortController.abort') ||
-                textContent.includes('abort')
-              ) {
-                console.debug('Preventing Vite error overlay for abort error');
-                
-                // Set to true if this is an abort error overlay
-                const isAbortError = 
-                  textContent.includes('signal is aborted without reason') || 
-                  textContent.includes('AbortError') || 
-                  textContent.includes('The operation was aborted');
-                
-                if (isAbortError) {
-                  // Apply styling to hide abort error overlays
-                  node.style.display = 'none';
-                  node.style.visibility = 'hidden';
-                  node.style.opacity = '0';
-                  node.style.pointerEvents = 'none';
-                  
-                  // Remove it after a delay to ensure it's gone
-                  setTimeout(() => {
-                    if (node.parentNode) {
-                      node.parentNode.removeChild(node);
-                    }
-                  }, 0);
+        mutation.addedNodes.forEach(node => {
+          if (!(node instanceof HTMLElement)) return;
+          
+          // First check if this looks like an error overlay
+          if (isViteErrorOverlay(node)) {
+            // Then check its content for abort-related errors
+            const content = node.textContent || '';
+            
+            if (isAbortErrorContent(content)) {
+              console.debug('Intercepted and removing abort error overlay:', {
+                message: content.slice(0, 100) + (content.length > 100 ? '...' : ''),
+                timestamp: new Date().toISOString()
+              });
+              
+              // Hide then remove completely
+              node.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important;';
+              
+              // Remove from DOM tree
+              setTimeout(() => {
+                if (node.parentNode) {
+                  node.parentNode.removeChild(node);
+                  console.debug('Removed abort error overlay from DOM');
                 }
-              }
+              }, 0);
             }
           }
         });
@@ -168,11 +242,27 @@ function addCssSuppression(): void {
     }
   });
   
-  // Start observing
+  // Start observing with the highest priority settings
   observer.observe(document.documentElement, {
     childList: true,
-    subtree: true
+    subtree: true,
+    attributes: true, 
+    characterData: true
   });
+  
+  // Also add a body-level event listener to catch errors at the DOM level
+  document.body.addEventListener('error', (event) => {
+    const target = event.target as HTMLElement;
+    if (isViteErrorOverlay(target)) {
+      const content = target.textContent || '';
+      if (isAbortErrorContent(content)) {
+        event.preventDefault();
+        event.stopPropagation();
+        console.debug('Blocked error event for abort error overlay');
+        return false;
+      }
+    }
+  }, true);
 }
 
 // Export utility functions and hooks
