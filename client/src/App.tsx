@@ -14,17 +14,21 @@ import SimpleReports from './pages/reports-simple'
 import EnhancedReports from './pages/reports-new'
 import Reports from './pages/reports'
 import Configuration from './pages/configuration'
+import ErrorTestPage from './pages/error-test'
 import NotFound from './pages/not-found'
 
 function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
-
+  
   return (
     <Shell>
       <Switch>
         <Route path="/">
           <Dashboard />
+        </Route>
+        <Route path="/error-test">
+          <ErrorTestPage />
         </Route>
         <Route path="/customers">
           <Customers />
