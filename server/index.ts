@@ -7,18 +7,41 @@ import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
 import { registerEmailEventHandlers } from "./lib/email.service";
-import logger, { createLogger, requestLoggerMiddleware } from "./lib/logger";
-import { initializeErrorHandling } from "./lib/error-handling";
-
-// Create a logger instance for the express server
-const serverLogger = createLogger("server");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Enhanced request logging middleware with structured logging
-app.use(requestLoggerMiddleware);
+// Enhanced request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
 
 (async () => {
   // Initialize automated database backups (every 24 hours)
@@ -56,104 +79,39 @@ app.use(requestLoggerMiddleware);
   registerEmailEventHandlers();
   log("Email event handlers registered");
   
-  // Add health check endpoint
-  app.get('/api/test-error', (_req: Request, res: Response) => {
-    // This endpoint intentionally throws an error for testing
-    throw new Error('Test error for error handling system');
-  });
-
-  // API info endpoint
-  app.get('/api', (_req: Request, res: Response) => {
-    res.json({ 
-      message: 'CRM API server is running',
-      endpoints: {
-        health: '/api/health',
-        testError: '/api/test-error'
-      },
-      documentation: 'See client application for UI'
-    });
-  });
-
-  app.get('/api/health', (_req: Request, res: Response) => {
-    // Collect health information about various parts of the application
-    const health = {
-      status: 'healthy',
-      message: 'System is operating normally',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: { status: 'up' },
-        api: { status: 'up' }
-      },
-      uptime: process.uptime(),
-      memory: process.memoryUsage()
-    };
-    
-    // Log health check
-    serverLogger.info({
-      health,
-      requestSource: _req.ip
-    }, 'Health check performed');
-    
-    res.json(health);
-  });
-  
-  // Endpoint for testing abort errors with deliberately slow responses
-  app.get('/api/deliberately-slow-endpoint', (req: Request, res: Response) => {
-    // Get the requested delay (or use default)
-    const requestedDelay = Number(req.headers['x-simulated-delay'] || '1000');
-    
-    // Limit the delay to reasonable values (500ms to 10s)
-    const delay = Math.min(Math.max(requestedDelay, 500), 10000);
-    
-    // Log that we received this special testing request
-    serverLogger.info('Deliberately slow endpoint accessed', {
-      delay,
-      requestId: req.headers['x-request-id'] || null,
-    });
-    
-    // Create a timeout for the specified delay
-    const timer = setTimeout(() => {
-      // Check if the response is still writable (not aborted)
-      if (!res.writableEnded) {
-        res.status(200).json({
-          message: 'This is a deliberately delayed response for testing',
-          delay,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }, delay);
-    
-    // Close event handler to detect aborted requests
-    req.on('close', () => {
-      clearTimeout(timer);
-      if (!res.writableEnded) {
-        serverLogger.info('Request was aborted before completing slow response', {
-          delay,
-          requestId: req.headers['x-request-id'] || null,
-        });
-      }
-    });
-  });
-  
-  log("Health check endpoint registered");
-  
-  // Set up Vite or static serving BEFORE registering API routes and error handling
-  // This ensures frontend routes take precedence over API routes for non-API paths
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-    log("Vite middleware registered");
-  } else {
-    serveStatic(app);
-    log("Static file serving registered");
-  }
-
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services
   const legacyServer = registerRoutes(app);
   log("Legacy routes registered");
 
-  // Initialize enhanced error handling middleware
-  initializeErrorHandling(app);
+  // Enhanced error handling middleware
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    const errorId = Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+
+    // Log detailed error information with a unique error ID
+    console.error(`[ERROR-${errorId}]`, {
+      message: err.message,
+      stack: err.stack,
+      status,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!res.headersSent) {
+      res.status(status).json({ 
+        message, 
+        errorId,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
 
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, "0.0.0.0", () => {

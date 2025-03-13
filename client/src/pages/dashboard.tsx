@@ -77,46 +77,31 @@ export default function DashboardPage() {
   const { data: leads } = useQuery<Lead[]>({
     queryKey: ["/api/leads", selectedBrand, leadFilters],
     queryFn: getQueryFn({ on401: "throw" }),
-    select: (data) => {
-      // Ensure data is an array before filtering
-      if (!data || !Array.isArray(data)) return [];
-      
-      return data.filter(lead => {
-        const leadDate = new Date(lead.createdAt);
-        const brandMatch = selectedBrand === "all" || lead.brand === selectedBrand;
-        return leadDate >= startOfDay(startDate) && leadDate <= endDate && brandMatch;
-      });
-    }
+    select: (data) => data.filter(lead => {
+      const leadDate = new Date(lead.createdAt);
+      const brandMatch = selectedBrand === "all" || lead.brand === selectedBrand;
+      return leadDate >= startOfDay(startDate) && leadDate <= endDate && brandMatch;
+    })
   });
 
   const { data: sales } = useQuery<Sale[]>({
     queryKey: ["/api/sales", startDate, endDate, selectedBrand, saleFilters],
     queryFn: getQueryFn({ on401: "throw" }),
-    select: (data) => {
-      // Ensure data is an array before filtering
-      if (!data || !Array.isArray(data)) return [];
-      
-      return data.filter(sale => {
-        const saleDate = new Date(sale.createdAt);
-        const brandMatch = selectedBrand === "all" || sale.brand === selectedBrand;
-        return saleDate >= startOfDay(startDate) && saleDate <= endDate && brandMatch;
-      });
-    }
+    select: (data) => data.filter(sale => {
+      const saleDate = new Date(sale.createdAt);
+      const brandMatch = selectedBrand === "all" || sale.brand === selectedBrand;
+      return saleDate >= startOfDay(startDate) && saleDate <= endDate && brandMatch;
+    })
   });
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers", selectedBrand, customerFilters],
     queryFn: getQueryFn({ on401: "throw" }),
-    select: (data) => {
-      // Ensure data is an array before filtering
-      if (!data || !Array.isArray(data)) return [];
-      
-      return data.filter(customer => {
-        const customerDate = new Date(customer.createdAt);
-        const brandMatch = selectedBrand === "all" || customer.brand === selectedBrand;
-        return customerDate >= startOfDay(startDate) && customerDate <= endDate && brandMatch;
-      });
-    }
+    select: (data) => data.filter(customer => {
+      const customerDate = new Date(customer.createdAt);
+      const brandMatch = selectedBrand === "all" || customer.brand === selectedBrand;
+      return customerDate >= startOfDay(startDate) && customerDate <= endDate && brandMatch;
+    })
   });
 
   // Calculate KPIs and metrics

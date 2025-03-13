@@ -1,5 +1,5 @@
 import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart, 
-  PieChart, LineChart, TrendingUp, ShoppingCart, Package, ShieldAlert } from "lucide-react";
+  PieChart, LineChart, TrendingUp, ShoppingCart, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "../../hooks/use-is-mobile";
@@ -45,11 +45,6 @@ const navigation = [
     href: "/configuration",
     label: "Configuración",
     icon: Settings
-  },
-  {
-    href: "/error-handling-demo",
-    label: "Error Handler",
-    icon: ShieldAlert
   }
 ];
 

@@ -15,7 +15,6 @@ import { useMemo } from "react";
 import { formatDistanceToNow, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { ChartTooltipContent } from "@/components/ui/chart";
-import { logError } from "@/lib/errorHandler";
 
 // Paleta de colores armonizada con Civetta para el embudo de ventas
 const COLORS = [
@@ -66,55 +65,44 @@ export function FunnelChart({ brand }: { brand?: string }) {
 
   // Enhanced funnel data with more metrics for better insights
   const funnelData = useMemo(() => {
-    // Ensure leads is an array and not undefined
-    const leadsArray = Array.isArray(leads) ? leads : [];
-    
-    if (leadsArray.length === 0) return [];
+    if (!leads || leads.length === 0) return [];
 
-    // Sort stages in the correct order - defined outside try/catch for scope
-    const stageOrder = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
-    
     // Calculate total count for conversion rates
     const leadCounts: Record<string, number> = {};
     const leadValues: Record<string, number> = {};
     const leadAges: Record<string, number[]> = {};
 
-    try {
-      // Using safer .forEach with explicit array check
-      leadsArray.forEach(lead => {
-        const stage = lead.status || 'new';
+    leads.forEach(lead => {
+      const stage = lead.status || 'new';
 
-        // Count leads by stage
-        leadCounts[stage] = (leadCounts[stage] || 0) + 1;
+      // Count leads by stage
+      leadCounts[stage] = (leadCounts[stage] || 0) + 1;
 
-        // Calculate potential value (estimate based on customer data if available)
-        // Using a simplistic model where leads further in the pipeline have higher values
-        const estimatedValue = lead.convertedCustomerId ? 1000 : 
-          stage === 'negotiation' ? 800 :
-          stage === 'proposal' ? 600 :
-          stage === 'qualified' ? 400 :
-          stage === 'contacted' ? 200 : 100;
+      // Calculate potential value (estimate based on customer data if available)
+      // Using a simplistic model where leads further in the pipeline have higher values
+      const estimatedValue = lead.convertedCustomerId ? 1000 : 
+        stage === 'negotiation' ? 800 :
+        stage === 'proposal' ? 600 :
+        stage === 'qualified' ? 400 :
+        stage === 'contacted' ? 200 : 100;
 
-        leadValues[stage] = (leadValues[stage] || 0) + estimatedValue;
+      leadValues[stage] = (leadValues[stage] || 0) + estimatedValue;
 
-        // Calculate age of lead in days
-        const createdDate = new Date(lead.createdAt);
-        const ageInDays = differenceInDays(new Date(), createdDate);
-        if (!leadAges[stage]) leadAges[stage] = [];
-        leadAges[stage].push(ageInDays);
-      });
-    } catch (error) {
-      // Log and handle the error
-      console.error("Error processing funnel chart data:", error);
-      return []; // Return empty array on error
-    }
+      // Calculate age of lead in days
+      const createdDate = new Date(lead.createdAt);
+      const ageInDays = differenceInDays(new Date(), createdDate);
+      if (!leadAges[stage]) leadAges[stage] = [];
+      leadAges[stage].push(ageInDays);
+    });
 
-    try {
-      // Generate funnel data items
-      let previousCount = leadCounts['new'] || 0;
-      const result: FunnelDataItem[] = stageOrder
-        .filter((stage: string) => leadCounts[stage]) // Only include stages with leads
-      .map((stage: string, index: number) => {
+    // Sort stages in the correct order
+    const stageOrder = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+
+    // Generate funnel data items
+    let previousCount = leadCounts['new'] || 0;
+    const result: FunnelDataItem[] = stageOrder
+      .filter(stage => leadCounts[stage]) // Only include stages with leads
+      .map((stage, index) => {
         const count = leadCounts[stage];
         const conversionRate = previousCount > 0 ? Math.round((count / previousCount) * 100) : 0;
         const avgAge = leadAges[stage]?.length > 0 
@@ -135,11 +123,7 @@ export function FunnelChart({ brand }: { brand?: string }) {
         return item;
       });
 
-      return result;
-    } catch (error) {
-      console.error("Error generating funnel data:", error);
-      return []; // Return empty array on error
-    }
+    return result;
   }, [leads]);
 
   // Create a custom tooltip component for funnel chart
