@@ -35,7 +35,8 @@ export async function api<T>(
     if (abortSignal) {
       // Check if already aborted (would throw immediately)
       if (abortSignal.aborted) {
-        console.debug(`Request aborted before start: ${options.method || 'GET'} ${url}`);
+        const message = abortSignal.reason?.message || 'Unknown abort reason';
+        console.debug(`Request aborted before start: ${options.method || 'GET'} ${url}, reason: ${message}`);
         return {} as T; // Return empty object instead of throwing
       }
     }
@@ -106,9 +107,38 @@ export async function api<T>(
     
     // Handle AbortError more gracefully (often happens during component unmounting)
     if (isAbortError(error)) {
+      // Extract reason if available
+      const abortReason = (error as any)?.reason?.message || 
+                          (options.signal?.reason as any)?.message || 
+                          'Component unmount';
+                          
       // Don't log abort errors as they are typically intentional and not actual errors
-      console.debug(`Request aborted safely: ${options.method || 'GET'} ${url}`);
+      console.debug(`Request aborted safely: ${options.method || 'GET'} ${url}, reason: ${abortReason}`);
       return {} as T; // Return empty result instead of throwing
+    }
+    
+    // Special handling for "Failed to fetch" errors (which typically mean network issues)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      // Create a more descriptive error that explains the likely cause
+      const networkError = new Error(
+        'Network error: Unable to connect to server. ' + 
+        'Please check your internet connection and try again.'
+      ) as Error & { isNetworkError?: boolean };
+      
+      // Add custom property to identify this as a network error
+      networkError.isNetworkError = true;
+      
+      // Log with context
+      logError(networkError, {
+        url,
+        method: options.method || 'GET',
+        responseTime,
+        requestId,
+        type: 'network_error',
+        originalError: error.message
+      });
+      
+      throw networkError;
     }
     
     // Only log errors that weren't already logged in the API error handling
@@ -147,10 +177,22 @@ export function getQueryFn<T>(options?: QueryFnOptions) {
     } catch (error) {
       // If the error is an AbortError, return an empty result instead of throwing
       // This prevents React Query from showing errors when components unmount
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.debug(`Request aborted safely: GET ${endpoint}`);
+      if (isAbortError(error)) {
+        // Extract reason if available
+        const abortReason = (error as any)?.reason?.message || 
+                            (context.signal?.reason as any)?.message || 
+                            'Component unmount';
+        
+        console.debug(`Request aborted safely: GET ${endpoint}, reason: ${abortReason}`);
         return {} as T;
       }
+      
+      // Handle network errors specially so we can show a meaningful message to the user
+      if (error instanceof Error && (error as any).isNetworkError) {
+        // Let this error propagate up to be handled by our ErrorBoundary
+        throw error;
+      }
+      
       throw error;
     }
   };
@@ -195,10 +237,34 @@ export async function apiRequest<T, U = any>(
   }
 }
 
-// Helper to determine if an error is an abort error
+// Helper to determine if an error is an abort error with enhanced detection
 export function isAbortError(error: unknown): boolean {
-  return error instanceof Error && 
-    (error.name === 'AbortError' || error.message.includes('aborted'));
+  if (!error) return false;
+  
+  // Basic check for standard AbortError
+  if (error instanceof Error && 
+      (error.name === 'AbortError' || 
+       error.message.includes('aborted') || 
+       error.message.includes('abort'))) {
+    return true;
+  }
+  
+  // Additional check for DOMException type
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true;
+  }
+  
+  // Check for custom properties that might indicate an abort
+  if (typeof error === 'object') {
+    const errorObj = error as any;
+    if (errorObj.type === 'aborted' || 
+        errorObj.code === 20 || // DOMException code for AbortError
+        (errorObj.cause && isAbortError(errorObj.cause))) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // Create and export the React Query client instance with enhanced error handling
@@ -228,8 +294,12 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: unknown, query: any) => {
       if (isAbortError(error)) {
+        // Extract reason if available
+        const abortReason = (error as any)?.reason?.message || 
+                          'Component unmount or navigation';
+        
         // Don't log abort errors as they are typically intentional
-        console.debug(`Request aborted (expected behavior for ${query.queryKey})`);
+        console.debug(`Request aborted (expected behavior for ${query.queryKey}), reason: ${abortReason}`);
         return;
       }
       
@@ -247,7 +317,11 @@ export const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error: unknown, mutation: any) => {
       if (isAbortError(error)) {
-        console.debug(`Mutation aborted (expected behavior)`);
+        // Extract reason if available
+        const abortReason = (error as any)?.reason?.message || 
+                          'Component unmount or navigation';
+        
+        console.debug(`Mutation aborted (expected behavior), reason: ${abortReason}`);
         return;
       }
       

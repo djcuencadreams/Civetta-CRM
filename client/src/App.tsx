@@ -1,10 +1,33 @@
 import React, { useEffect } from 'react'
 import { useState } from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
 import { logError } from '@/lib/error-handling'
 import ErrorBoundary from '@/components/error-boundary'
 import { ServerStatusIndicator } from './components/ServerHealth'
+import { isAbortError } from '@/lib/queryClient'
+import { queryClient } from '@/lib/queryClient'
+
+// Listen for the global abort event to cancel all in-flight requests
+// This is used by the ErrorTestingPanel component
+if (typeof window !== 'undefined') {
+  window.addEventListener('abort-pending-requests', () => {
+    console.debug('Manual abort of all pending requests triggered');
+    
+    // Cancel all queries in the React Query cache
+    queryClient.cancelQueries();
+    
+    // Also dispatch a custom event that our abort-patches.ts might be listening for
+    const controllers = (window as any).__activeAbortControllers || [];
+    controllers.forEach((controller: AbortController) => {
+      try {
+        controller.abort('Manual abort triggered');
+      } catch (err) {
+        // Ignore errors in aborting
+      }
+    });
+  });
+}
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -23,10 +46,41 @@ function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
   
+  // Handle route change cleanup directly
+  const [location] = useLocation();
+  
+  // Clean up queries when route changes
+  useEffect(() => {
+    // When location changes, cancel all in-flight requests
+    console.debug('Route changed, canceling in-flight requests');
+    queryClient.cancelQueries();
+  }, [location]);
+  
+  // Apply abort controller patches
+  useEffect(() => {
+    // Import and apply our abort controller patches
+    import('./lib/abort-patches')
+      .then(({ applyAbortControllerPatches, applyFetchPatches }) => {
+        // Apply both patches to improve error handling for aborted requests
+        applyAbortControllerPatches();
+        applyFetchPatches();
+      })
+      .catch(error => {
+        console.error('Failed to load abort patches:', error);
+      });
+  }, []);
+  
   // Set up global error handler
   useEffect(() => {
     // Set up a global error handler for uncaught errors
     const handleGlobalError = (event: ErrorEvent) => {
+      // Ignore AbortError errors completely
+      if (event.error && isAbortError(event.error)) {
+        event.preventDefault();
+        console.debug('Prevented error event for aborted request:', event.error.message);
+        return;
+      }
+      
       event.preventDefault();
       logError(event.error || new Error(event.message), {
         source: 'window.onerror',

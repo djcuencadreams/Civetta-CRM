@@ -96,6 +96,45 @@ app.use(requestLoggerMiddleware);
     
     res.json(health);
   });
+  
+  // Endpoint for testing abort errors with deliberately slow responses
+  app.get('/api/deliberately-slow-endpoint', (req: Request, res: Response) => {
+    // Get the requested delay (or use default)
+    const requestedDelay = Number(req.headers['x-simulated-delay'] || '1000');
+    
+    // Limit the delay to reasonable values (500ms to 10s)
+    const delay = Math.min(Math.max(requestedDelay, 500), 10000);
+    
+    // Log that we received this special testing request
+    serverLogger.info('Deliberately slow endpoint accessed', {
+      delay,
+      requestId: req.headers['x-request-id'] || null,
+    });
+    
+    // Create a timeout for the specified delay
+    const timer = setTimeout(() => {
+      // Check if the response is still writable (not aborted)
+      if (!res.writableEnded) {
+        res.status(200).json({
+          message: 'This is a deliberately delayed response for testing',
+          delay,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }, delay);
+    
+    // Close event handler to detect aborted requests
+    req.on('close', () => {
+      clearTimeout(timer);
+      if (!res.writableEnded) {
+        serverLogger.info('Request was aborted before completing slow response', {
+          delay,
+          requestId: req.headers['x-request-id'] || null,
+        });
+      }
+    });
+  });
+  
   log("Health check endpoint registered");
   
   // Set up Vite or static serving BEFORE registering API routes and error handling

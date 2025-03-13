@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { logError } from '@/lib/error-handling';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, isAbortError } from '@/lib/queryClient';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -31,7 +31,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Update state so the next render shows the fallback UI
+    // Don't show the error UI for aborted fetch requests
+    // (these happen during navigation or when components unmount)
+    if (isAbortError(error)) {
+      console.debug(`ErrorBoundary: Ignoring abort error in UI: ${error.message}`);
+      return { 
+        hasError: false,
+        error: null,
+        errorInfo: null 
+      };
+    }
+    
+    // For other errors, update state to show the fallback UI
     return { 
       hasError: true,
       error,
@@ -40,7 +51,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log the error to our error tracking system
+    // Don't log abort errors as they're expected and not actual errors
+    if (isAbortError(error)) {
+      console.debug(`ErrorBoundary: Not logging abort error: ${error.message}`);
+      return;
+    }
+    
+    // Log other errors to our error tracking system
     logError(error, {
       component: 'ErrorBoundary',
       react: true,
@@ -60,29 +77,69 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     queryClient.invalidateQueries();
   };
 
+  // Determine if the error is a network error
+  isNetworkError(error: Error | null): boolean {
+    if (!error) return false;
+    // Check for our custom network error type
+    if ((error as any).isNetworkError) return true;
+    
+    // Also check for common network error messages
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('network') ||
+      message.includes('failed to fetch') ||
+      message.includes('internet') ||
+      message.includes('offline') ||
+      message.includes('connection')
+    );
+  }
+  
   render() {
     if (this.state.hasError) {
       // If a custom fallback was provided, use it
       if (this.props.fallback) {
         return this.props.fallback;
       }
-
-      // Otherwise, use our default error UI
+      
+      const error = this.state.error;
+      
+      // Check for specific error types to provide more helpful messages
+      const isNetwork = this.isNetworkError(error);
+      
+      // Otherwise, use our default error UI with contextual messages
       return (
         <Card className="w-full max-w-md mx-auto mt-8 shadow-lg">
-          <CardHeader className="bg-destructive/10 text-destructive">
+          <CardHeader className={isNetwork ? "bg-orange-100 text-orange-700" : "bg-destructive/10 text-destructive"}>
             <div className="flex items-center gap-2">
               <AlertTriangle size={24} />
-              <CardTitle>Something went wrong</CardTitle>
+              <CardTitle>
+                {isNetwork 
+                  ? "Network Connection Issue" 
+                  : "Something went wrong"}
+              </CardTitle>
             </div>
-            <CardDescription className="text-destructive/80">
-              An error occurred while rendering this component
+            <CardDescription className={isNetwork ? "text-orange-600/80" : "text-destructive/80"}>
+              {isNetwork
+                ? "There was a problem connecting to the server"
+                : "An error occurred while rendering this component"}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-sm font-mono bg-muted p-4 rounded overflow-auto max-h-[200px]">
-              {this.state.error?.message || 'Unknown error'}
+              {error?.message || 'Unknown error'}
             </div>
+            
+            {isNetwork && (
+              <div className="mt-4 text-sm">
+                <p className="font-medium">Troubleshooting steps:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Check your internet connection</li>
+                  <li>Make sure the server is running</li>
+                  <li>Try refreshing the page</li>
+                  <li>If problems persist, contact support</li>
+                </ul>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Button 
@@ -92,10 +149,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               Go to Home
             </Button>
             <Button 
-              variant="default" 
+              variant={isNetwork ? "secondary" : "default"}
               onClick={this.handleReset}
             >
-              Try Again
+              {isNetwork ? "Retry Connection" : "Try Again"}
             </Button>
           </CardFooter>
         </Card>
