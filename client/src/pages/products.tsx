@@ -465,14 +465,17 @@ export default function ProductsPage() {
     },
   });
 
-  // Mostrar mensaje si no hay productos
-  if (Array.isArray(products) && products.length === 0 && !isLoading) {
-    return (
-      <Shell>
+  // Renderizar el contenido adecuado basado en si hay productos o no
+  const renderContent = () => {
+    if (Array.isArray(products) && products.length === 0 && !isLoading) {
+      return (
         <div className="container mx-auto py-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Inventario</h1>
-            <Button className="flex items-center gap-2">
+            <Button 
+              className="flex items-center gap-2"
+              onClick={() => setShowProductForm(true)}
+            >
               <PlusCircleIcon className="h-4 w-4" />
               Nuevo Producto
             </Button>
@@ -485,19 +488,21 @@ export default function ProductsPage() {
               </CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button className="flex items-center gap-2">
+              <Button 
+                className="flex items-center gap-2"
+                onClick={() => setShowProductForm(true)}
+              >
                 <PlusCircleIcon className="h-4 w-4" />
                 Agregar Producto
               </Button>
             </CardFooter>
           </Card>
         </div>
-      </Shell>
-    );
-  }
-
-  return (
-    <Shell>
+      );
+    }
+    
+    // Caso normal: hay productos
+    return (
       <div className="container mx-auto py-4">
         <div className={`${isMobile ? 'flex flex-col gap-3' : 'flex justify-between items-center'} mb-6`}>
           <h1 className="text-2xl md:text-3xl font-bold">Inventario</h1>
@@ -642,6 +647,13 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       </div>
+    );
+  };
+
+  // Renderizar con un único Shell para toda la página
+  return (
+    <Shell>
+      {renderContent()}
     </Shell>
   );
 }
