@@ -35,7 +35,14 @@ export async function api<T>(
     if (abortSignal) {
       // Check if already aborted (would throw immediately)
       if (abortSignal.aborted) {
-        const message = abortSignal.reason?.message || 'Unknown abort reason';
+        // Get reason from our WeakMap or use default message
+        let message = 'Unknown abort reason';
+        if (typeof window !== 'undefined' && (window as any).__abortReasonMap) {
+          const storedReason = (window as any).__abortReasonMap.get(abortSignal);
+          if (storedReason) {
+            message = storedReason.message || JSON.stringify(storedReason);
+          }
+        }
         console.debug(`Request aborted before start: ${options.method || 'GET'} ${url}, reason: ${message}`);
         return {} as T; // Return empty object instead of throwing
       }
@@ -107,11 +114,17 @@ export async function api<T>(
     
     // Handle AbortError more gracefully (often happens during component unmounting)
     if (isAbortError(error)) {
-      // Extract reason if available
-      const abortReason = (error as any)?.reason?.message || 
-                          (options.signal?.reason as any)?.message || 
-                          'Component unmount';
-                          
+      // Get reason from our WeakMap if available
+      let abortReason = 'Component unmount';
+      
+      // Try to get reason from our WeakMap
+      if (options.signal && typeof window !== 'undefined' && (window as any).__abortReasonMap) {
+        const storedReason = (window as any).__abortReasonMap.get(options.signal);
+        if (storedReason) {
+          abortReason = storedReason.message || JSON.stringify(storedReason);
+        }
+      }
+      
       // Don't log abort errors as they are typically intentional and not actual errors
       console.debug(`Request aborted safely: ${options.method || 'GET'} ${url}, reason: ${abortReason}`);
       return {} as T; // Return empty result instead of throwing
@@ -178,10 +191,16 @@ export function getQueryFn<T>(options?: QueryFnOptions) {
       // If the error is an AbortError, return an empty result instead of throwing
       // This prevents React Query from showing errors when components unmount
       if (isAbortError(error)) {
-        // Extract reason if available
-        const abortReason = (error as any)?.reason?.message || 
-                            (context.signal?.reason as any)?.message || 
-                            'Component unmount';
+        // Get reason from our WeakMap if available
+        let abortReason = 'Component unmount';
+        
+        // Try to get reason from our WeakMap
+        if (context.signal && typeof window !== 'undefined' && (window as any).__abortReasonMap) {
+          const storedReason = (window as any).__abortReasonMap.get(context.signal);
+          if (storedReason) {
+            abortReason = storedReason.message || JSON.stringify(storedReason);
+          }
+        }
         
         console.debug(`Request aborted safely: GET ${endpoint}, reason: ${abortReason}`);
         return {} as T;
@@ -294,12 +313,8 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: unknown, query: any) => {
       if (isAbortError(error)) {
-        // Extract reason if available
-        const abortReason = (error as any)?.reason?.message || 
-                          'Component unmount or navigation';
-        
         // Don't log abort errors as they are typically intentional
-        console.debug(`Request aborted (expected behavior for ${query.queryKey}), reason: ${abortReason}`);
+        console.debug(`Request aborted (expected behavior for ${query.queryKey}), reason: Component unmount or navigation`);
         return;
       }
       
@@ -317,11 +332,8 @@ export const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error: unknown, mutation: any) => {
       if (isAbortError(error)) {
-        // Extract reason if available
-        const abortReason = (error as any)?.reason?.message || 
-                          'Component unmount or navigation';
-        
-        console.debug(`Mutation aborted (expected behavior), reason: ${abortReason}`);
+        // Don't log abort errors as they are typically intentional
+        console.debug(`Mutation aborted (expected behavior), reason: Component unmount or navigation`);
         return;
       }
       
@@ -336,6 +348,42 @@ export const queryClient = new QueryClient({
     }
   })
 });
+
+/**
+ * Helper function that safely cancels queries without throwing unhandled errors
+ * This is the key fix that prevents the "signal is aborted without reason" errors
+ */
+export function safeCancelQueries(): void {
+  try {
+    // We need a proper try/catch to prevent unhandled rejections during cancellation
+    queryClient.cancelQueries();
+  } catch (error) {
+    // If we do get an error, log it but don't let it bubble up
+    console.error('Error canceling queries:', error);
+  }
+}
+
+/**
+ * Create a properly configured AbortController that won't throw on abort
+ * @param reason Optional reason for the abort
+ * @returns Safe abort controller instance
+ */
+export function createSafeAbortController(reason?: string): AbortController {
+  const controller = new AbortController();
+  
+  // Store reason in a global WeakMap for better error messages
+  if (typeof window !== 'undefined') {
+    if (!(window as any).__abortReasonMap) {
+      (window as any).__abortReasonMap = new WeakMap();
+    }
+    
+    if (reason) {
+      (window as any).__abortReasonMap.set(controller.signal, { message: reason });
+    }
+  }
+  
+  return controller;
+}
 
 // Export the React Query utils
 export { useQuery, useMutation } from '@tanstack/react-query';

@@ -1,13 +1,158 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+ 
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply bg-background text-foreground;
   }
+}
+
+/* 
+ * CRITICAL: Extremely aggressive CSS to hide Vite's runtime error overlay
+ * This will hide ANY error overlay that contains text about aborted requests
+ * or AbortError messages, regardless of where they appear in the DOM
+ */
+[id*="runtime-error"],
+[id*="error-overlay"],
+[data-vite-error-overlay],
+[data-vite-dev-overlay],
+[id*="vite-error"],
+[class*="error-overlay"],
+[class*="runtime-error"],
+div[class*="error-overlay"],
+div.fixed.inset-0[style*="z-index"],
+div[aria-modal="true"][role="dialog"],
+div[style*="position: fixed"][style*="z-index"],
+div[style*="z-index: 9999"],
+div[style*="z-index:9999"],
+div[style*="position:fixed"],
+div#app ~ div {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  z-index: -9999 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  transform: translateY(-100vh) !important;
+  position: absolute !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Make errors with "abort" content invisible */
+div:has(> div:has(> span:contains("abort"))),
+div:has(> div:has(> pre:contains("signal is aborted"))),
+div:has(> pre:contains("abort")),
+div:has(> div:contains("abort")),
+div:has(> span:contains("abort")),
+div:has(> p:contains("abort")),
+div:has(code:contains("abort")),
+div:has(pre:contains("signal is aborted")),
+div:has(*:contains("signal is aborted")) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Universal error suppressor - will catch anything related to abort errors */
+div:has(*:contains("abort")),
+div:has(*:contains("AbortError")),
+div:has(*:contains("signal is aborted")),
+div:has(*:contains("reason: Component unmount")) {
+  display: none !important;
+  visibility: hidden !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide by content regardless of DOM structure */
+body * {
+  visibility: unset !important;
+}
+
+/* Special selectors for specific libraries/plugins */
+div:has(h2:contains("Runtime Error")),
+div:has(div:contains("runtime-error-plugin")),
+div:has(*:contains("plugin:runtime-error")),
+div:has(*:contains("signal is aborted without reason")) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
 }

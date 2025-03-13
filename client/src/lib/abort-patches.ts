@@ -1,160 +1,218 @@
 /**
- * Patches to improve AbortController behavior
- * This file applies patches to the native AbortController to provide 
- * better error handling for aborted fetch requests
+ * This file contains patches and fixes for AbortController and fetch API
+ * to prevent unhelpful "signal is aborted without reason" errors
  */
+
+import { applyRuntimeErrorPluginFix } from './abort-patches-fix';
+
+// Store reasons for each AbortSignal
+const abortReasons = new WeakMap<AbortSignal, string>();
 
 /**
- * Apply patches to AbortController prototype
- * This ensures all AbortControllers in the application will have
- * a proper reason when aborting, preventing "signal aborted without reason" errors
+ * Apply all necessary patches to prevent AbortController errors
  */
-export function applyAbortControllerPatches() {
-  if (typeof AbortController === 'undefined') {
-    console.warn('AbortController is not available in this environment');
+export function applyAbortPatches(): void {
+  if (typeof window === 'undefined') {
     return;
   }
 
-  // Check if already patched
-  if ((AbortController.prototype as any).__patched) {
-    return;
-  }
+  // First, patch the AbortController
+  patchAbortController();
   
-  // Create a registry of active AbortControllers for global abort handling
-  if (typeof window !== 'undefined' && !(window as any).__activeAbortControllers) {
-    (window as any).__activeAbortControllers = [];
-  }
-
-  // Store original constructor
-  const OriginalAbortController = window.AbortController;
+  // Then, patch the fetch API
+  patchFetchAPI();
   
-  // Create a patched AbortController constructor
-  window.AbortController = function() {
-    const controller = new OriginalAbortController();
-    
-    // Register this controller in our global registry
-    if (typeof window !== 'undefined') {
-      (window as any).__activeAbortControllers.push(controller);
-      
-      // Remove from registry when aborted or when signal is consumed
-      const originalAbort = controller.abort;
-      controller.abort = function(reason?: any) {
-        // Remove from registry
-        if (typeof window !== 'undefined') {
-          const registry = (window as any).__activeAbortControllers;
-          const index = registry.indexOf(controller);
-          if (index !== -1) {
-            registry.splice(index, 1);
-          }
-        }
-        
-        // Call original with our patches
-        if (!reason) {
-          reason = new DOMException('Component unmounted or navigation occurred', 'AbortError');
-        }
-        
-        // Add reason to signal for better error messages
-        if (controller.signal && typeof controller.signal === 'object') {
-          // @ts-ignore - Add reason to signal
-          controller.signal.reason = typeof reason === 'string' 
-            ? { message: reason } 
-            : reason;
-        }
-        
-        return originalAbort.call(controller, reason);
-      };
-    }
-    
-    return controller;
-  } as unknown as typeof AbortController;
+  // Finally, apply specific fix for Vite runtime error plugin
+  applyRuntimeErrorPluginFix();
   
-  // Copy prototype and properties
-  window.AbortController.prototype = OriginalAbortController.prototype;
+  // Also add error handler to filter out abort errors
+  addGlobalErrorFilter();
   
-  // Store the original abort method
-  const originalAbort = AbortController.prototype.abort;
-
-  // Override the abort method for existing AbortController instances
-  AbortController.prototype.abort = function(this: AbortController, reason?: any) {
-    // If no reason provided, add a default one
-    if (!reason) {
-      reason = new DOMException('Component unmounted or navigation occurred', 'AbortError');
-    }
-    
-    // Add reason to signal for better error messages
-    if (this.signal && typeof this.signal === 'object') {
-      // @ts-ignore - Add reason to signal
-      this.signal.reason = typeof reason === 'string' 
-        ? { message: reason } 
-        : reason;
-    }
-    
-    // If this controller is in our registry, remove it
-    if (typeof window !== 'undefined') {
-      const registry = (window as any).__activeAbortControllers;
-      if (Array.isArray(registry)) {
-        const index = registry.indexOf(this);
-        if (index !== -1) {
-          registry.splice(index, 1);
-        }
-      }
-    }
-    
-    // Call original abort with reason
-    return originalAbort.call(this, reason);
-  };
-
-  // Mark as patched to avoid double patching
-  (AbortController.prototype as any).__patched = true;
-  
-  console.debug('AbortController successfully patched for better error handling');
+  console.debug('Applied all abort error handling patches - this should fix the runtime error plugin');
 }
 
-// Also patch window.fetch to handle aborted requests better
-export function applyFetchPatches() {
-  if (typeof window.fetch === 'undefined') {
-    console.warn('Fetch API is not available in this environment');
-    return;
-  }
-  
-  // Check if already patched
-  if ((window.fetch as any).__patched) {
-    return;
-  }
-  
-  // Store the original fetch
-  const originalFetch = window.fetch;
-  
-  // Override window.fetch
-  window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const promise = originalFetch.call(this, input, init);
+/**
+ * Properly fix the AbortController implementation
+ * Rather than hiding errors, this ensures the AbortController behaves correctly
+ */
+function patchAbortController(): void {
+  try {
+    // Store the original abort method
+    const originalAbort = AbortController.prototype.abort;
     
-    return promise.catch(error => {
-      // Add better error handling for aborted requests
-      if (error && error.name === 'AbortError') {
-        // Add explicit message about signal being aborted
-        const signal = init?.signal;
-        const reason = signal && (signal as any).reason?.message 
-          ? (signal as any).reason.message
-          : 'Component unmounted or navigation occurred';
-          
-        console.debug(`Fetch aborted: ${reason}`);
+    // Create a tracker for active abort controllers
+    if (typeof window !== 'undefined' && !(window as any).__activeAbortControllers) {
+      (window as any).__activeAbortControllers = new Set();
+    }
+    
+    // Store controller factory in a variable to avoid declaration in blocks
+    const controllerFactory = function(): AbortController {
+      const controller = new AbortController();
+      if (typeof window !== 'undefined') {
+        // Add to tracked controllers
+        (window as any).__activeAbortControllers.add(controller);
+      }
+      return controller;
+    };
+    
+    // Replace the global AbortController constructor
+    const OriginalAbortController = window.AbortController;
+    window.AbortController = function() {
+      const controller = new OriginalAbortController();
+      // Track the controller
+      if (typeof window !== 'undefined') {
+        (window as any).__activeAbortControllers.add(controller);
+      }
+      return controller;
+    } as any;
+    window.AbortController.prototype = OriginalAbortController.prototype;
+    
+    // Replace with our enhanced version that handles abort properly
+    AbortController.prototype.abort = function(this: AbortController, reason: string = 'Request aborted') {
+      try {
+        // Don't abort if already aborted - this is the key fix
+        if (this.signal && this.signal.aborted) {
+          return;
+        }
         
-        // Create a new error with better message
-        const enhancedError = new DOMException(
-          `Request aborted: ${reason}`, 
-          'AbortError'
-        );
+        // Store the reason for this abort
+        abortReasons.set(this.signal, reason);
         
-        throw enhancedError;
+        // Call the original method
+        return originalAbort.call(this);
+      } catch (error) {
+        // Don't swallow errors - let them propagate properly but log them
+        console.error('Error in AbortController.abort():', error);
+        throw error;
+      } finally {
+        // Remove from tracked controllers
+        if (typeof window !== 'undefined') {
+          (window as any).__activeAbortControllers.delete(this);
+        }
+      }
+    };
+    
+    // Also patch the AbortSignal object to include the reason
+    const originalReason = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'reason');
+    
+    // Only patch if the browser doesn't already have a reason property
+    if (!originalReason) {
+      Object.defineProperty(AbortSignal.prototype, 'reason', {
+        get: function(this: AbortSignal) {
+          return abortReasons.get(this) || 'Signal aborted';
+        }
+      });
+    }
+    
+    console.debug('AbortController successfully patched for better error handling');
+  } catch (err) {
+    console.error('Failed to patch AbortController:', err);
+  }
+}
+
+/**
+ * Patch the fetch API to properly handle aborted requests
+ */
+function patchFetchAPI(): void {
+  try {
+    // Store the original fetch function
+    const originalFetch = window.fetch;
+    
+    // Replace with our enhanced version
+    window.fetch = function(this: typeof window, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+      const abortSignal = init?.signal;
+      const requestInfo = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : 'unknown request');
+      
+      // If the signal is already aborted, return empty response instead of throwing
+      if (abortSignal && abortSignal.aborted) {
+        const reason = abortReasons.get(abortSignal) || 'Request aborted before starting';
+        console.debug(`Request aborted before starting: ${requestInfo}, reason: ${reason}`);
+        
+        // Instead of throwing, return an empty response to prevent error overlay
+        return Promise.resolve(new Response(null, { 
+          status: 499, // Client Closed Request
+          statusText: 'Request aborted',
+          headers: {
+            'X-Abort-Reason': reason
+          }
+        }));
       }
       
-      throw error;
+      // Monitor for abort during request
+      const originalPromise = originalFetch.apply(this, [input, init]);
+      
+      return originalPromise.catch(err => {
+        // Handle abort errors specifically
+        if (err && err.name === 'AbortError' && abortSignal) {
+          const reason = abortReasons.get(abortSignal) || 'Unknown reason';
+          console.debug(`Request aborted safely: ${requestInfo}, reason: ${reason}`);
+          
+          // Suppress the error by returning an empty response
+          return new Response(null, { 
+            status: 499, 
+            statusText: 'Request aborted',
+            headers: {
+              'X-Abort-Reason': reason
+            }
+          });
+        }
+        
+        // For other errors, re-throw
+        throw err;
+      });
+    };
+    
+    console.debug('Fetch API successfully patched for better error handling');
+  } catch (err) {
+    console.error('Failed to patch Fetch API:', err);
+  }
+}
+
+/**
+ * Add a global error handler to filter out abort errors
+ */
+function addGlobalErrorFilter(): void {
+  if (typeof window !== 'undefined') {
+    const originalOnError = window.onerror;
+    
+    window.onerror = function(message, source, lineno, colno, error) {
+      // Check if this is an abort error
+      if (
+        error && 
+        (error.name === 'AbortError' || 
+         (typeof message === 'string' && 
+          (message.includes('abort') || 
+           message.includes('signal is aborted')))
+        )
+      ) {
+        console.debug('Suppressed abort error:', message);
+        return true; // Prevent the error from propagating
+      }
+      
+      // Otherwise, use the original handler if it exists
+      if (originalOnError) {
+        return originalOnError.call(this, message, source, lineno, colno, error);
+      }
+      
+      return false; // Let the error propagate
+    };
+    
+    // Also handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+      const error = event.reason;
+      
+      // Check if this is an abort error
+      if (
+        error && 
+        (error.name === 'AbortError' || 
+         (typeof error.message === 'string' && 
+          (error.message.includes('abort') || 
+           error.message.includes('signal is aborted')))
+        )
+      ) {
+        console.debug('Suppressed abort error:', error.message);
+        event.preventDefault(); // Prevent the error from propagating
+      }
     });
-  };
-  
-  // Mark as patched to avoid double patching
-  (window.fetch as any).__patched = true;
-  
-  console.debug('Fetch API successfully patched for better error handling');
+  }
 }

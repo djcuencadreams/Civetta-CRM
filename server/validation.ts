@@ -8,7 +8,7 @@ import { fromZodError } from "zod-validation-error";
  * @param schema Zod schema to validate against
  * @returns Express middleware function
  */
-export function validateBody<T>(schema: z.Schema<T>) {
+export function validateBody<T extends z.ZodType<any, any, any>>(schema: T) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = schema.safeParse(req.body);
@@ -36,7 +36,7 @@ export function validateBody<T>(schema: z.Schema<T>) {
  * @param schema Zod schema to validate against
  * @returns Express middleware function
  */
-export function validateParams<T>(schema: z.Schema<T>) {
+export function validateParams<T extends z.ZodType<any, any, any>>(schema: T) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = schema.safeParse(req.params);
