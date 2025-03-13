@@ -301,12 +301,16 @@ export const queryClient = new QueryClient({
       // Cache data for 5 minutes (reduces network requests)
       staleTime: 1000 * 60 * 5,
       // Important: adding this flag prevents React Query from throwing
-      // when a component unmounts during a query
+      // when a component unmounts during a query - this is a key part of proper error handling
       gcTime: 1000 * 60 * 5, // 5 minutes
+      // This is critical - don't throw on cancelation/abort errors
+      throwOnError: (error) => !isAbortError(error),
     },
     mutations: {
       // No retry for mutations - they should be explicitly retried by the user
-      retry: false
+      retry: false,
+      // Don't throw for aborted mutations either
+      throwOnError: (error) => !isAbortError(error),
     }
   },
   // Global query event listeners
@@ -364,11 +368,16 @@ export function safeCancelQueries(): void {
 }
 
 /**
- * Create a properly configured AbortController that won't throw on abort
+ * Create a properly configured AbortController with explicit reason handling
+ * 
+ * This function creates an AbortController and adds the reason for potential abort
+ * to both a global WeakMap and directly to the abort call for better debugging.
+ * 
  * @param reason Optional reason for the abort
- * @returns Safe abort controller instance
+ * @returns Enhanced abort controller with reason tracking
  */
 export function createSafeAbortController(reason?: string): AbortController {
+  // Create a standard controller
   const controller = new AbortController();
   
   // Store reason in a global WeakMap for better error messages
@@ -381,6 +390,36 @@ export function createSafeAbortController(reason?: string): AbortController {
       (window as any).__abortReasonMap.set(controller.signal, { message: reason });
     }
   }
+  
+  // Patch the abort method to include reason as the first parameter
+  const originalAbort = controller.abort;
+  (controller as any).abort = function(customReason?: any) {
+    try {
+      // If a custom reason is provided in the call, use that
+      // Otherwise use the reason from initialization
+      // Create a proper DOMException for abort clarity
+      const abortReason = customReason || reason || 'Abort requested';
+      
+      // Call the original abort with a DOMException that has the reason
+      const abortError = new DOMException(
+        typeof abortReason === 'string' ? abortReason : JSON.stringify(abortReason),
+        'AbortError'
+      );
+      
+      // Try to use the enhanced abort API (newer browsers)
+      if (originalAbort.length >= 1) {
+        // Modern abort API accepts a reason
+        originalAbort.call(controller, abortError);
+      } else {
+        // Fallback for older browsers that don't support abort reason
+        originalAbort.call(controller);
+      }
+    } catch (error) {
+      // If something goes wrong during abort, log it but don't throw
+      // This is important to prevent unhandled rejections
+      console.warn('Error occurred during abort:', error);
+    }
+  };
   
   return controller;
 }

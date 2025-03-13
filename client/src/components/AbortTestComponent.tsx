@@ -1,193 +1,167 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon, AlertCircleIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 
 /**
- * Test component specifically for verifying our abort error handling fixes
- * This component will:
- * 1. Start a slow fetch that we can manually abort
- * 2. Navigate away during a fetch to trigger unmount abort errors
- * 3. Provide buttons to test different abort error scenarios
+ * AbortController Test Component
+ * 
+ * This component demonstrates proper handling of AbortController errors, 
+ * focusing on handling them correctly rather than suppressing error messages.
  */
 export default function AbortTestComponent() {
-  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [testMessage, setTestMessage] = useState<string>('');
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
-
-  // Test the deliberately slow endpoint
-  const testSlowEndpoint = async (delay: number = 3000) => {
-    // Create a new AbortController for this request
+  const [testResult, setTestResult] = useState<string>('');
+  const [errorShown, setErrorShown] = useState<boolean>(false);
+  
+  // Test that aborts during component unmount are properly handled
+  useEffect(() => {
+    // Create the controller with a reason to make debugging easier
     const controller = new AbortController();
-    setAbortController(controller);
+    const signal = controller.signal;
     
-    try {
-      setTestStatus('loading');
-      setTestMessage(`Testing endpoint with ${delay}ms delay...`);
-      
-      // Start the fetch with our abort controller
-      const response = await fetch(`/api/deliberately-slow-endpoint?delay=${delay}`, {
-        signal: controller.signal
-      });
-      
-      if (response.ok) {
-        setTestStatus('success');
-        setTestMessage('Request completed successfully!');
-      } else {
-        setTestStatus('error');
-        setTestMessage(`Request failed with status: ${response.status}`);
-      }
-    } catch (error: any) {
-      // Handle the error - this should be suppressed by our patches if it's an abort
-      setTestStatus('error');
-      setTestMessage(`Error: ${error.message || 'Unknown error'}`);
-      
-      // Log it for our debug info
-      console.debug('Test request error (should be handled):', error);
-    } finally {
-      setAbortController(null);
-    }
-  };
-  
-  // Manually abort the current request
-  const abortCurrentRequest = () => {
-    if (abortController) {
-      abortController.abort('Manual abort test');
-      setTestStatus('idle');
-      setTestMessage('Request aborted manually');
-    } else {
-      setTestMessage('No active request to abort');
-    }
-  };
-  
-  // Create an auto-abort test
-  const testAutoAbort = () => {
-    // Start a fetch that we'll abort after a short delay
-    testSlowEndpoint(5000);
+    // Track if the component is mounted
+    let isMounted = true;
     
-    // Set a timeout to abort it after 1 second
-    setTimeout(() => {
-      if (abortController) {
-        abortController.abort('Auto-abort test');
-        setTestStatus('idle');
-        setTestMessage('Request auto-aborted after 1 second');
-      }
-    }, 1000);
-  };
-  
-  // Create an unmount test - this is what typically triggers the error
-  const testUnmountAbort = () => {
-    // Start a slow request
-    testSlowEndpoint(10000);
-    
-    // After a short delay, "unmount" this component by clearing any active controller
-    // This simulates what happens during navigation when components unmount
-    setTimeout(() => {
-      setAbortController(prev => {
-        if (prev) {
-          prev.abort('Component unmount simulation');
-          setTestStatus('idle');
-          setTestMessage('Simulated unmount abort');
+    // Proper async function with proper error handling
+    const fetchData = async () => {
+      try {
+        // Intentionally slow fetch that will be aborted on unmount
+        const response = await fetch('/api/deliberately-slow-endpoint', { signal });
+        // Only process response if component is still mounted
+        if (isMounted) {
+          const data = await response.json();
+          setTestResult('This should never be shown as the request will be aborted');
         }
-        return null;
-      });
-    }, 1000);
-  };
+      } catch (error) {
+        // Don't do anything if component unmounted
+        if (!isMounted) return;
+        
+        // This is expected when component unmounts - handle properly
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Expected AbortError on unmount (this is normal):', error.message);
+        } else {
+          console.error('Unexpected error:', error);
+        }
+      }
+    };
+    
+    // Start fetch but properly catch any errors that might escape
+    fetchData().catch(err => {
+      if (isMounted) {
+        console.log('Caught error in outer catch handler:', err);
+      }
+    });
+      
+    // Cleanup function that aborts the request when component unmounts
+    return () => {
+      isMounted = false;
+      
+      // Safely abort with reason
+      if (!controller.signal.aborted) {
+        try {
+          controller.abort(new DOMException('Component unmounted', 'AbortError'));
+          console.log('Safely aborted fetch on component unmount');
+        } catch (err) {
+          // Just log any errors, don't rethrow
+          console.error('Error during cleanup abort:', err);
+        }
+      }
+    };
+  }, []);
   
-  // Create an error that includes the specific text "signal is aborted without reason"
-  const testSpecificErrorText = () => {
-    // Directly create and handle an error with the exact same text as the Vite plugin error
-    const error = new DOMException("signal is aborted without reason", "AbortError");
-    console.error(error);
+  // Function to manually test abort behavior with proper error handling
+  const testManualAbort = () => {
+    setTestResult('Testing manual abort (properly handled)...');
     
-    // Also create a promise rejection with the same error
-    Promise.reject(error);
+    // Create controller with reason
+    const controller = new AbortController();
+    const signal = controller.signal;
     
-    setTestMessage('Created test error with exact "signal is aborted without reason" text');
+    // Use async/await with proper try/catch for better error handling
+    const runTest = async () => {
+      try {
+        // Start a fetch
+        const response = await fetch('/api/deliberately-slow-endpoint', { signal });
+        const data = await response.json();
+        setTestResult('This should never be shown as the request will be aborted');
+      } catch (error) {
+        // Properly detect and handle abort errors
+        if (error instanceof Error && error.name === 'AbortError') {
+          setTestResult('✅ AbortError handled correctly through proper try/catch');
+        } else {
+          setTestResult(`❌ Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    };
+    
+    // Start the test and ensure we catch any escaping errors
+    runTest().catch(error => {
+      setTestResult(`Caught in outer handler: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    
+    // Abort after a short delay with proper reason
+    setTimeout(() => {
+      try {
+        controller.abort(new DOMException('Test abort with reason', 'AbortError'));
+        console.log('Manually aborted fetch request with proper reason');
+      } catch (err) {
+        console.error('Error during abort:', err);
+      }
+    }, 50);
   };
 
+  // Test handled promise rejection with AbortError
+  const testHandledRejection = () => {
+    setTestResult('Testing proper rejection handling...');
+    
+    // Create a Promise that properly handles the rejection
+    const testPromise = new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      
+      // Create a proper abort with reason
+      controller.abort(new DOMException('Test abort for rejection example', 'AbortError'));
+      
+      // Reject with a proper DOMException with reason
+      reject(new DOMException('Test rejection properly handled', 'AbortError'));
+    });
+    
+    // Properly handle the rejection
+    testPromise.catch(error => {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setTestResult('✅ Properly handled AbortError rejection with explicit catch');
+        console.log('Successfully caught AbortError:', error.message);
+      } else {
+        setTestResult(`❌ Unexpected error type: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+    
+    setErrorShown(true);
+  };
+  
   return (
-    <Card className="w-full max-w-lg mx-auto my-4">
-      <CardHeader>
-        <CardTitle>Abort Error Test Panel</CardTitle>
-        <CardDescription>
-          Test our fixes for the "[plugin:runtime-error-plugin] signal is aborted without reason" error
-        </CardDescription>
-      </CardHeader>
+    <Card className="p-5 space-y-4">
+      <h2 className="text-xl font-bold">AbortController Error Test</h2>
+      <p>This component demonstrates proper handling of AbortErrors (not just suppressing them).</p>
       
-      <CardContent className="space-y-4">
-        <Alert variant={
-          testStatus === 'idle' ? 'default' : 
-          testStatus === 'loading' ? 'default' : 
-          testStatus === 'success' ? 'default' : 
-          'destructive'
-        }>
-          <InfoIcon className="h-4 w-4" />
-          <AlertTitle>Test Status: {testStatus.toUpperCase()}</AlertTitle>
-          <AlertDescription>{testMessage}</AlertDescription>
-        </Alert>
+      <div className="space-y-2">
+        <Button onClick={testManualAbort} variant="outline">
+          Test Proper Abort Handling
+        </Button>
         
-        <Separator />
-        
-        <div className="grid grid-cols-1 gap-2">
-          <Button 
-            onClick={() => testSlowEndpoint(3000)}
-            disabled={testStatus === 'loading'}
-            variant="outline"
-          >
-            Test Slow Endpoint (3s)
-          </Button>
-          
-          <Button 
-            onClick={() => testSlowEndpoint(5000)}
-            disabled={testStatus === 'loading'}
-            variant="outline"
-          >
-            Test Very Slow Endpoint (5s)
-          </Button>
-          
-          <Button 
-            onClick={abortCurrentRequest}
-            disabled={!abortController}
-            variant="secondary"
-          >
-            Manually Abort Current Request
-          </Button>
-          
-          <Separator />
-          
-          <Button 
-            onClick={testAutoAbort}
-            disabled={testStatus === 'loading'}
-            variant="default"
-          >
-            Test Auto-Abort After 1s
-          </Button>
-          
-          <Button 
-            onClick={testUnmountAbort}
-            disabled={testStatus === 'loading'}
-            variant="default"
-          >
-            Test Unmount Abort Scenario
-          </Button>
-          
-          <Button 
-            onClick={testSpecificErrorText}
-            variant="destructive"
-          >
-            Test Exact Error Text Match
-          </Button>
-        </div>
-      </CardContent>
+        <Button 
+          onClick={testHandledRejection} 
+          variant="outline"
+          className="ml-2"
+          disabled={errorShown}
+        >
+          Test Proper Rejection Handling
+        </Button>
+      </div>
       
-      <CardFooter className="flex justify-between">
-        <div className="text-xs text-muted-foreground">
-          This should test our fixes for the runtime error plugin's abort handling
+      {testResult && (
+        <div className="mt-4 p-3 bg-slate-100 rounded text-sm">
+          {testResult}
         </div>
-      </CardFooter>
+      )}
     </Card>
   );
 }

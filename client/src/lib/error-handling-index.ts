@@ -22,36 +22,85 @@ export function initializeErrorHandling(): void {
   
   // Apply specific patches
   applyAbortPatches();
-  applyViteErrorPluginFix();
-  applyRuntimeErrorPluginFix();
   
-  // Add CSS suppression for error overlays
-  addCssSuppression();
+  // Add proper unhandled rejection handler
+  addUnhandledRejectionHandler();
+  
+  // Apply Vite-specific fixes for development
+  if (import.meta.env.DEV) {
+    applyViteErrorPluginFix();
+    applyRuntimeErrorPluginFix();
+    
+    // Add CSS suppression for error overlays in dev only
+    addCssSuppression();
+  }
   
   console.debug('All error handling mechanisms initialized successfully');
 }
 
 /**
- * Adds CSS to suppress error overlays from showing
+ * Add a proper handler for unhandled promise rejections
+ * This prevents errors from bubbling up to global handlers
+ */
+function addUnhandledRejectionHandler(): void {
+  if (typeof window === 'undefined') return;
+  
+  // Global unhandled rejection handler
+  window.addEventListener('unhandledrejection', (event) => {
+    const error = event.reason;
+    
+    // Check if this is an abort error - these are expected during navigation
+    if (
+      error instanceof DOMException && 
+      (
+        error.name === 'AbortError' || 
+        error.message.includes('aborted') || 
+        error.message.includes('abort')
+      )
+    ) {
+      // Prevent default error handling for abort errors
+      event.preventDefault();
+      console.debug('Filtered unhandled promise rejection (abort):', error.message);
+      return false;
+    }
+    
+    // Also handle generic fetch errors during abort
+    if (
+      error && 
+      typeof error.message === 'string' && 
+      (
+        error.message.includes('fetch') && 
+        error.message.includes('abort') ||
+        error.message.includes('signal is aborted')
+      )
+    ) {
+      // Prevent default handling
+      event.preventDefault();
+      console.debug('Suppressed fetch abort error:', error.message);
+      return false;
+    }
+    
+    // Allow other errors to propagate
+    return true;
+  }, true);
+}
+
+/**
+ * Adds CSS to suppress error overlays from showing (Dev mode only)
  */
 function addCssSuppression(): void {
-  // Only run in browser
-  if (typeof document === 'undefined') return;
+  // Only run in browser and development mode
+  if (typeof document === 'undefined' || !import.meta.env.DEV) return;
   
   // Create a style element
   const style = document.createElement('style');
   style.textContent = `
-    /* Hide Vite error overlays */
-    div[data-vite-error-overlay],
-    div[data-vite-dev-error-overlay],
-    div[data-plugin="runtime-error-plugin"],
-    div[style*="z-index: 99999"],
-    div[style*="fixed"] div[style*="z-index: 99999"],
-    /* Specifically target AbortController and signal aborted errors */
-    div:has(pre:contains("signal is aborted")),
-    div:has(pre:contains("AbortController.abort")),
-    div[class*="error"]:has(div[class*="stack"]:contains("signal is aborted")),
-    div[class*="error"]:has(div[class*="stack"]:contains("AbortController.abort")) {
+    /* Hide Vite error overlays for abort errors */
+    div[data-vite-error-overlay]:has(pre:contains("signal is aborted")),
+    div[data-vite-dev-error-overlay]:has(pre:contains("signal is aborted")),
+    div[data-plugin="runtime-error-plugin"]:has(pre:contains("signal is aborted")),
+    div[style*="z-index: 99999"]:has(pre:contains("signal is aborted")),
+    div[style*="fixed"]:has(pre:contains("signal is aborted")) {
       display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
@@ -63,7 +112,7 @@ function addCssSuppression(): void {
   // Append it to the head
   document.head.appendChild(style);
   
-  // Also set up a MutationObserver to immediately hide any error overlays
+  // Also set up a MutationObserver to immediately hide abort error overlays
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length) {
@@ -90,18 +139,27 @@ function addCssSuppression(): void {
                 textContent.includes('abort')
               ) {
                 console.debug('Preventing Vite error overlay for abort error');
-                // Apply styling to hide the element
-                node.style.display = 'none';
-                node.style.visibility = 'hidden';
-                node.style.opacity = '0';
-                node.style.pointerEvents = 'none';
                 
-                // Remove it after a delay to ensure it's gone
-                setTimeout(() => {
-                  if (node.parentNode) {
-                    node.parentNode.removeChild(node);
-                  }
-                }, 0);
+                // Set to true if this is an abort error overlay
+                const isAbortError = 
+                  textContent.includes('signal is aborted without reason') || 
+                  textContent.includes('AbortError') || 
+                  textContent.includes('The operation was aborted');
+                
+                if (isAbortError) {
+                  // Apply styling to hide abort error overlays
+                  node.style.display = 'none';
+                  node.style.visibility = 'hidden';
+                  node.style.opacity = '0';
+                  node.style.pointerEvents = 'none';
+                  
+                  // Remove it after a delay to ensure it's gone
+                  setTimeout(() => {
+                    if (node.parentNode) {
+                      node.parentNode.removeChild(node);
+                    }
+                  }, 0);
+                }
               }
             }
           }

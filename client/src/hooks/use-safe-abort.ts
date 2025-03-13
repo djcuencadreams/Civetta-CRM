@@ -36,24 +36,46 @@ export function useSafeAbort(reason = 'Component unmounted'): AbortController {
 }
 
 /**
- * Hook that returns a signal for fetch requests, with automatic cleanup
+ * Hook that returns a signal for fetch requests and abort function, with automatic cleanup
  * on component unmount
  * 
  * @param reason Optional text description of why this controller might abort
- * @returns AbortSignal object to pass to fetch options
+ * @returns Object containing signal and abort function
  */
-export function useSafeSignal(reason = 'Component unmounted'): AbortSignal {
-  return useSafeAbort(reason).signal;
+export function useSafeSignal(reason = 'Component unmounted'): { signal: AbortSignal; abort: (reason?: string) => void } {
+  const controller = useSafeAbort(reason);
+  
+  // Create a stable abort function that won't change between renders
+  const abortRef = useRef<(reason?: string) => void>((abortReason?: string) => {
+    if (controller && !controller.signal.aborted) {
+      controller.abort(abortReason || reason);
+    }
+  });
+  
+  return {
+    signal: controller.signal,
+    abort: abortRef.current
+  };
 }
 
 /**
  * Creates a safe fetch wrapper that automatically aborts on component unmount
+ * This version properly handles abort errors with custom error classes
+ * rather than suppressing them with fake responses
  * 
  * @param reason Optional text description of why this controller might abort
- * @returns A safe fetch function with abort handling
+ * @returns A safe fetch function with proper error handling
  */
 export function useSafeFetch(reason = 'Component unmounted'): (url: string, options?: RequestInit) => Promise<Response> {
   const controller = useSafeAbort(reason);
+  
+  // Track mounted state
+  const mountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   
   return async (url: string, options: RequestInit = {}) => {
     // Merge our abort signal with any options provided
@@ -63,23 +85,38 @@ export function useSafeFetch(reason = 'Component unmounted'): (url: string, opti
     };
     
     try {
-      return await fetch(url, fetchOptions);
+      // Check if already unmounted before making the request
+      if (!mountedRef.current) {
+        throw new DOMException('Component already unmounted before fetch started', 'AbortError');
+      }
+      
+      // Make the fetch request
+      const response = await fetch(url, fetchOptions);
+      
+      // Check if component was unmounted during the fetch
+      if (!mountedRef.current) {
+        console.debug(`Component unmounted during fetch to ${url} - response will not be processed`);
+        // We still return the response, but the caller should check mountedRef
+        // before processing the response data
+      }
+      
+      return response;
     } catch (error) {
-      // If it's an abort error, we suppress it by returning a minimal response
-      // This prevents runtime errors during component unmount
+      // If it's an abort error and the component is still mounted, log it
       if (error instanceof DOMException && error.name === 'AbortError') {
-        console.debug(`Fetch request to ${url} was aborted due to: ${reason}`);
+        // Only log if still mounted (otherwise it's a normal cleanup)
+        if (mountedRef.current) {
+          console.debug(`Fetch request to ${url} was aborted: ${error.message || reason}`);
+        }
         
-        // Instead of throwing, return an empty response object that's safe to destructure
-        const emptyResponse = new Response(JSON.stringify({ aborted: true }), {
-          status: 499, // Unofficial "Client Closed Request" status
-          statusText: 'Request aborted',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        // Create a proper error with all necessary information for debugging
+        const abortError = new DOMException(
+          `Request to ${url} was aborted: ${error.message || reason}`,
+          'AbortError'
+        );
         
-        return emptyResponse;
+        // Properly throw the error to allow component-level catch handlers to work
+        throw abortError;
       }
       
       // Re-throw any other errors

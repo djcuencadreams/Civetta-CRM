@@ -1,6 +1,6 @@
 /**
- * This file contains patches and fixes for AbortController and fetch API
- * to prevent unhelpful "signal is aborted without reason" errors
+ * This file contains patches for AbortController and fetch API
+ * to properly handle abort errors instead of suppressing them
  */
 
 import { applyRuntimeErrorPluginFix } from './abort-patches-fix';
@@ -9,26 +9,27 @@ import { applyRuntimeErrorPluginFix } from './abort-patches-fix';
 const abortReasons = new WeakMap<AbortSignal, string>();
 
 /**
- * Apply all necessary patches to prevent AbortController errors
+ * Apply necessary patches to properly handle AbortController errors
+ * The key principle is to properly handle errors at their source,
+ * not just suppress them from UI.
  */
 export function applyAbortPatches(): void {
   if (typeof window === 'undefined') {
     return;
   }
 
-  // First, patch the AbortController
+  // Patch the AbortController to store reasons and handle aborts properly
   patchAbortController();
   
-  // Then, patch the fetch API
+  // Patch the fetch API to properly catch and handle abort errors
   patchFetchAPI();
   
-  // Finally, apply specific fix for Vite runtime error plugin
-  applyRuntimeErrorPluginFix();
+  // Apply specific fix for Vite runtime error plugin - in development only
+  if (import.meta.env.DEV) {
+    applyRuntimeErrorPluginFix();
+  }
   
-  // Also add error handler to filter out abort errors
-  addGlobalErrorFilter();
-  
-  console.debug('Applied all abort error handling patches - this should fix the runtime error plugin');
+  console.debug('AbortController and fetch API patched to properly handle abort errors');
 }
 
 /**

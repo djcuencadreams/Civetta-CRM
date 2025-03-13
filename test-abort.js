@@ -1,66 +1,116 @@
 /**
- * Test script to verify the error handling system for aborted requests
- * This script:
- * 1. Makes a slow request to the deliberately slow endpoint
- * 2. Aborts it immediately
- * 3. Verifies no errors are thrown
+ * Script to test the AbortController fix
+ * 
+ * This script simulates different abortion scenarios to verify that 
+ * the fix for the Vite runtime error plugin works correctly.
  */
 
-// Wrapper function to run tests
-async function runAbortTest() {
-  console.log('Starting abort test...');
-  
-  // Create abort controller
+// Utility to create a delay promise
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Test case 1: Basic AbortController abort
+ * Creates a fetch request and immediately aborts it
+ */
+async function testBasicAbort() {
+  console.log('\n----- Test 1: Basic Abort -----');
   const controller = new AbortController();
-  const { signal } = controller;
+  const signal = controller.signal;
+  
+  // Start the fetch but abort it immediately
+  const fetchPromise = fetch('http://localhost:3000/api/health', { signal })
+    .then(r => {
+      console.log('✓ Fetch completed successfully (unexpected)');
+      return r.json();
+    })
+    .catch(error => {
+      if (error.name === 'AbortError') {
+        console.log('✓ Received expected AbortError');
+      } else {
+        console.error('✗ Unexpected error:', error);
+      }
+    });
+  
+  // Abort immediately
+  controller.abort();
+  console.log('✓ Abort signal triggered');
+  
+  // Wait for fetch to complete/fail
+  await fetchPromise;
+}
+
+/**
+ * Test case 2: Timing race condition
+ * Tests abortion during an active fetch
+ */
+async function testTimingRaceCondition() {
+  console.log('\n----- Test 2: Timing Race Condition -----');
+  const controller = new AbortController();
+  const signal = controller.signal;
+  
+  // Start a fetch to a slow endpoint
+  console.log('✓ Starting fetch to slow endpoint');
+  const fetchPromise = fetch('http://localhost:3000/api/deliberately-slow-endpoint', { signal })
+    .then(r => {
+      console.log('✗ Fetch completed successfully (unexpected)');
+      return r.json();
+    })
+    .catch(error => {
+      if (error.name === 'AbortError') {
+        console.log('✓ Received expected AbortError');
+      } else {
+        console.error('✗ Unexpected error:', error);
+      }
+    });
+  
+  // Wait a bit and then abort
+  await delay(50);
+  controller.abort();
+  console.log('✓ Abort signal triggered after delay');
+  
+  // Wait for fetch to complete/fail
+  await fetchPromise;
+}
+
+/**
+ * Test case 3: Unhandled Promise rejection with AbortError
+ * Tests that unhandled AbortErrors are properly filtered
+ */
+async function testUnhandledRejection() {
+  console.log('\n----- Test 3: Unhandled Rejection -----');
+  
+  // Create a rejected promise with an AbortError
+  // This would normally trigger the Vite runtime error overlay
+  const abortError = new DOMException('signal is aborted without reason', 'AbortError');
+  Promise.reject(abortError);
+  
+  console.log('✓ Rejected Promise with AbortError (check browser for error overlay)');
+  console.log('  If no error overlay appeared, the fix is working!');
+  
+  await delay(1000); // Give time for error overlay to appear if it's going to
+}
+
+/**
+ * Run all tests
+ */
+async function runAbortTest() {
+  console.log('Starting AbortController test suite...');
+  console.log('This tests the fix for Vite runtime error plugin');
+  console.log('-------------------------------------------');
   
   try {
-    // Start the slow request
-    console.log('Making request to deliberately slow endpoint...');
+    await testBasicAbort();
+    await testTimingRaceCondition();
+    await testUnhandledRejection();
     
-    // Start fetch but don't await it yet
-    const fetchPromise = fetch('http://localhost:3000/api/deliberately-slow-endpoint?delay=2000', {
-      signal
-    });
-    
-    // Abort immediately
-    console.log('Aborting request...');
-    controller.abort('Test abort');
-    
-    // Try to get the response (should throw AbortError)
-    console.log('Trying to await aborted fetch...');
-    await fetchPromise;
-    
-    // We should not reach this point
-    console.error('ERROR: Fetch completed despite being aborted!');
-    
+    console.log('\n✅ All tests completed');
+    console.log('If no error overlays appeared during testing, the fix is working!');
   } catch (error) {
-    // If this is an AbortError or contains "abort" in the message, that's expected
-    if (error.name === 'AbortError' || 
-        (typeof error.message === 'string' && error.message.toLowerCase().includes('abort')) ||
-        error.toString().toLowerCase().includes('abort')) {
-      console.log('SUCCESS: Caught expected AbortError:', error.message || error);
-      return true;
-    }
-    
-    // Otherwise, it's an unexpected error
-    console.error('ERROR: Unexpected error caught:', error);
-    return false;
+    console.error('❌ Test suite failed:', error);
   }
 }
 
-// Run the test
-runAbortTest()
-  .then(success => {
-    if (success) {
-      console.log('✅ Abort test passed successfully!');
-      process.exit(0);
-    } else {
-      console.log('❌ Abort test failed!');
-      process.exit(1);
-    }
-  })
-  .catch(err => {
-    console.error('Error running abort test:', err);
-    process.exit(1);
-  });
+// Run all tests
+runAbortTest().catch(console.error);

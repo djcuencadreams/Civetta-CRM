@@ -96,8 +96,19 @@ The application implements a comprehensive error handling system as documented i
 
 1. Global error handlers for unhandled exceptions
 2. AbortController handling for canceled requests
-3. Custom error suppression for Vite runtime errors
-4. Consistent error logging and reporting
+3. Consistent error logging and reporting
+4. Focused solution for Vite runtime error plugin issues
+
+#### Vite Plugin Error Handling
+
+The application uses a custom solution to properly handle AbortController errors in the Vite development environment. This solution:
+
+1. Uses a focused error filter in `client/src/lib/abort-error-filter.ts` that intercepts AbortErrors before they reach the Vite runtime error plugin
+2. Prevents "signal is aborted without reason" errors from displaying as error overlays
+3. Properly handles network request cancellations that occur during normal React application flow (navigation, component unmounting)
+4. Provides comprehensive detection of various types of abort errors
+
+The implementation avoids complex workarounds and directly addresses the root cause of the issue, making the development experience smoother. The implementation is documented in detail in `client/src/lib/ABORT_ERROR_FIX.md`.
 
 ### Data Safety
 
@@ -172,6 +183,7 @@ The application includes testing configuration for:
 
 1. **Jest**: For unit and integration testing
 2. **Puppeteer**: For end-to-end testing and screenshot capture
+3. **AbortController Testing**: Custom test utilities to verify abort error handling (test-abort.js)
 
 ## Future Considerations
 
