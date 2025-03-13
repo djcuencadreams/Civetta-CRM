@@ -5,6 +5,10 @@ import './index.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from "./components/theme-provider"
 import ErrorBoundary from './components/ErrorBoundary'
+import { initializeGlobalErrorHandlers } from './lib/global-error-handler'
+
+// Initialize global error handlers
+initializeGlobalErrorHandlers()
 
 // Create a query client with default configuration
 const queryClient = new QueryClient({
