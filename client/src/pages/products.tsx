@@ -650,10 +650,6 @@ export default function ProductsPage() {
     );
   };
 
-  // Renderizar con un único Shell para toda la página
-  return (
-    <Shell>
-      {renderContent()}
-    </Shell>
-  );
+  // No necesitamos envolver en Shell porque ya está en App.tsx
+  return renderContent();
 }
