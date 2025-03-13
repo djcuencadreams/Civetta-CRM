@@ -26,16 +26,12 @@ export function applyRuntimeErrorPluginFix(): void {
       }
     }, true);
 
-    // Also handle unhandled promise rejections that may be abort errors
-    window.addEventListener('unhandledrejection', (event) => {
-      const errorMessage = event.reason?.message || String(event.reason);
-      
-      // Check if this is an abort-related error
-      if (isAbortErrorMessage(errorMessage)) {
-        // Prevent the default error handling
+    // Simplified global error handler for unhandled promise rejections
+    window.addEventListener('unhandledrejection', event => {
+      const error = event.reason;
+      if (error && error.name === 'AbortError') {
+        console.debug('Fetch request aborted:', error);
         event.preventDefault();
-        console.debug('Suppressed unhandled promise rejection (abort error):', errorMessage);
-        return false;
       }
     }, true);
 
