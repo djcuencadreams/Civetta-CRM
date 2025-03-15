@@ -14,6 +14,8 @@ import SimpleReports from './pages/reports-simple'
 import EnhancedReports from './pages/reports-new'
 import Reports from './pages/reports'
 import Configuration from './pages/configuration'
+import Opportunities from './pages/opportunities'
+import OpportunitiesNew from './pages/opportunities/new'
 import NotFound from './pages/not-found'
 
 function App() {
@@ -52,6 +54,12 @@ function App() {
         </Route>
         <Route path="/configuration">
           <Configuration />
+        </Route>
+        <Route path="/opportunities">
+          <Opportunities />
+        </Route>
+        <Route path="/opportunities/new">
+          <OpportunitiesNew />
         </Route>
         <Route>
           <NotFound />

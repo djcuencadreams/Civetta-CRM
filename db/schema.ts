@@ -354,6 +354,7 @@ export const opportunities = pgTable("opportunities", {
   status: varchar("status", { length: 50 }).notNull().default(opportunityStatusEnum.NEGOTIATION),
   stage: varchar("stage", { length: 50 }).notNull(), // Etapa personalizada del pipeline
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
+  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR), // Marca (Sleepwear o Bride)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   estimatedCloseDate: timestamp("estimated_close_date"),
