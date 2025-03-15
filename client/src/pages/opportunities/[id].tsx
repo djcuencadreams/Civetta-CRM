@@ -32,7 +32,7 @@ export default function OpportunityDetail() {
     isError, 
     error
   } = useQuery({
-    queryKey: [`/api/opportunities/${id}`],
+    queryKey: ['/api/opportunities', id],
     retry: 2,
     refetchOnWindowFocus: false
   });

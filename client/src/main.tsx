@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from "./components/theme-provider"
 import ErrorBoundary from './components/ErrorBoundary'
 import { initializeGlobalErrorHandlers } from './lib/global-error-handler'
+import { getQueryFn } from './lib/queryClient'
 
 // Initialize global error handlers
 initializeGlobalErrorHandlers()
@@ -14,6 +15,7 @@ initializeGlobalErrorHandlers()
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      queryFn: getQueryFn({ on401: "throw" }),
       staleTime: 5 * 60 * 1000,
       retry: 1,
     },
