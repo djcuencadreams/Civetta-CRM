@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { ArrowLeft, Save, Loader2, PlusCircle, UserPlus, UserCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { LeadForm } from '@/components/crm/LeadForm';
+import { CustomerForm } from '@/components/crm/CustomerForm';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // UI Components
 import {
@@ -64,7 +68,10 @@ type OpportunityFormValues = z.infer<typeof opportunitySchema>;
 export default function OpportunitiesNew() {
   const [_, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('customer');
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [leadDialogOpen, setLeadDialogOpen] = useState(false);
 
   // Consultas de datos
   const { data: pipelineStagesSleepwear = [] } = useQuery<string[]>({
@@ -193,37 +200,60 @@ export default function OpportunitiesNew() {
                 </TabsList>
                 
                 <TabsContent value="customer" className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <FormLabel>Cliente</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      className="h-8"
+                      onClick={() => setCustomerDialogOpen(true)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Nuevo Cliente
+                    </Button>
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="customerId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Cliente</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Si se selecciona un cliente, limpiar el lead
-                            if (value) {
-                              form.setValue('leadId', undefined);
-                            }
-                          }}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona un cliente" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {customers.map((customer: any) => (
-                              <SelectItem key={customer.id} value={customer.id.toString()}>
-                                {customer.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex space-x-2">
+                          <div className="flex-1">
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Si se selecciona un cliente, limpiar el lead
+                                if (value) {
+                                  form.setValue('leadId', undefined);
+                                }
+                              }}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Selecciona un cliente" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-[300px]">
+                                {customers.length === 0 ? (
+                                  <div className="px-2 py-4 text-center">
+                                    <p className="text-sm text-muted-foreground">No hay clientes disponibles</p>
+                                  </div>
+                                ) : (
+                                  customers.map((customer: any) => (
+                                    <SelectItem key={customer.id} value={customer.id.toString()}>
+                                      {customer.name}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
                         <FormDescription>
-                          Selecciona el cliente relacionado con esta oportunidad.
+                          Selecciona el cliente relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -232,37 +262,60 @@ export default function OpportunitiesNew() {
                 </TabsContent>
                 
                 <TabsContent value="lead" className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <FormLabel>Lead</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      className="h-8"
+                      onClick={() => setLeadDialogOpen(true)}
+                    >
+                      <UserCircle className="h-4 w-4 mr-1" />
+                      Nuevo Lead
+                    </Button>
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="leadId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Lead</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Si se selecciona un lead, limpiar el cliente
-                            if (value) {
-                              form.setValue('customerId', undefined);
-                            }
-                          }}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona un lead" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {activeLeads.map((lead: any) => (
-                              <SelectItem key={lead.id} value={lead.id.toString()}>
-                                {lead.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex space-x-2">
+                          <div className="flex-1">
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Si se selecciona un lead, limpiar el cliente
+                                if (value) {
+                                  form.setValue('customerId', undefined);
+                                }
+                              }}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Selecciona un lead" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-[300px]">
+                                {activeLeads.length === 0 ? (
+                                  <div className="px-2 py-4 text-center">
+                                    <p className="text-sm text-muted-foreground">No hay leads disponibles</p>
+                                  </div>
+                                ) : (
+                                  activeLeads.map((lead: any) => (
+                                    <SelectItem key={lead.id} value={lead.id.toString()}>
+                                      {lead.name}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
                         <FormDescription>
-                          Selecciona el lead relacionado con esta oportunidad.
+                          Selecciona el lead relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -512,5 +565,64 @@ export default function OpportunitiesNew() {
         </CardContent>
       </Card>
     </div>
+
+    {/* Dialog para crear un nuevo cliente */}
+    <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nuevo Cliente</DialogTitle>
+          <DialogDescription>Registre un nuevo cliente en el sistema</DialogDescription>
+        </DialogHeader>
+        <CustomerForm
+          onComplete={(customer) => {
+            setCustomerDialogOpen(false);
+            
+            // Refrescar la lista de clientes
+            queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+            
+            // Seleccionar automáticamente el cliente recién creado en el formulario
+            if (customer?.id) {
+              form.setValue('customerId', customer.id.toString());
+              form.setValue('leadId', undefined);
+            }
+            
+            toast({
+              title: "Cliente creado",
+              description: "El cliente ha sido creado exitosamente",
+            });
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+
+    {/* Dialog para crear un nuevo lead */}
+    <Dialog open={leadDialogOpen} onOpenChange={setLeadDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nuevo Lead</DialogTitle>
+          <DialogDescription>Registre un nuevo prospecto en el sistema</DialogDescription>
+        </DialogHeader>
+        <LeadForm
+          onClose={() => {
+            setLeadDialogOpen(false);
+            
+            // Refrescar la lista de leads
+            queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+            
+            // Buscar el lead recién creado (el último en la lista)
+            setTimeout(() => {
+              const newLeads = queryClient.getQueryData<any[]>(['/api/leads']) || [];
+              if (newLeads.length > 0) {
+                const latestLead = newLeads[newLeads.length - 1];
+                if (latestLead?.id) {
+                  form.setValue('leadId', latestLead.id.toString());
+                  form.setValue('customerId', undefined);
+                }
+              }
+            }, 500);
+          }}
+        />
+        </DialogContent>
+      </Dialog>
   );
 }

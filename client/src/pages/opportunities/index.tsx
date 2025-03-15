@@ -385,7 +385,7 @@ export default function OpportunitiesPage() {
                       {...provided.droppableProps}
                       className="space-y-3 min-h-[200px]"
                     >
-                      {column.opportunities.length === 0 ? (
+                      {Array.isArray(column.opportunities) && column.opportunities.length === 0 ? (
                         <div className="flex items-center justify-center h-[100px] border border-dashed rounded-md p-4">
                           <p className="text-xs text-muted-foreground text-center">
                             Arrastra oportunidades aquí
