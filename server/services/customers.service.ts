@@ -1,5 +1,5 @@
 import { Express, Request, Response } from "express";
-import { db } from "@db";
+import { db, pool } from "@db";
 import { customers, leads, sales } from "@db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -61,42 +61,35 @@ export class CustomersService implements Service {
     try {
       const { search, brand } = req.query;
       
-      // Usamos una solución que no causa problemas de tipado
-      let query: any;
+      // Construir una consulta SQL directa para evitar problemas de tipado
+      let conditions = [];
+      let values: any[] = [];
+      let index = 1;
       
-      if (!search && !brand) {
-        // Sin filtros, simplemente obtenemos todos los clientes
-        query = db.select().from(customers);
-      } else {
-        // Con filtros, construimos una consulta SQL personalizada
-        let sqlQuery = `
-          SELECT * FROM customers 
-          WHERE 1=1
-        `;
-        
-        const params: any[] = [];
-        
-        if (search) {
-          params.push(`%${search}%`);
-          sqlQuery += ` AND (name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length})`;
-        }
-        
-        if (brand) {
-          params.push(brand);
-          sqlQuery += ` AND brand = $${params.length}`;
-        }
-        
-        sqlQuery += " ORDER BY created_at DESC";
-        
-        // Usamos sql`` y db.execute que tiene menos restricciones de tipo
-        const result = await db.execute(sql.raw(sqlQuery), params);
-        res.json(result);
-        return;
+      if (search) {
+        const searchTerm = `%${search}%`;
+        conditions.push(`(name ILIKE $${index} OR email ILIKE $${index} OR phone ILIKE $${index})`);
+        values.push(searchTerm);
+        index++;
       }
       
-      // Para el caso simple sin filtros
-      const result = await query.orderBy(desc(customers.createdAt));
-      res.json(result);
+      if (brand) {
+        conditions.push(`brand = $${index}`);
+        values.push(brand);
+        index++;
+      }
+      
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      
+      // Ejecutar consulta SQL directa
+      const query = `
+        SELECT * FROM customers 
+        ${whereClause}
+        ORDER BY created_at DESC
+      `;
+      
+      const { rows } = await pool.query(query, values);
+      res.json(rows);
     } catch (error) {
       console.error('Error fetching customers:', error);
       res.status(500).json({ error: "Failed to fetch customers" });
@@ -177,7 +170,7 @@ export class CustomersService implements Service {
         province: province?.trim() || null,
         deliveryInstructions: deliveryInstructions?.trim() || null,
         idNumber: idNumber?.trim() || null,
-        billingAddress: billingAddress || {}, // Guardamos la dirección de facturación
+        billingAddress: billingAddress || null, // Guardamos la dirección de facturación si existe
         tags: tags || [], // Guardamos las etiquetas
         status: status || 'active',
         type: type || 'person',
@@ -264,7 +257,7 @@ export class CustomersService implements Service {
           deliveryInstructions: deliveryInstructions?.trim() || null,
           idNumber: idNumber?.trim() || null,
           // Actualizar la dirección de facturación y preservar los campos no proporcionados
-          billingAddress: billingAddress || existingBillingAddress,
+          billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
           // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes
           tags: tags || existingTags,
           status: status || existingStatus,

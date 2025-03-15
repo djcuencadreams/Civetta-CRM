@@ -187,12 +187,15 @@ export function CustomerForm({
     }
   });
 
-  // Determinar si las direcciones son iguales para el estado inicial de sameAsBilling
-  const initialSameAsBilling = customer 
-    ? !(customer.billingAddress && 
+  // Determinar si existe una dirección de facturación diferente para el estado inicial
+  const hasDifferentBillingAddress = customer 
+    ? !!(customer.billingAddress && 
         (customer.billingAddress as BillingAddress)?.street && 
         (customer.billingAddress as BillingAddress)?.street !== customer.street)
-    : true;
+    : false;
+    
+  // Si no tiene una dirección diferente, usamos "misma dirección"
+  const initialSameAsBilling = !hasDifferentBillingAddress;
   
   const [sameAsBilling, setSameAsBilling] = useState(initialSameAsBilling);
   const [customerTags, setCustomerTags] = useState<string[]>(
@@ -290,14 +293,19 @@ export function CustomerForm({
             deliveryInstructions: data.deliveryInstructions?.trim() || null,
             // Keep backward compatibility with address field
             address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
-            // Billing address fields
-            billingAddress: {
-              street: data.billingStreet?.trim() || null,
-              city: data.billingCity?.trim() || null, 
-              province: data.billingProvince || null,
-              postalCode: data.billingPostalCode?.trim() || null,
-              country: data.billingCountry || 'Ecuador'
-            } as BillingAddress,
+            // Billing address fields - manejo más robusto del objeto billingAddress
+            billingAddress: sameAsBilling ? null : (
+              // Solo creamos el objeto si al menos uno de los campos tiene valor
+              data.billingStreet?.trim() || data.billingCity?.trim() || data.billingProvince || data.billingPostalCode?.trim() 
+                ? {
+                    street: data.billingStreet?.trim() || null,
+                    city: data.billingCity?.trim() || null, 
+                    province: data.billingProvince || null,
+                    postalCode: data.billingPostalCode?.trim() || null,
+                    country: data.billingCountry || 'Ecuador'
+                  } 
+                : null
+            ) as BillingAddress | null,
             // Customer type and status
             type: data.type || customerTypeEnum.PERSON,
             status: data.status || customerStatusEnum.ACTIVE,
@@ -643,31 +651,38 @@ export function CustomerForm({
             />
 
             {!isViewMode && (
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-4 border-t pt-3">
                 <Checkbox 
                   id="same-billing-shipping" 
                   checked={sameAsBilling}
                   onCheckedChange={(checked) => {
                     setSameAsBilling(!!checked);
                     if (checked) {
-                      // Copiar dirección de entrega a facturación
-                      form.setValue('billingStreet', form.getValues('street') || '');
-                      form.setValue('billingCity', form.getValues('city') || '');
-                      form.setValue('billingProvince', form.getValues('province') || '');
-                    } else {
-                      // Limpiar campos de facturación cuando se desmarca
-                      form.setValue('billingStreet', '');
-                      form.setValue('billingCity', '');
-                      form.setValue('billingProvince', '');
-                      form.setValue('billingPostalCode', '');
+                      // Copiar dirección de entrega a facturación (pero mantenerla oculta)
+                      const currentStreet = form.getValues('street') || '';
+                      const currentCity = form.getValues('city') || '';
+                      const currentProvince = form.getValues('province') || '';
+                      
+                      form.setValue('billingStreet', currentStreet);
+                      form.setValue('billingCity', currentCity);
+                      form.setValue('billingProvince', currentProvince);
+                      
+                      // Mostrar toast para confirmar acción
+                      if (currentStreet) {
+                        toast({ 
+                          title: "Direcciones sincronizadas",
+                          description: "Se usará la misma dirección para envío y facturación",
+                          variant: "default"
+                        });
+                      }
                     }
                   }}
                 />
                 <label 
                   htmlFor="same-billing-shipping" 
-                  className="text-sm cursor-pointer"
+                  className="text-sm cursor-pointer font-medium"
                 >
-                  La dirección de Envío es la misma de Facturación
+                  Usar la misma dirección para envío y facturación
                 </label>
               </div>
             )}
