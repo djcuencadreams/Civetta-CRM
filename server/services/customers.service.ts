@@ -1,17 +1,31 @@
 import { Express, Request, Response } from "express";
 import { db } from "@db";
 import { customers, leads, sales } from "@db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
 import { validateParams } from "../validation";
 import { appEvents, EventTypes } from "../lib/event-emitter";
+import { Customer } from "@db/schema";
+
+/**
+ * Interfaz para la dirección de facturación
+ */
+interface BillingAddress {
+  street?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
+  taxId?: string;
+  companyName?: string;
+}
 
 /**
  * Customer ID parameter schema
  */
 const customerIdSchema = z.object({
-  id: z.string().transform(val => parseInt(val, 10))
+  id: z.coerce.number()
 });
 
 /**
@@ -47,23 +61,41 @@ export class CustomersService implements Service {
     try {
       const { search, brand } = req.query;
       
-      let query = db.select().from(customers).orderBy(desc(customers.createdAt));
+      // Usamos una solución que no causa problemas de tipado
+      let query: any;
       
-      // Apply filters if provided
-      if (search) {
-        const searchTerm = `%${search}%`;
-        query = query.where(
-          sql`${customers.name} ILIKE ${searchTerm} OR 
-              ${customers.email} ILIKE ${searchTerm} OR 
-              ${customers.phone} ILIKE ${searchTerm}`
-        );
+      if (!search && !brand) {
+        // Sin filtros, simplemente obtenemos todos los clientes
+        query = db.select().from(customers);
+      } else {
+        // Con filtros, construimos una consulta SQL personalizada
+        let sqlQuery = `
+          SELECT * FROM customers 
+          WHERE 1=1
+        `;
+        
+        const params: any[] = [];
+        
+        if (search) {
+          params.push(`%${search}%`);
+          sqlQuery += ` AND (name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length})`;
+        }
+        
+        if (brand) {
+          params.push(brand);
+          sqlQuery += ` AND brand = $${params.length}`;
+        }
+        
+        sqlQuery += " ORDER BY created_at DESC";
+        
+        // Usamos sql`` y db.execute que tiene menos restricciones de tipo
+        const result = await db.execute(sql.raw(sqlQuery), params);
+        res.json(result);
+        return;
       }
       
-      if (brand) {
-        query = query.where(eq(customers.brand, brand as string));
-      }
-      
-      const result = await query;
+      // Para el caso simple sin filtros
+      const result = await query.orderBy(desc(customers.createdAt));
       res.json(result);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -107,7 +139,11 @@ export class CustomersService implements Service {
     try {
       const { 
         name, email, phone, street, city, province, 
-        deliveryInstructions, source, brand, notes, idNumber
+        deliveryInstructions, source, brand, notes, idNumber,
+        billingAddress, // Agregamos billingAddress a los campos que extraemos
+        phoneCountry, phoneNumber, secondaryPhone, // Campos adicionales
+        firstName: firstNameInput, lastName: lastNameInput, // Nombres desde el frontend
+        status, type, tags // Campos de clasificación
       } = req.body;
 
       if (!name?.trim()) {
@@ -115,14 +151,16 @@ export class CustomersService implements Service {
         return;
       }
 
-      // Split name into first and last name
-      let firstName = name;
-      let lastName = '';
+      // Split name into first and last name if not provided directly
+      let firstName = firstNameInput || name;
+      let lastName = lastNameInput || '';
       
-      const nameParts = name.trim().split(' ');
-      if (nameParts.length > 1) {
-        firstName = nameParts[0];
-        lastName = nameParts.slice(1).join(' ');
+      if (!firstNameInput && !lastNameInput) {
+        const nameParts = name.trim().split(' ');
+        if (nameParts.length > 1) {
+          firstName = nameParts[0];
+          lastName = nameParts.slice(1).join(' ');
+        }
       }
 
       const [customer] = await db.insert(customers).values({
@@ -131,11 +169,18 @@ export class CustomersService implements Service {
         lastName,
         email: email?.trim() || null,
         phone: phone?.trim() || null,
+        phoneCountry: phoneCountry || null,
+        phoneNumber: phoneNumber || null,
+        secondaryPhone: secondaryPhone || null,
         street: street?.trim() || null,
         city: city?.trim() || null,
         province: province?.trim() || null,
         deliveryInstructions: deliveryInstructions?.trim() || null,
         idNumber: idNumber?.trim() || null,
+        billingAddress: billingAddress || {}, // Guardamos la dirección de facturación
+        tags: tags || [], // Guardamos las etiquetas
+        status: status || 'active',
+        type: type || 'person',
         source: source || 'direct',
         brand: brand || 'sleepwear',
         notes: notes?.trim() || null,
@@ -163,7 +208,11 @@ export class CustomersService implements Service {
       
       const { 
         name, email, phone, street, city, province, 
-        deliveryInstructions, source, brand, notes, idNumber 
+        deliveryInstructions, source, brand, notes, idNumber,
+        billingAddress, // Agregamos billingAddress a los campos que extraemos
+        phoneCountry, phoneNumber, secondaryPhone, // Campos adicionales
+        firstName: firstNameInput, lastName: lastNameInput, // Nombres desde el frontend
+        status, type, tags // Campos de clasificación
       } = req.body;
 
       if (!name?.trim()) {
@@ -174,21 +223,29 @@ export class CustomersService implements Service {
       // Check if customer exists
       const existingCustomer = await db.query.customers.findFirst({
         where: eq(customers.id, customerId)
-      });
+      }) as Customer;
 
       if (!existingCustomer) {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
-
-      // Split name into first and last name
-      let firstName = name;
-      let lastName = '';
       
-      const nameParts = name.trim().split(' ');
-      if (nameParts.length > 1) {
-        firstName = nameParts[0];
-        lastName = nameParts.slice(1).join(' ');
+      // Asegurar que los campos complejos estén inicializados
+      const existingBillingAddress = existingCustomer.billingAddress as Record<string, any> || {};
+      const existingTags = existingCustomer.tags as any[] || [];
+      const existingStatus = existingCustomer.status || 'active';
+      const existingType = existingCustomer.type || 'person';
+
+      // Split name into first and last name if not provided directly
+      let firstName = firstNameInput || name;
+      let lastName = lastNameInput || '';
+      
+      if (!firstNameInput && !lastNameInput) {
+        const nameParts = name.trim().split(' ');
+        if (nameParts.length > 1) {
+          firstName = nameParts[0];
+          lastName = nameParts.slice(1).join(' ');
+        }
       }
 
       const [updatedCustomer] = await db.update(customers)
@@ -198,11 +255,20 @@ export class CustomersService implements Service {
           lastName,
           email: email?.trim() || null,
           phone: phone?.trim() || null,
+          phoneCountry: phoneCountry || existingCustomer.phoneCountry,
+          phoneNumber: phoneNumber || existingCustomer.phoneNumber,
+          secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone,
           street: street?.trim() || null,
           city: city?.trim() || null,
           province: province?.trim() || null,
           deliveryInstructions: deliveryInstructions?.trim() || null,
           idNumber: idNumber?.trim() || null,
+          // Actualizar la dirección de facturación y preservar los campos no proporcionados
+          billingAddress: billingAddress || existingBillingAddress,
+          // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes
+          tags: tags || existingTags,
+          status: status || existingStatus,
+          type: type || existingType,
           source: source || existingCustomer.source,
           brand: brand || existingCustomer.brand,
           notes: notes?.trim() || null,
@@ -323,6 +389,3 @@ export class CustomersService implements Service {
 
 // Create and export the service instance
 export const customersService = new CustomersService();
-
-// Import sql for complex filters
-import { sql } from "drizzle-orm";

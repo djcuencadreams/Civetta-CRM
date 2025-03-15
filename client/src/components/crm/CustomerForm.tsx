@@ -1,10 +1,19 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertCustomerSchema, type Customer, brandEnum } from "@db/schema";
+import { insertCustomerSchema, type Customer, brandEnum, customerTypeEnum, customerStatusEnum } from "@db/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
+
+// Definición de interfaz para dirección de facturación
+interface BillingAddress {
+  street: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  country: string;
+}
 import {
   Form,
   FormControl,
@@ -12,6 +21,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +30,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Calendar, 
+  Package, 
+  Trash2, 
+  Copy, 
+  Tag, 
+  Building2,
+  User,
+  BadgeCheck,
+  Clock
+} from "lucide-react";
 
 const countryCodes = [
   { code: "+593", country: "🇪🇨 Ecuador (+593)" },
@@ -164,6 +187,19 @@ export function CustomerForm({
     }
   });
 
+  // Determinar si las direcciones son iguales para el estado inicial de sameAsBilling
+  const initialSameAsBilling = customer 
+    ? !(customer.billingAddress && 
+        (customer.billingAddress as BillingAddress)?.street && 
+        (customer.billingAddress as BillingAddress)?.street !== customer.street)
+    : true;
+  
+  const [sameAsBilling, setSameAsBilling] = useState(initialSameAsBilling);
+  const [customerTags, setCustomerTags] = useState<string[]>(
+    customer?.tags && Array.isArray(customer.tags) ? customer.tags : []
+  );
+  const [currentTag, setCurrentTag] = useState("");
+
   const form = useForm({
     defaultValues: customer ? {
       // Use separate first/last name fields if available, otherwise split from name
@@ -174,13 +210,25 @@ export function CustomerForm({
       // Use dedicated phone fields if available, otherwise parse from combined phone field
       phoneCountry: customer.phoneCountry || customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
       phoneNumber: customer.phoneNumber || customer.phone?.replace(/^\+\d+/, '') || '',
+      secondaryPhone: customer.secondaryPhone || '',
       // Use structured address fields if available, otherwise parse from legacy address field
       street: customer.street || customer.address?.split(',')[0]?.trim() || '',
       city: customer.city || customer.address?.split(',')[1]?.trim() || '',
       province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
       deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
+      // Billing address fields
+      billingStreet: (customer.billingAddress as BillingAddress)?.street || customer.street || '',
+      billingCity: (customer.billingAddress as BillingAddress)?.city || customer.city || '',
+      billingProvince: (customer.billingAddress as BillingAddress)?.province || customer.province || '',
+      billingPostalCode: (customer.billingAddress as BillingAddress)?.postalCode || '',
+      billingCountry: (customer.billingAddress as BillingAddress)?.country || 'Ecuador',
+      // Customer type and status
+      type: customer.type || customerTypeEnum.PERSON,
+      status: customer.status || customerStatusEnum.ACTIVE,
+      // Other fields
       source: customer.source || 'instagram',
-      brand: customer.brand || brandEnum.SLEEPWEAR
+      brand: customer.brand || brandEnum.SLEEPWEAR,
+      notes: customer.notes || ''
     } : {
       firstName: "",
       lastName: "",
@@ -188,12 +236,21 @@ export function CustomerForm({
       email: "",
       phoneCountry: DEFAULT_COUNTRY_CODE,
       phoneNumber: "",
+      secondaryPhone: "",
       street: "",
       city: "",
       province: "",
       deliveryInstructions: "",
+      billingStreet: "",
+      billingCity: "",
+      billingProvince: "",
+      billingPostalCode: "",
+      billingCountry: "Ecuador",
+      type: customerTypeEnum.PERSON,
+      status: customerStatusEnum.ACTIVE,
       source: "instagram",
-      brand: brandEnum.SLEEPWEAR
+      brand: brandEnum.SLEEPWEAR,
+      notes: ""
     }
   });
 
@@ -226,14 +283,30 @@ export function CustomerForm({
             phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
             phoneCountry: data.phoneCountry || null,
             phoneNumber: data.phoneNumber ? formatPhoneNumber(data.phoneNumber) : null,
+            secondaryPhone: data.secondaryPhone?.trim() || null,
             street: data.street?.trim() || null,
             city: data.city?.trim() || null,
             province: data.province || null,
             deliveryInstructions: data.deliveryInstructions?.trim() || null,
             // Keep backward compatibility with address field
             address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
+            // Billing address fields
+            billingAddress: {
+              street: data.billingStreet?.trim() || null,
+              city: data.billingCity?.trim() || null, 
+              province: data.billingProvince || null,
+              postalCode: data.billingPostalCode?.trim() || null,
+              country: data.billingCountry || 'Ecuador'
+            } as BillingAddress,
+            // Customer type and status
+            type: data.type || customerTypeEnum.PERSON,
+            status: data.status || customerStatusEnum.ACTIVE,
+            // Tags
+            tags: customerTags,
+            // Other fields
             source: data.source,
-            brand: data.brand
+            brand: data.brand,
+            notes: data.notes?.trim() || null
           };
           mutation.mutate(formattedData);
         })} className="space-y-4">
@@ -283,6 +356,80 @@ export function CustomerForm({
               </FormItem>
             )}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de Cliente</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isViewMode} 
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={customerTypeEnum.PERSON}>
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-2" />
+                          Persona
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={customerTypeEnum.COMPANY}>
+                        <div className="flex items-center">
+                          <Building2 className="h-4 w-4 mr-2" />
+                          Empresa
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado del Cliente</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isViewMode} 
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={customerStatusEnum.ACTIVE}>
+                        <div className="flex items-center">
+                          <BadgeCheck className="h-4 w-4 mr-2" />
+                          Activo
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={customerStatusEnum.INACTIVE}>
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2" />
+                          Inactivo
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={customerStatusEnum.VIP}>
+                        <div className="flex items-center">
+                          <span className="text-amber-500 mr-2">★</span>
+                          VIP
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
               control={form.control}
@@ -457,7 +604,12 @@ export function CustomerForm({
                     <FormLabel>Provincia</FormLabel>
                     <Select
                       value={field.value}
-                      onValueChange={field.onChange}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        if (sameAsBilling && !isViewMode) {
+                          form.setValue('billingProvince', val);
+                        }
+                      }}
                       disabled={isViewMode} 
                     >
                       <SelectTrigger>
@@ -485,6 +637,258 @@ export function CustomerForm({
                   <FormControl>
                     <Textarea {...field} readOnly={isViewMode} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {!isViewMode && (
+              <div className="flex items-center gap-2 mt-2">
+                <Checkbox 
+                  id="same-billing-shipping" 
+                  checked={sameAsBilling}
+                  onCheckedChange={(checked) => {
+                    setSameAsBilling(!!checked);
+                    if (checked) {
+                      // Copiar dirección de entrega a facturación
+                      form.setValue('billingStreet', form.getValues('street') || '');
+                      form.setValue('billingCity', form.getValues('city') || '');
+                      form.setValue('billingProvince', form.getValues('province') || '');
+                    } else {
+                      // Limpiar campos de facturación cuando se desmarca
+                      form.setValue('billingStreet', '');
+                      form.setValue('billingCity', '');
+                      form.setValue('billingProvince', '');
+                      form.setValue('billingPostalCode', '');
+                    }
+                  }}
+                />
+                <label 
+                  htmlFor="same-billing-shipping" 
+                  className="text-sm cursor-pointer"
+                >
+                  La dirección de Envío es la misma de Facturación
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Dirección de Facturación - Solo visible si sameAsBilling = false */}
+          {!sameAsBilling && (
+            <div className="space-y-4 border-t pt-4 mt-2">
+              <h3 className="font-medium">Dirección de Facturación</h3>
+              
+              <FormField
+                control={form.control}
+                name="billingStreet"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Calle, Intersección y Número</FormLabel>
+                    <FormControl>
+                      <Input {...field} readOnly={isViewMode} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="billingCity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ciudad</FormLabel>
+                      <FormControl>
+                        <Input {...field} readOnly={isViewMode} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="billingProvince"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Provincia</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={isViewMode} 
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {provinces.map(province => (
+                            <SelectItem key={province} value={province}>
+                              {province}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="billingPostalCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código Postal</FormLabel>
+                      <FormControl>
+                        <Input {...field} readOnly={isViewMode} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="billingCountry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>País</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={isViewMode} 
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Ecuador">Ecuador</SelectItem>
+                          <SelectItem value="Colombia">Colombia</SelectItem>
+                          <SelectItem value="Perú">Perú</SelectItem>
+                          <SelectItem value="Estados Unidos">Estados Unidos</SelectItem>
+                          <SelectItem value="México">México</SelectItem>
+                          <SelectItem value="España">España</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Sección de Etiquetas */}
+          <div className="space-y-4">
+            <h3 className="font-medium">Etiquetas del Cliente</h3>
+            
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1 mb-2">
+                {customerTags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    {tag}
+                    {!isViewMode && (
+                      <button 
+                        type="button" 
+                        className="ml-1 hover:text-destructive"
+                        onClick={() => setCustomerTags(tags => tags.filter((_, i) => i !== index))}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {customerTags.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No hay etiquetas asignadas</p>
+                )}
+              </div>
+              
+              {!isViewMode && (
+                <div className="flex gap-2">
+                  <Input 
+                    value={currentTag}
+                    onChange={(e) => setCurrentTag(e.target.value)}
+                    placeholder="Nueva etiqueta"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && currentTag.trim()) {
+                        e.preventDefault();
+                        if (!customerTags.includes(currentTag.trim())) {
+                          setCustomerTags([...customerTags, currentTag.trim()]);
+                        }
+                        setCurrentTag('');
+                      }
+                    }}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!currentTag.trim()}
+                    onClick={() => {
+                      if (currentTag.trim() && !customerTags.includes(currentTag.trim())) {
+                        setCustomerTags([...customerTags, currentTag.trim()]);
+                        setCurrentTag('');
+                      }
+                    }}
+                  >
+                    Añadir
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Información adicional */}
+          <div className="space-y-4">
+            <h3 className="font-medium">Información Adicional</h3>
+
+            {customer && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-semibold">Fecha de Registro:</span>
+                    </div>
+                    <p className="text-sm mt-1">{customer?.createdAt ? new Date(customer.createdAt).toLocaleDateString() : "N/A"}</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-semibold">Última Compra:</span>
+                    </div>
+                    <p className="text-sm mt-1">{customer?.lastPurchase ? new Date(customer.lastPurchase).toLocaleDateString() : "Sin compras"}</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <span className="font-semibold">Valor Histórico:</span>
+                    </div>
+                    <p className="text-sm mt-1">${customer?.totalValue ? Number(customer.totalValue).toFixed(2) : "0.00"}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notas Internas</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} readOnly={isViewMode} className="min-h-[100px]" />
+                  </FormControl>
+                  <FormDescription>
+                    Información adicional o notas importantes sobre este cliente
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
