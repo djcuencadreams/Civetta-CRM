@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useLocation, Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeft, Save, Loader2, PlusCircle, UserPlus, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
 import { LeadForm } from '@/components/crm/LeadForm';
 import { CustomerForm } from '@/components/crm/CustomerForm';
+import { EntitySearchSelect } from '@/components/crm/EntitySearchSelect';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // UI Components
@@ -61,6 +61,11 @@ const opportunitySchema = z.object({
   productsInterested: z.array(z.any()).optional(),
   nextActionDate: z.date().optional().nullable(),
   brand: z.string().default("sleepwear"),
+})
+// Validación adicional para asegurarnos que se selecciona al menos cliente o lead
+.refine(data => data.customerId || data.leadId, {
+  message: "Debes seleccionar un cliente o un lead para crear la oportunidad",
+  path: ['customerId'], // Este error se mostrará en el campo customerId
 });
 
 type OpportunityFormValues = z.infer<typeof opportunitySchema>;
@@ -73,26 +78,95 @@ export default function OpportunitiesNew() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [leadDialogOpen, setLeadDialogOpen] = useState(false);
 
+  // Configurar el formulario con valores iniciales
+  const form = useForm<OpportunityFormValues>({
+    resolver: zodResolver(opportunitySchema),
+    defaultValues: {
+      name: "",
+      customerId: undefined,
+      leadId: undefined,
+      estimatedValue: 0,
+      probability: 50,
+      status: "negotiation",
+      stage: "Prospecto", // Valor predeterminado hasta que carguemos las etapas
+      brand: "sleepwear",
+      notes: "",
+      estimatedCloseDate: null,
+      nextActionDate: null,
+      productsInterested: [],
+    },
+  });
+
   // Consultas de datos
-  const { data: pipelineStagesSleepwear = [] } = useQuery<string[]>({
+  const { data: pipelineStagesSleepwear = [], isLoading: isLoadingSleepwearStages } = useQuery<string[]>({
     queryKey: ['/api/opportunities/pipeline-stages/sleepwear'],
+    staleTime: 60000, // 1 minuto
+    retry: 3
   });
   
-  const { data: pipelineStagesBride = [] } = useQuery<string[]>({
+  const { data: pipelineStagesBride = [], isLoading: isLoadingBrideStages } = useQuery<string[]>({
     queryKey: ['/api/opportunities/pipeline-stages/bride'],
+    staleTime: 60000, // 1 minuto
+    retry: 3
   });
+  
+  // Efecto para actualizar la etapa cuando se cargan las etapas por primera vez
+  useEffect(() => {
+    const brand = form.getValues('brand');
+    if (brand === 'sleepwear' && Array.isArray(pipelineStagesSleepwear) && pipelineStagesSleepwear.length > 0) {
+      console.log("Etapas Sleepwear cargadas:", pipelineStagesSleepwear);
+      form.setValue('stage', pipelineStagesSleepwear[0]);
+    } else if (brand === 'bride' && Array.isArray(pipelineStagesBride) && pipelineStagesBride.length > 0) {
+      console.log("Etapas Bride cargadas:", pipelineStagesBride);
+      form.setValue('stage', pipelineStagesBride[0]);
+    }
+  }, [pipelineStagesSleepwear, pipelineStagesBride, form]);
 
-  const { data: customers = [] } = useQuery<any[]>({
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery<any[]>({
     queryKey: ['/api/customers'],
+    refetchInterval: 3000, // Refrescar datos cada 3 segundos
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
 
-  const { data: leads = [] } = useQuery<any[]>({
+  useEffect(() => {
+    if (Array.isArray(customers) && customers.length > 0) {
+      console.log('Customers data received:', customers);
+    }
+  }, [customers]);
+
+  const { data: leads = [], isLoading: isLoadingLeads } = useQuery<any[]>({
     queryKey: ['/api/leads'],
+    refetchInterval: 3000, // Refrescar datos cada 3 segundos
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
+
+  useEffect(() => {
+    if (Array.isArray(leads) && leads.length > 0) {
+      console.log('Leads data received:', leads);
+    }
+  }, [leads]);
+  
+  // Forzar refresco de datos al montar el componente
+  useEffect(() => {
+    // Refrescar listas de clientes y leads al cargar
+    queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+    
+    console.log('Forzando refresco de datos de clientes y leads');
+  }, []);
 
   // Mutación para crear oportunidad
   const createOpportunity = useMutation({
     mutationFn: async (data: OpportunityFormValues) => {
+      console.log("Datos del formulario a enviar:", data);
+      
+      // Verificar que al menos hay un cliente o un lead
+      if (!data.customerId && !data.leadId) {
+        throw new Error('Debes seleccionar un cliente o un lead para crear la oportunidad');
+      }
+      
       const processedData = {
         ...data,
         customerId: data.customerId ? parseInt(data.customerId) : null,
@@ -102,18 +176,28 @@ export default function OpportunitiesNew() {
         nextActionDate: data.nextActionDate ? data.nextActionDate.toISOString() : null,
       };
       
-      const response = await fetch('/api/opportunities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(processedData),
-      });
+      console.log("Datos procesados a enviar:", processedData);
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear la oportunidad');
+      try {
+        const response = await fetch('/api/opportunities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(processedData),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Error al crear oportunidad:", errorData);
+          throw new Error(errorData.error || 'Error al crear la oportunidad');
+        }
+        
+        const responseData = await response.json();
+        console.log("Respuesta exitosa:", responseData);
+        return responseData;
+      } catch (error) {
+        console.error("Error en la petición:", error);
+        throw error;
       }
-      
-      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -136,34 +220,28 @@ export default function OpportunitiesNew() {
     },
   });
 
-  // Configurar el formulario con valores iniciales
-  const form = useForm<OpportunityFormValues>({
-    resolver: zodResolver(opportunitySchema),
-    defaultValues: {
-      name: "",
-      customerId: undefined,
-      leadId: undefined,
-      estimatedValue: 0,
-      probability: 50,
-      status: "negotiation",
-      stage: pipelineStagesSleepwear && pipelineStagesSleepwear.length > 0 ? pipelineStagesSleepwear[0] : "Prospecto",
-      brand: "sleepwear",
-      notes: "",
-      estimatedCloseDate: null,
-      nextActionDate: null,
-      productsInterested: [],
-    },
-  });
-
   // Actualizar el valor de stage cuando cambia la marca
   useEffect(() => {
     const brand = form.getValues('brand');
     const stages = brand === 'bride' ? pipelineStagesBride : pipelineStagesSleepwear;
     
-    if (stages && stages.length > 0) {
+    if (Array.isArray(stages) && stages.length > 0) {
       form.setValue('stage', stages[0]);
     }
-  }, [form.watch('brand'), pipelineStagesSleepwear, pipelineStagesBride]);
+  }, [form.watch('brand'), pipelineStagesSleepwear, pipelineStagesBride, form]);
+  
+  // Efecto para manejar cambio de tabs, asegurando limpieza del otro campo
+  useEffect(() => {
+    if (activeTab === 'customer' && form.getValues('leadId')) {
+      // Si cambiamos a la pestaña de clientes y ya hay un lead seleccionado
+      console.log('Cambiando a pestaña Cliente, limpiando leadId:', form.getValues('leadId'));
+      form.setValue('leadId', undefined);
+    } else if (activeTab === 'lead' && form.getValues('customerId')) {
+      // Si cambiamos a la pestaña de leads y ya hay un cliente seleccionado
+      console.log('Cambiando a pestaña Lead, limpiando customerId:', form.getValues('customerId'));
+      form.setValue('customerId', undefined);
+    }
+  }, [activeTab, form]);
 
   // Manejar el envío del formulario
   const onSubmit = (data: OpportunityFormValues) => {
@@ -171,7 +249,9 @@ export default function OpportunitiesNew() {
   };
 
   // Filtrar leads que no han sido convertidos
-  const activeLeads = leads.filter((lead: any) => !lead.convertedToCustomer);
+  const activeLeads = Array.isArray(leads) 
+    ? leads.filter((lead: any) => !lead.convertedToCustomer) 
+    : [];
 
   return (
     <div className="container mx-auto p-4">
@@ -219,39 +299,21 @@ export default function OpportunitiesNew() {
                     name="customerId"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex space-x-2">
-                          <div className="flex-1">
-                            <Select
-                              onValueChange={(value) => {
-                                field.onChange(value);
-                                // Si se selecciona un cliente, limpiar el lead
-                                if (value) {
-                                  form.setValue('leadId', undefined);
-                                }
-                              }}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Selecciona un cliente" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="max-h-[300px]">
-                                {customers.length === 0 ? (
-                                  <div className="px-2 py-4 text-center">
-                                    <p className="text-sm text-muted-foreground">No hay clientes disponibles</p>
-                                  </div>
-                                ) : (
-                                  customers.map((customer: any) => (
-                                    <SelectItem key={customer.id} value={customer.id.toString()}>
-                                      {customer.name}
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
+                        <EntitySearchSelect
+                          value={field.value}
+                          onValueChange={(value) => {
+                            console.log("Cliente seleccionado:", value);
+                            field.onChange(value);
+                            // Si se selecciona un cliente, limpiar el lead
+                            if (value) {
+                              form.setValue('leadId', undefined);
+                            }
+                          }}
+                          apiEndpoint="/api/customers"
+                          placeholder="Selecciona un cliente"
+                          entityName="Clientes"
+                          emptyMessage="No se encontraron clientes. Crea uno nuevo."
+                        />
                         <FormDescription>
                           Selecciona el cliente relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
@@ -281,39 +343,22 @@ export default function OpportunitiesNew() {
                     name="leadId"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex space-x-2">
-                          <div className="flex-1">
-                            <Select
-                              onValueChange={(value) => {
-                                field.onChange(value);
-                                // Si se selecciona un lead, limpiar el cliente
-                                if (value) {
-                                  form.setValue('customerId', undefined);
-                                }
-                              }}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Selecciona un lead" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="max-h-[300px]">
-                                {activeLeads.length === 0 ? (
-                                  <div className="px-2 py-4 text-center">
-                                    <p className="text-sm text-muted-foreground">No hay leads disponibles</p>
-                                  </div>
-                                ) : (
-                                  activeLeads.map((lead: any) => (
-                                    <SelectItem key={lead.id} value={lead.id.toString()}>
-                                      {lead.name}
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
+                        <EntitySearchSelect
+                          value={field.value}
+                          onValueChange={(value) => {
+                            console.log("Lead seleccionado:", value);
+                            field.onChange(value);
+                            // Si se selecciona un lead, limpiar el cliente
+                            if (value) {
+                              form.setValue('customerId', undefined);
+                            }
+                          }}
+                          apiEndpoint="/api/leads"
+                          placeholder="Selecciona un lead"
+                          entityName="Leads"
+                          emptyMessage="No se encontraron leads. Crea uno nuevo."
+                          filter={(lead) => !lead.convertedToCustomer}
+                        />
                         <FormDescription>
                           Selecciona el lead relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
@@ -397,18 +442,32 @@ export default function OpportunitiesNew() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Etapa</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingSleepwearStages || isLoadingBrideStages}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una etapa" />
+                            <SelectValue placeholder={isLoadingSleepwearStages || isLoadingBrideStages ? "Cargando..." : "Selecciona una etapa"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {(form.watch('brand') === 'bride' ? pipelineStagesBride : pipelineStagesSleepwear).map((stage: string) => (
-                            <SelectItem key={stage} value={stage}>
-                              {stage}
-                            </SelectItem>
-                          ))}
+                          {isLoadingSleepwearStages || isLoadingBrideStages ? (
+                            <SelectItem value="loading" disabled>Cargando etapas...</SelectItem>
+                          ) : form.watch('brand') === 'bride' ? (
+                            Array.isArray(pipelineStagesBride) && pipelineStagesBride.length > 0 ? (
+                              pipelineStagesBride.map((stage: string) => (
+                                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>No hay etapas configuradas</SelectItem>
+                            )
+                          ) : (
+                            Array.isArray(pipelineStagesSleepwear) && pipelineStagesSleepwear.length > 0 ? (
+                              pipelineStagesSleepwear.map((stage: string) => (
+                                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>No hay etapas configuradas</SelectItem>
+                            )
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -429,10 +488,10 @@ export default function OpportunitiesNew() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="active">Activo</SelectItem>
-                          <SelectItem value="negotiation">Negociación</SelectItem>
-                          <SelectItem value="closed_won">Cerrado Ganado</SelectItem>
-                          <SelectItem value="closed_lost">Cerrado Perdido</SelectItem>
+                          <SelectItem value="negotiation">En Negociación</SelectItem>
+                          <SelectItem value="active">Activa</SelectItem>
+                          <SelectItem value="closed_won">Cerrada Ganada</SelectItem>
+                          <SelectItem value="closed_lost">Cerrada Perdida</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -452,7 +511,7 @@ export default function OpportunitiesNew() {
                             <Button
                               variant={"outline"}
                               className={cn(
-                                "w-full pl-3 text-left font-normal",
+                                "pl-3 text-left font-normal",
                                 !field.value && "text-muted-foreground"
                               )}
                             >
@@ -467,8 +526,9 @@ export default function OpportunitiesNew() {
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value || undefined}
+                            selected={field.value ? new Date(field.value) : undefined}
                             onSelect={field.onChange}
+                            initialFocus
                             locale={es}
                           />
                         </PopoverContent>
@@ -490,7 +550,7 @@ export default function OpportunitiesNew() {
                             <Button
                               variant={"outline"}
                               className={cn(
-                                "w-full pl-3 text-left font-normal",
+                                "pl-3 text-left font-normal",
                                 !field.value && "text-muted-foreground"
                               )}
                             >
@@ -505,8 +565,9 @@ export default function OpportunitiesNew() {
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value || undefined}
+                            selected={field.value ? new Date(field.value) : undefined}
                             onSelect={field.onChange}
+                            initialFocus
                             locale={es}
                           />
                         </PopoverContent>
@@ -525,7 +586,7 @@ export default function OpportunitiesNew() {
                     <FormLabel>Notas</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Escribe aquí detalles adicionales sobre la oportunidad"
+                        placeholder="Detalles adicionales sobre esta oportunidad..."
                         className="min-h-[100px]"
                         {...field}
                       />
@@ -535,10 +596,10 @@ export default function OpportunitiesNew() {
                 )}
               />
               
-              <div className="flex justify-end gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => navigate('/opportunities')}
                 >
                   Cancelar
@@ -564,65 +625,65 @@ export default function OpportunitiesNew() {
           </Form>
         </CardContent>
       </Card>
-    </div>
 
-    {/* Dialog para crear un nuevo cliente */}
-    <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nuevo Cliente</DialogTitle>
-          <DialogDescription>Registre un nuevo cliente en el sistema</DialogDescription>
-        </DialogHeader>
-        <CustomerForm
-          onComplete={(customer) => {
-            setCustomerDialogOpen(false);
-            
-            // Refrescar la lista de clientes
-            queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-            
-            // Seleccionar automáticamente el cliente recién creado en el formulario
-            if (customer?.id) {
-              form.setValue('customerId', customer.id.toString());
-              form.setValue('leadId', undefined);
-            }
-            
-            toast({
-              title: "Cliente creado",
-              description: "El cliente ha sido creado exitosamente",
-            });
-          }}
-        />
-      </DialogContent>
-    </Dialog>
-
-    {/* Dialog para crear un nuevo lead */}
-    <Dialog open={leadDialogOpen} onOpenChange={setLeadDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nuevo Lead</DialogTitle>
-          <DialogDescription>Registre un nuevo prospecto en el sistema</DialogDescription>
-        </DialogHeader>
-        <LeadForm
-          onClose={() => {
-            setLeadDialogOpen(false);
-            
-            // Refrescar la lista de leads
-            queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-            
-            // Buscar el lead recién creado (el último en la lista)
-            setTimeout(() => {
-              const newLeads = queryClient.getQueryData<any[]>(['/api/leads']) || [];
-              if (newLeads.length > 0) {
-                const latestLead = newLeads[newLeads.length - 1];
-                if (latestLead?.id) {
-                  form.setValue('leadId', latestLead.id.toString());
-                  form.setValue('customerId', undefined);
-                }
+      {/* Dialog para crear un nuevo cliente */}
+      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Cliente</DialogTitle>
+            <DialogDescription>Registre un nuevo cliente en el sistema</DialogDescription>
+          </DialogHeader>
+          <CustomerForm
+            onComplete={(customer: any) => {
+              setCustomerDialogOpen(false);
+              
+              // Refrescar la lista de clientes
+              queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+              
+              // Seleccionar automáticamente el cliente recién creado en el formulario
+              if (customer?.id) {
+                form.setValue('customerId', customer.id.toString());
+                form.setValue('leadId', undefined);
               }
-            }, 500);
-          }}
-        />
+              
+              toast({
+                title: "Cliente creado",
+                description: "El cliente ha sido creado exitosamente",
+              });
+            }}
+          />
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para crear un nuevo lead */}
+      <Dialog open={leadDialogOpen} onOpenChange={setLeadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Lead</DialogTitle>
+            <DialogDescription>Registre un nuevo prospecto en el sistema</DialogDescription>
+          </DialogHeader>
+          <LeadForm
+            onClose={() => {
+              setLeadDialogOpen(false);
+              
+              // Refrescar la lista de leads
+              queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+              
+              // Buscar el lead recién creado (el último en la lista)
+              setTimeout(() => {
+                const newLeads = queryClient.getQueryData<any[]>(['/api/leads']) || [];
+                if (newLeads.length > 0) {
+                  const latestLead = newLeads[newLeads.length - 1];
+                  if (latestLead?.id) {
+                    form.setValue('leadId', latestLead.id.toString());
+                    form.setValue('customerId', undefined);
+                  }
+                }
+              }, 500);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

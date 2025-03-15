@@ -100,7 +100,7 @@ export function CustomerForm({
   onComplete
 }: {
   customer?: Customer;
-  onComplete: () => void;
+  onComplete: (customer?: any) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -120,10 +120,10 @@ export function CustomerForm({
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       toast({ title: t("common.success") });
-      onComplete();
+      onComplete(data);
     },
     onError: (error: any) => {
       toast({ 
@@ -144,10 +144,10 @@ export function CustomerForm({
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       toast({ title: "Cliente eliminado" });
-      onComplete();
+      onComplete(data);
     },
     onError: (error: any) => {
       toast({ 
@@ -169,14 +169,14 @@ export function CustomerForm({
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       toast({ 
         title: "Cliente convertido a Lead",
         description: "El cliente ha sido convertido a lead exitosamente"
       });
-      onComplete();
+      onComplete(data);
     },
     onError: (error: any) => {
       toast({ 

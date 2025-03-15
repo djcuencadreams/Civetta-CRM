@@ -62,7 +62,9 @@ export default function OpportunitiesPage() {
   // Obtener etapas del pipeline según la marca seleccionada
   const { data: stagesData, isLoading: stagesLoading } = useQuery({
     queryKey: [`/api/opportunities/pipeline-stages/${selectedBrand}`],
-    enabled: !!selectedBrand
+    enabled: !!selectedBrand,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
 
   // Obtener oportunidades
@@ -72,18 +74,26 @@ export default function OpportunitiesPage() {
     refetch: refetchOpportunities 
   } = useQuery({
     queryKey: ['/api/opportunities'],
-    enabled: true
+    enabled: true,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 5000
   });
 
   // Organizar oportunidades por etapas
   useEffect(() => {
+    console.log("stagesData recibido:", stagesData);
     if (stagesData && Array.isArray(stagesData)) {
       setStages(stagesData);
+      console.log("Etapas actualizadas:", stagesData);
     }
   }, [stagesData]);
 
   useEffect(() => {
+    console.log("opportunitiesData recibido:", opportunitiesData);
+    console.log("stages length:", stages.length);
     if (!opportunitiesData || !Array.isArray(opportunitiesData) || stages.length === 0) {
+      console.log("No se procesarán oportunidades: datos insuficientes");
       return;
     }
     
