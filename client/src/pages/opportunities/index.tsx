@@ -92,19 +92,42 @@ export default function OpportunitiesPage() {
     gcTime: 3600000, // Mantener en caché por más tiempo
   });
 
-  // Obtener oportunidades
+  // Obtener oportunidades - Usamos una clave estable y simple para evitar problemas
   const { 
     data: opportunitiesData, 
     isLoading: opportunitiesLoading,
-    refetch: refetchOpportunities 
-  } = useQuery({
-    queryKey: ['/api/opportunities', selectedBrand], // Usar marca para que se refresque automáticamente cuando cambia
-    enabled: true,
+    refetch: refetchOpportunities,
+    isError: opportunitiesError,
+    error: opportunitiesErrorData
+  } = useQuery<any[]>({ // Forzar tipo de respuesta como array
+    queryKey: ['opportunities-list'], // Clave simple y estable
+    queryFn: async () => {
+      console.log("🔍 Obteniendo oportunidades desde el servidor...");
+      try {
+        // Llamada directa para evitar cualquier problema con el cliente predeterminado
+        const response = await fetch('/api/opportunities');
+        if (!response.ok) {
+          throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          console.error("⚠️ La API no devolvió un array:", data);
+          return []; // Devolver array vacío para prevenir errores
+        }
+        console.log(`✅ Oportunidades obtenidas: ${data.length}`);
+        return data;
+      } catch (error) {
+        console.error("❌ Error al obtener oportunidades:", error);
+        throw error;
+      }
+    },
+    enabled: true, // Siempre habilitado
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    staleTime: 10000, // Cachear por 10 segundos para evitar múltiples peticiones innecesarias
-    retry: 5, // Aumentar reintentos
-    retryDelay: 1000,
+    staleTime: 5000, // Reducir el tiempo de caché para obtener datos más actualizados
+    gcTime: 60000, // Mantener en caché por 1 minuto
+    retry: 3, // Número razonable de reintentos
+    retryDelay: 500, // Menor tiempo entre reintentos
     refetchOnReconnect: true,
     refetchInterval: 15000 // Recargar cada 15 segundos
   });
@@ -141,13 +164,63 @@ export default function OpportunitiesPage() {
     }
   }, []);
   
-  // Efecto para forzar carga inicial de datos
+  // Constantes para las etapas predeterminadas para cada marca
+  const SLEEPWEAR_STAGES = [
+    "Prospecto", 
+    "Primer Contacto", 
+    "Propuesta Enviada", 
+    "Negociación", 
+    "Pedido Confirmado", 
+    "Cerrado Ganado", 
+    "Cerrado Perdido"
+  ];
+  
+  const BRIDE_STAGES = [
+    "Consulta Inicial", 
+    "Propuesta Enviada", 
+    "Prueba de Vestido", 
+    "Ajustes", 
+    "Confección", 
+    "Entrega Programada", 
+    "Cerrado Ganado", 
+    "Cerrado Perdido"
+  ];
+
+  // Efecto para forzar carga inicial de datos y configurar correctamente
   useEffect(() => {
-    // Al montar el componente, forzar carga de oportunidades
-    console.log("Montando componente, forzando carga de datos...");
+    // Al montar el componente, asegurar inicialización completa
+    console.log("🚀 Inicializando componente de oportunidades...");
+    
+    // Forzar una marca inicial si no hay ninguna seleccionada
+    if (!selectedBrand) {
+      console.log("⚠️ No hay marca seleccionada, configurando 'sleepwear' como predeterminada");
+      setSelectedBrand('sleepwear');
+    }
+    
+    // Asegurarnos de que tengamos etapas iniciales incluso antes de conectar con API
+    if (stages.length === 0) {
+      // Usar etapas predeterminadas según la marca (o sleepwear si no hay marca)
+      const defaultStages = selectedBrand === 'bride' ? BRIDE_STAGES : SLEEPWEAR_STAGES;
+      console.log(`⚠️ No hay etapas configuradas, usando valores iniciales para ${selectedBrand || 'sleepwear'}`);
+      setStages(defaultStages);
+    }
+    
+    // Configurar un timer para forzar refetch después de que todo esté montado
     const timer = setTimeout(() => {
-      refetchOpportunities();
-    }, 1000); // Esperar 1 segundo antes de hacer el refetch inicial
+      console.log("⚡ Forzando actualización de datos...");
+      // Usar una promesa para asegurar la secuencia de operaciones
+      refetchOpportunities()
+        .then(() => {
+          console.log("✅ Oportunidades actualizadas, ahora actualizando etapas...");
+          return refetchStages();
+        })
+        .then(() => {
+          console.log("✅ Etapas actualizadas, actualización completa");
+        })
+        .catch(err => {
+          console.error("❌ Error en la actualización de datos:", err);
+        });
+    }, 2000);
     
     return () => clearTimeout(timer);
   }, []);
@@ -156,35 +229,18 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     console.log("stagesData recibido:", stagesData);
     if (stagesData && Array.isArray(stagesData)) {
+      // Si tenemos datos de la API, usarlos
       setStages(stagesData);
-      console.log("Etapas actualizadas desde API:", stagesData);
-    } else if (!stagesData && selectedBrand === 'sleepwear') {
-      // Actualizar etapas si cambia la marca a sleepwear
-      const defaultStages = [
-        "Prospecto",
-        "Primer Contacto",
-        "Propuesta Enviada",
-        "Negociación",
-        "Pedido Confirmado",
-        "Cerrado Ganado",
-        "Cerrado Perdido"
-      ];
-      console.log("Usando etapas predeterminadas:", defaultStages);
+      console.log("✅ Etapas actualizadas desde API:", stagesData);
+    } else if (selectedBrand) {
+      // Si no hay datos de la API pero tenemos una marca seleccionada, usar etapas predeterminadas
+      const defaultStages = selectedBrand === 'bride' ? BRIDE_STAGES : SLEEPWEAR_STAGES;
+      console.log(`📋 Usando etapas predeterminadas para ${selectedBrand}:`, defaultStages);
       setStages(defaultStages);
-    } else if (!stagesData && selectedBrand === 'bride') {
-      // Actualizar etapas si cambia la marca a bride
-      const defaultStages = [
-        "Consulta Inicial",
-        "Propuesta Enviada",
-        "Prueba de Vestido",
-        "Ajustes",
-        "Confección",
-        "Entrega Programada",
-        "Cerrado Ganado",
-        "Cerrado Perdido"
-      ];
-      console.log("Usando etapas predeterminadas (bride):", defaultStages);
-      setStages(defaultStages);
+    } else {
+      // Si no hay datos ni marca, usar la marca sleepwear por defecto
+      console.log("⚠️ Sin marca seleccionada, usando etapas predeterminadas para sleepwear:", SLEEPWEAR_STAGES);
+      setStages(SLEEPWEAR_STAGES);
     }
   }, [stagesData, selectedBrand]);
 
@@ -192,35 +248,65 @@ export default function OpportunitiesPage() {
     console.log("opportunitiesData recibido:", opportunitiesData);
     console.log("stages length:", stages.length);
     
-    // Inspeccionar datos recibidos de oportunidades para diagnóstico
-    if (opportunitiesData && Array.isArray(opportunitiesData)) {
-      console.log("Datos de oportunidades recibidos:", opportunitiesData.length);
-      // Imprimir el primer elemento para analizar la estructura de datos real
-      if (opportunitiesData.length > 0) {
-        console.log("Ejemplo de oportunidad recibida:", JSON.stringify(opportunitiesData[0], null, 2));
-      }
-      
-      // Verificar campos críticos
-      let problemasEncontrados = 0;
-      opportunitiesData.forEach(opp => {
-        if (!opp.id || !opp.name || !opp.stage) {
-          console.warn("Oportunidad con datos incompletos:", opp);
-          problemasEncontrados++;
-        }
-      });
-      
-      if (problemasEncontrados > 0) {
-        console.warn(`Se encontraron ${problemasEncontrados} oportunidades con datos incompletos`);
-      } else {
-        console.log("Todas las oportunidades tienen los datos básicos requeridos");
+    // VERIFICACIÓN DE DATOS CRÍTICA: Si el estado de oportunidades es null pero el error es null,
+    // significa que la consulta aún está en progreso
+    if (opportunitiesData === null && !opportunitiesError) {
+      console.log("⌛ Esperando datos de oportunidades...");
+      return;
+    }
+    
+    // Verificar si hay errores en la carga
+    if (opportunitiesError) {
+      console.error("❌ Error al cargar oportunidades:", opportunitiesErrorData);
+      // Si hay un error pero tenemos datos anteriores, intentamos usarlos
+      if (!opportunitiesData || !Array.isArray(opportunitiesData)) {
+        return;
       }
     }
     
-    // Si no hay etapas pero opportunitiesData está disponible, actualizar manualmente
-    if (stages.length === 0 && opportunitiesData && Array.isArray(opportunitiesData) && opportunitiesData.length > 0) {
-      console.log("Hay oportunidades pero faltan etapas, usando valores iniciales...");
-      // Usamos las etapas por defecto según la marca
-      const defaultStages = selectedBrand === 'bride' ? 
+    // Si llegamos aquí, verificamos si los datos son un array
+    if (!Array.isArray(opportunitiesData)) {
+      console.warn("⚠️ Los datos de oportunidades no son un array:", opportunitiesData);
+      return;
+    }
+    
+    // Inspeccionar datos recibidos de oportunidades para diagnóstico
+    console.log(`✅ Datos de oportunidades recibidos: ${opportunitiesData.length} registros`);
+    
+    // Imprimir el primer elemento para analizar la estructura de datos real
+    if (opportunitiesData.length > 0) {
+      console.log("📋 Ejemplo de oportunidad recibida:", JSON.stringify(opportunitiesData[0], null, 2));
+    } else {
+      console.log("⚠️ No hay oportunidades disponibles");
+    }
+    
+    // Verificar campos críticos
+    let problemasEncontrados = 0;
+    opportunitiesData.forEach(opp => {
+      if (!opp.id || !opp.name || !opp.stage) {
+        console.warn("⚠️ Oportunidad con datos incompletos:", opp);
+        problemasEncontrados++;
+      }
+    });
+    
+    if (problemasEncontrados > 0) {
+      console.warn(`⚠️ Se encontraron ${problemasEncontrados} oportunidades con datos incompletos`);
+    } else {
+      console.log("✅ Todas las oportunidades tienen los datos básicos requeridos");
+    }
+    
+    // Forzar etapas si no están disponibles pero tenemos oportunidades
+    if (stages.length === 0 && opportunitiesData.length > 0) {
+      console.log("⚠️ Hay oportunidades pero faltan etapas, usando valores iniciales...");
+      // Usamos las etapas por defecto según la marca predominante en los datos
+      const bridgeCases = opportunitiesData.filter(opp => opp.brand === 'bride').length;
+      const sleepwearCases = opportunitiesData.filter(opp => opp.brand === 'sleepwear').length;
+      
+      // Determinar marca predominante
+      const marcaPredominante = bridgeCases > sleepwearCases ? 'bride' : 'sleepwear';
+      console.log(`👗 Marca predominante en los datos: ${marcaPredominante}`);
+      
+      const defaultStages = marcaPredominante === 'bride' ? 
         ["Consulta Inicial", "Propuesta Enviada", "Prueba de Vestido", "Ajustes", "Confección", "Entrega Programada", "Cerrado Ganado", "Cerrado Perdido"] :
         ["Prospecto", "Primer Contacto", "Propuesta Enviada", "Negociación", "Pedido Confirmado", "Cerrado Ganado", "Cerrado Perdido"];
       
@@ -228,13 +314,9 @@ export default function OpportunitiesPage() {
       return;
     }
     
-    if (!opportunitiesData || !Array.isArray(opportunitiesData)) {
-      console.log("No se procesarán oportunidades: datos de oportunidades insuficientes");
-      return;
-    }
-    
+    // Verificación final: etapas necesarias para procesamiento
     if (stages.length === 0) {
-      console.log("Esperando carga de etapas...");
+      console.log("⌛ Esperando carga de etapas...");
       return;
     }
     
@@ -313,21 +395,33 @@ export default function OpportunitiesPage() {
           const oppStageNormalized = normalizeText(opp.stage);
           const currentStageNormalized = normalizeText(stage);
           
-          // Mapa de equivalencias entre etapas
+          // Mapa de equivalencias entre etapas (simplificado para evitar duplicaciones)
           const stageEquivalences: Record<string, string[]> = {
-            "consulta inicial": ["prospecto"],
-            "primer contacto": ["consulta inicial", "propuesta enviada"],
-            "propuesta enviada": ["propuesta", "primer contacto"],
-            "propuesta": ["propuesta enviada"],
-            "negociacion": ["negociando", "negociaciones", "prueba de vestido", "ajustes"],
-            "negociando": ["negociacion"],
-            "prueba de vestido": ["negociacion"],
-            "ajustes": ["negociacion"],
-            "pedido confirmado": ["confeccion", "entrega programada"],
-            "confeccion": ["pedido confirmado"],
-            "entrega programada": ["pedido confirmado"],
+            // Equivalencias para Sleepwear
+            "prospecto": [],
+            "primer contacto": [],
+            "propuesta enviada": ["propuesta"],
+            "negociacion": ["negociando", "negociaciones"],
+            "pedido confirmado": [],
             "cerrado ganado": ["ganado", "venta realizada", "completado"],
-            "cerrado perdido": ["perdido", "cancelado", "abandonado"]
+            "cerrado perdido": ["perdido", "cancelado", "abandonado"],
+            
+            // Equivalencias para Bride
+            "consulta inicial": [],
+            "prueba de vestido": [],
+            "ajustes": [],
+            "confeccion": [],
+            "entrega programada": []
+          };
+          
+          // Caso especial: Mapeo entre marcas cuando es necesario
+          const crossBrandMapping: Record<string, Record<string, string>> = {
+            "sleepwear": {
+              "consulta inicial": "primer contacto"
+            },
+            "bride": {
+              "primer contacto": "consulta inicial"
+            }
           };
           
           // Verificar coincidencia exacta y por equivalencias
@@ -339,12 +433,28 @@ export default function OpportunitiesPage() {
             currentEquivalents.includes(oppStageNormalized) || 
             oppEquivalents.includes(currentStageNormalized);
           
-          // Casos especiales para mapeos específicos entre marcas
-          // Verificar casos especiales para mapeos entre marcas diferentes
+          // Aplicar mapeo entre marcas cuando sea necesario
+          let isCrossBrandMapping = false;
+          
+          // Verificar si este es un mapeo entre marcas
+          if (opp.brand && selectedBrand && opp.brand !== selectedBrand) {
+            // Tenemos una oportunidad de una marca diferente a la seleccionada
+            const brandMappings = crossBrandMapping[selectedBrand] || {};
+            
+            // Verificar si hay un mapeo específico para esta etapa
+            if (brandMappings[oppStageNormalized] === currentStageNormalized) {
+              isCrossBrandMapping = true;
+              console.log(`Aplicando mapeo entre marcas: "${opp.stage}" (${opp.brand}) → "${stage}" (${selectedBrand})`);
+            }
+          }
+          
+          // Caso especial para la oportunidad ID 3
           const isSpecialCase = 
             // La oportunidad ID 3 debe aparecer en "Primer Contacto" cuando está en Sleepwear
             // pero tiene etapa "Consulta Inicial" que corresponde a Bride
-            (opp.id === 3 && currentStageNormalized === "primer contacto" && oppStageNormalized === "consulta inicial" && 
+            (opp.id === 3 && 
+             currentStageNormalized === "primer contacto" && 
+             oppStageNormalized === "consulta inicial" && 
              (selectedBrand === 'sleepwear' || selectedBrand === ''));
              
           // Mostrar detalles de caso especial para depuración (solo para ID 3)
@@ -356,13 +466,28 @@ export default function OpportunitiesPage() {
             console.log(`  - ¿Es caso especial? ${isSpecialCase ? 'SÍ' : 'NO'}`);
           }
           
-          // La coincidencia final combina todos los criterios
-          const isMatch = isExactMatch || isEquivalent || isSpecialCase;
+          // Prioridad de coincidencia (para evitar duplicaciones)
+          // 1. Primero coincidencia exacta (más prioridad)
+          // 2. Luego para caso especial de ID=3
+          // 3. Por último equivalencias (menos prioridad)
           
-          if (isMatch) {
-            console.log(`Oportunidad "${opp.name}" (ID: ${opp.id}) coincide con etapa "${stage}"`);
-            console.log(`  - Valor original: "${opp.stage}" vs "${stage}"`);
-            console.log(`  - Valor normalizado: "${oppStageNormalized}" vs "${currentStageNormalized}"`);
+          let isMatch = false;
+          
+          if (isExactMatch) {
+            isMatch = true;
+            if (opp.id !== 3) { // El ID 3 es un caso especial que manejamos aparte
+              console.log(`✓ Coincidencia EXACTA: "${opp.name}" (ID: ${opp.id}) en etapa "${stage}"`);
+            }
+          } else if (isSpecialCase) {
+            isMatch = true;
+            console.log(`✓ Caso ESPECIAL: "${opp.name}" (ID: ${opp.id}) en etapa "${stage}"`);
+          } else if (isCrossBrandMapping) {
+            isMatch = true;
+            console.log(`✓ Mapeo entre MARCAS: "${opp.name}" (ID: ${opp.id}) en etapa "${stage}"`);
+          } else if (isEquivalent && !isMatch) {
+            // Solo aplicar equivalencias si no se ha asignado por otro criterio
+            isMatch = true;
+            console.log(`✓ Equivalencia: "${opp.name}" (ID: ${opp.id}) en etapa "${stage}"`);
           }
           
           return isMatch;
@@ -370,8 +495,11 @@ export default function OpportunitiesPage() {
         
         console.log(`Etapa "${stage}" tiene ${stageOpportunities.length} oportunidades`);
         
+        // Normalizar el ID de la columna para evitar problemas con espacios
+        const columnId = stage.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '');
+        
         return {
-          id: stage,
+          id: columnId,
           title: stage,
           opportunities: stageOpportunities
         };
@@ -390,6 +518,17 @@ export default function OpportunitiesPage() {
       
       // Si no hay destino o es el mismo que el origen, no hacer nada
       if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
+        return;
+      }
+      
+      console.log('Drag end:', { source, destination, draggableId });
+      
+      // Extraer el ID real de la oportunidad desde el draggableId
+      // El formato ahora es "opportunity-{opportunityId}"
+      const opportunityId = parseInt(draggableId.split('-')[1]);
+      
+      if (isNaN(opportunityId)) {
+        console.error('ID de oportunidad inválido:', draggableId);
         return;
       }
       
@@ -440,7 +579,8 @@ export default function OpportunitiesPage() {
         // Si se mueve a otra columna, actualizar la etapa en la base de datos
         try {
           // Actualizar localmente para UI instantánea
-          const updatedOpportunity = {...movedOpportunity, stage: destColumn.id};
+          // Usamos el título de la columna, no el ID
+          const updatedOpportunity = {...movedOpportunity, stage: destColumn.title};
           destOpportunities.splice(destination.index, 0, updatedOpportunity);
           
           const newColumns = columns.map(col => {
@@ -461,13 +601,14 @@ export default function OpportunitiesPage() {
           
           setColumns(newColumns);
           
-          // Actualizar en el servidor
-          console.log(`Actualizando oportunidad ${draggableId} a etapa "${destColumn.id}"`);
+          // Actualizar en el servidor usando el ID real de la oportunidad
+          // Necesitamos enviar el título de la etapa, no el ID normalizado
+          console.log(`Actualizando oportunidad ${opportunityId} a etapa "${destColumn.title}"`);
           
           await apiRequest(
             'PATCH',
-            `/api/opportunities/${draggableId}/stage`, 
-            { stage: destColumn.id }
+            `/api/opportunities/${opportunityId}/stage`, 
+            { stage: destColumn.title }
           );
           
           toast({
@@ -492,6 +633,36 @@ export default function OpportunitiesPage() {
       refetchOpportunities();
     }
   };
+
+  // Renderizar estado de error si existe
+  if (opportunitiesError) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Pipeline de Oportunidades</h1>
+          <Button size="sm" variant="outline" onClick={() => {
+            refetchOpportunities();
+            toast({
+              title: 'Intentando reconectar',
+              description: 'Intentando cargar las oportunidades de nuevo',
+            });
+          }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reintentar
+          </Button>
+        </div>
+        <div className="p-6 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
+          <h3 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">Error al cargar oportunidades</h3>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Hubo un problema al conectar con el servidor. Por favor, intenta nuevamente en unos momentos.
+          </p>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+            Detalles: {opportunitiesErrorData?.message || 'Error de conexión'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Renderizar esqueletos de carga
   if (stagesLoading || opportunitiesLoading) {
@@ -667,76 +838,80 @@ export default function OpportunitiesPage() {
                           </p>
                         </div>
                       ) : (
-                        column.opportunities.map((opportunity, index) => (
-                          <Draggable 
-                            key={opportunity.id} 
-                            draggableId={opportunity.id.toString()} 
-                            index={index}
-                          >
-                            {(provided) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                              >
-                                <Card className="mb-2">
-                                  <CardHeader className="p-3 pb-0">
-                                    <CardTitle className="text-sm font-semibold">
-                                      <Link href={`/opportunities/${opportunity.id}`} className="hover:underline">
-                                        {opportunity.name}
-                                      </Link>
-                                    </CardTitle>
-                                    <CardDescription className="text-xs">
-                                      {/* Usar solo valores que están en la interfaz */}
-                                      {opportunity.customer_name || 
-                                       opportunity.lead_name ||
-                                       'Sin contacto asignado'}
-                                    </CardDescription>
-                                  </CardHeader>
-                                  <CardContent className="p-3 space-y-2">
-                                    <div className="flex items-center text-xs text-muted-foreground">
-                                      <DollarSign className="h-3 w-3 mr-1" />
-                                      <span>
-                                        {formatCurrency(Number(
-                                          // La API devuelve estimated_value como string
-                                          opportunity.estimated_value || 
-                                          0
-                                        ))}
-                                      </span>
-                                      {(opportunity.probability || opportunity.probability === 0) && (
-                                        <Badge variant="outline" className="ml-2 text-xs">
-                                          {opportunity.probability}%
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    {opportunity.estimated_close_date && (
+                        column.opportunities.map((opportunity, index) => {
+                          // Crear un ID único para draggable combinando ID de columna y oportunidad
+                          // Asegurar que este ID sea estable entre renderizados
+                          const draggableId = `opportunity-${opportunity.id}`;
+                          
+                          return (
+                            <Draggable 
+                              key={draggableId}
+                              draggableId={draggableId}
+                              index={index}
+                            >
+                              {(provided) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                >
+                                  <Card className="mb-2">
+                                    <CardHeader className="p-3 pb-0">
+                                      <CardTitle className="text-sm font-semibold">
+                                        <Link href={`/opportunities/${opportunity.id}`} className="hover:underline">
+                                          {opportunity.name}
+                                        </Link>
+                                      </CardTitle>
+                                      <CardDescription className="text-xs">
+                                        {opportunity.customer_name || 
+                                         opportunity.lead_name ||
+                                         'Sin contacto asignado'}
+                                      </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-3 space-y-2">
                                       <div className="flex items-center text-xs text-muted-foreground">
-                                        <Calendar className="h-3 w-3 mr-1" />
+                                        <DollarSign className="h-3 w-3 mr-1" />
                                         <span>
-                                          {new Date(opportunity.estimated_close_date).toLocaleDateString()}
+                                          {formatCurrency(Number(
+                                            opportunity.estimated_value || 
+                                            0
+                                          ))}
+                                        </span>
+                                        {(opportunity.probability || opportunity.probability === 0) && (
+                                          <Badge variant="outline" className="ml-2 text-xs">
+                                            {opportunity.probability}%
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {opportunity.estimated_close_date && (
+                                        <div className="flex items-center text-xs text-muted-foreground">
+                                          <Calendar className="h-3 w-3 mr-1" />
+                                          <span>
+                                            {new Date(opportunity.estimated_close_date).toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </CardContent>
+                                    <CardFooter className="p-3 pt-0 flex items-center justify-between text-xs">
+                                      <div className="flex items-center">
+                                        <User className="h-3 w-3 mr-1" />
+                                        <span>
+                                          {opportunity.assigned_user_name || 'Sin asignar'}
                                         </span>
                                       </div>
-                                    )}
-                                  </CardContent>
-                                  <CardFooter className="p-3 pt-0 flex items-center justify-between text-xs">
-                                    <div className="flex items-center">
-                                      <User className="h-3 w-3 mr-1" />
-                                      <span>
-                                        {opportunity.assigned_user_name || 'Sin asignar'}
-                                      </span>
-                                    </div>
-                                    <Badge 
-                                      variant={opportunity.brand === 'bride' ? 'secondary' : 'default'} 
-                                      className="text-xs"
-                                    >
-                                      {opportunity.brand === 'bride' ? 'Bride' : 'Sleepwear'}
-                                    </Badge>
-                                  </CardFooter>
-                                </Card>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))
+                                      <Badge 
+                                        variant={opportunity.brand === 'bride' ? 'secondary' : 'default'} 
+                                        className="text-xs"
+                                      >
+                                        {opportunity.brand === 'bride' ? 'Bride' : 'Sleepwear'}
+                                      </Badge>
+                                    </CardFooter>
+                                  </Card>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })
                       )}
                       {provided.placeholder}
                     </div>
