@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from '@/components/ui/command';
 import {
   Popover,
@@ -45,57 +46,65 @@ export function EntitySearchSelect({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Usar enabled para controlar cuándo se realiza la consulta
-  const { data: entities = [], isLoading, refetch } = useQuery<EntityOption[]>({
+  // Búsqueda de datos
+  const { data = [], isLoading } = useQuery<EntityOption[]>({
     queryKey: [apiEndpoint],
     queryFn: async () => {
       console.log(`Obteniendo datos desde ${apiEndpoint}`);
-      const response = await fetch(apiEndpoint);
-      if (!response.ok) {
-        throw new Error(`Error al cargar ${entityName.toLowerCase()}`);
+      try {
+        const response = await fetch(apiEndpoint);
+        if (!response.ok) {
+          throw new Error(`Error al cargar ${entityName.toLowerCase()}`);
+        }
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+          console.error(`Los datos recibidos de ${apiEndpoint} no son un array:`, data);
+          return [];
+        }
+        
+        console.log(`Datos obtenidos (${data.length} ${entityName.toLowerCase()}):`, data);
+        return data;
+      } catch (error) {
+        console.error(`Error al obtener datos de ${entityName}:`, error);
+        return [];
       }
-      const data = await response.json();
-      console.log(`Datos obtenidos (${data.length} ${entityName.toLowerCase()}):`, data);
-      return data;
     },
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 3000, // 3 segundos antes de considerar los datos obsoletos
   });
-  
-  // Refrescar datos al abrir el selector
+
+  // Filtrar entidades según criterios de búsqueda
+  const filteredEntities = useMemo(() => {
+    return data
+      .filter(filter)
+      .filter(entity => {
+        if (!searchQuery || searchQuery.trim() === '') return true;
+        
+        const query = searchQuery.toLowerCase().trim();
+        
+        const nameMatch = entity.name?.toLowerCase().includes(query);
+        const emailMatch = entity.email?.toLowerCase().includes(query);
+        const idMatch = String(entity.id).includes(query);
+        
+        if (nameMatch || emailMatch || idMatch) {
+          console.log(`Coincidencia encontrada para "${query}":`, entity.name);
+        }
+        
+        return nameMatch || emailMatch || idMatch;
+      });
+  }, [data, searchQuery, filter]);
+
+  // Nombre para mostrar en el botón
+  const selectedItem = useMemo(() => {
+    if (!value) return undefined;
+    return data.find(item => String(item.id) === value);
+  }, [data, value]);
+
+  // Para debugging
   useEffect(() => {
     if (open) {
-      console.log(`Selector ${entityName} abierto, refrescando datos...`);
-      refetch();
+      console.log(`Selector ${entityName} abierto - ${filteredEntities.length} resultados filtrados de ${data.length} totales`);
     }
-  }, [open, refetch, entityName]);
-
-  // Filtrar entidades
-  const filteredEntities = Array.isArray(entities) 
-    ? entities
-        .filter(filter)
-        .filter(entity => 
-          entity && entity.name && 
-          entity.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : [];
-
-  // Log para depuración y selección previa
-  useEffect(() => {
-    if (Array.isArray(entities) && entities.length > 0) {
-      console.log(`${entityName} cargados:`, entities);
-      
-      // Si hay un valor seleccionado, verificamos que exista en la lista
-      if (value) {
-        const selectedEntity = entities.find(e => e.id.toString() === value);
-        if (selectedEntity) {
-          console.log(`${entityName} seleccionado:`, selectedEntity);
-        } else {
-          console.warn(`El ${entityName.toLowerCase()} seleccionado (ID: ${value}) no existe en la lista actual`);
-        }
-      }
-    }
-  }, [entities, value, entityName]);
+  }, [open, filteredEntities.length, data.length, entityName]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -106,10 +115,9 @@ export function EntitySearchSelect({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between"
+            onClick={() => setOpen(prev => !prev)}
           >
-            {value && filteredEntities.length > 0
-              ? filteredEntities.find((entity) => entity.id.toString() === value)?.name || placeholder
-              : placeholder}
+            {selectedItem?.name || placeholder}
             {isLoading ? (
               <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />
             ) : (
@@ -118,60 +126,57 @@ export function EntitySearchSelect({
           </Button>
         </FormControl>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
+      <PopoverContent className="w-full p-0" align="start">
+        <Command className="rounded-lg border shadow-md">
           <CommandInput
             placeholder={`Buscar ${entityName.toLowerCase()}...`}
+            value={searchQuery}
             onValueChange={setSearchQuery}
-            className="h-9"
           />
-          {isLoading ? (
-            <div className="py-6 text-center">
-              <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">Cargando {entityName.toLowerCase()}...</p>
-            </div>
-          ) : (
-            <>
-              <CommandEmpty>
-                {emptyMessage}
-              </CommandEmpty>
-              <CommandGroup className="max-h-60 overflow-auto">
-                {filteredEntities.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-sm text-muted-foreground">
-                    No se encontraron {entityName.toLowerCase()} con el filtro actual
-                  </div>
-                ) : (
-                  filteredEntities.map((entity) => (
+          
+          <CommandList>
+            {isLoading ? (
+              <div className="py-6 text-center">
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">Cargando {entityName.toLowerCase()}...</p>
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>
+                  {emptyMessage}
+                </CommandEmpty>
+                
+                <CommandGroup heading={entityName} className="max-h-60 overflow-y-auto">
+                  {filteredEntities.map((entity) => (
                     <CommandItem
                       key={entity.id}
-                      value={entity.id.toString()}
+                      value={String(entity.id)}
                       onSelect={(currentValue) => {
                         console.log(`Seleccionado ${entityName}:`, currentValue);
                         onValueChange(currentValue === value ? '' : currentValue);
                         setOpen(false);
                       }}
-                      className="flex items-center justify-between"
                     >
-                      <div className="flex items-center">
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            value === entity.id.toString() ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <span>{entity.name}</span>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === String(entity.id) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{entity.name}</span>
+                        {entity.email && (
+                          <span className="text-xs text-muted-foreground">
+                            {entity.email}
+                          </span>
+                        )}
                       </div>
-                      {entity.email && (
-                        <span className="text-xs text-muted-foreground truncate max-w-[120px]">
-                          {entity.email}
-                        </span>
-                      )}
                     </CommandItem>
-                  ))
-                )}
-              </CommandGroup>
-            </>
-          )}
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

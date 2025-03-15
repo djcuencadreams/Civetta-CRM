@@ -299,21 +299,24 @@ export default function OpportunitiesNew() {
                     name="customerId"
                     render={({ field }) => (
                       <FormItem>
-                        <EntitySearchSelect
-                          value={field.value}
-                          onValueChange={(value) => {
-                            console.log("Cliente seleccionado:", value);
-                            field.onChange(value);
-                            // Si se selecciona un cliente, limpiar el lead
-                            if (value) {
-                              form.setValue('leadId', undefined);
-                            }
-                          }}
-                          apiEndpoint="/api/customers"
-                          placeholder="Selecciona un cliente"
-                          entityName="Clientes"
-                          emptyMessage="No se encontraron clientes. Crea uno nuevo."
-                        />
+                        <FormLabel htmlFor="customerSelect" className="sr-only">Selecciona Cliente</FormLabel>
+                        <div>
+                          <EntitySearchSelect
+                            value={field.value}
+                            onValueChange={(value) => {
+                              console.log("Cliente seleccionado:", value);
+                              field.onChange(value);
+                              // Si se selecciona un cliente, limpiar el lead
+                              if (value) {
+                                form.setValue('leadId', undefined);
+                              }
+                            }}
+                            apiEndpoint="/api/customers"
+                            placeholder="Selecciona un cliente"
+                            entityName="Clientes"
+                            emptyMessage="No se encontraron clientes. Crea uno nuevo."
+                          />
+                        </div>
                         <FormDescription>
                           Selecciona el cliente relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
@@ -343,22 +346,25 @@ export default function OpportunitiesNew() {
                     name="leadId"
                     render={({ field }) => (
                       <FormItem>
-                        <EntitySearchSelect
-                          value={field.value}
-                          onValueChange={(value) => {
-                            console.log("Lead seleccionado:", value);
-                            field.onChange(value);
-                            // Si se selecciona un lead, limpiar el cliente
-                            if (value) {
-                              form.setValue('customerId', undefined);
-                            }
-                          }}
-                          apiEndpoint="/api/leads"
-                          placeholder="Selecciona un lead"
-                          entityName="Leads"
-                          emptyMessage="No se encontraron leads. Crea uno nuevo."
-                          filter={(lead) => !lead.convertedToCustomer}
-                        />
+                        <FormLabel htmlFor="leadSelect" className="sr-only">Selecciona Lead</FormLabel>
+                        <div>
+                          <EntitySearchSelect
+                            value={field.value}
+                            onValueChange={(value) => {
+                              console.log("Lead seleccionado:", value);
+                              field.onChange(value);
+                              // Si se selecciona un lead, limpiar el cliente
+                              if (value) {
+                                form.setValue('customerId', undefined);
+                              }
+                            }}
+                            apiEndpoint="/api/leads"
+                            placeholder="Selecciona un lead"
+                            entityName="Leads"
+                            emptyMessage="No se encontraron leads. Crea uno nuevo."
+                            filter={(lead) => !lead.convertedToCustomer}
+                          />
+                        </div>
                         <FormDescription>
                           Selecciona el lead relacionado con esta oportunidad o crea uno nuevo.
                         </FormDescription>
