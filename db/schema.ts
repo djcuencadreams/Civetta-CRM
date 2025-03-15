@@ -66,6 +66,75 @@ export const leadStatusEnum = {
   CONVERTED: 'converted'
 } as const;
 
+// Define lead priority enum values
+export const priorityEnum = {
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low'
+} as const;
+
+// Define customer type enum values
+export const customerTypeEnum = {
+  PERSON: 'person',
+  COMPANY: 'company'
+} as const;
+
+// Define customer status enum values
+export const customerStatusEnum = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  VIP: 'vip'
+} as const;
+
+// Define user role enum values
+export const userRoleEnum = {
+  ADMIN: 'admin',
+  MANAGER: 'manager',
+  SALES: 'sales',
+  SUPPORT: 'support'
+} as const;
+
+// Define opportunity status enum values
+export const opportunityStatusEnum = {
+  NEGOTIATION: 'negotiation',
+  PROPOSAL: 'proposal',
+  CLOSED_WON: 'closed_won',
+  CLOSED_LOST: 'closed_lost'
+} as const;
+
+// Define interaction type enum values
+export const interactionTypeEnum = {
+  QUERY: 'query',
+  COMPLAINT: 'complaint',
+  FOLLOWUP: 'followup',
+  ORDER: 'order',
+  SUPPORT: 'support'
+} as const;
+
+// Define interaction channel enum values
+export const interactionChannelEnum = {
+  WHATSAPP: 'whatsapp',
+  INSTAGRAM: 'instagram',
+  PHONE: 'phone',
+  EMAIL: 'email',
+  MEETING: 'meeting'
+} as const;
+
+// Define activity type enum values
+export const activityTypeEnum = {
+  CALL: 'call',
+  MEETING: 'meeting',
+  TASK: 'task',
+  FOLLOWUP: 'followup'
+} as const;
+
+// Define activity status enum values
+export const activityStatusEnum = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+} as const;
+
 // Define base tables first
 export const webhooks = pgTable("webhooks", {
   id: serial("id").primaryKey(),
@@ -81,18 +150,26 @@ export const customers = pgTable("customers", {
   name: text("name").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  type: varchar("type", { length: 20 }).default(customerTypeEnum.PERSON), // Tipo de cliente (Persona o Empresa)
   idNumber: text("id_number"), // Cédula/Pasaporte for invoicing and shipping
   email: text("email"),
   phone: text("phone"),
   phoneCountry: text("phone_country"),
   phoneNumber: text("phone_number"), // Store the phone number without country code
+  secondaryPhone: text("secondary_phone"), // Teléfono secundario
   street: text("street"),
   city: text("city"),
   province: text("province"),
   deliveryInstructions: text("delivery_instructions"),
   address: text("address"), // Keeping for backward compatibility
+  billingAddress: jsonb("billing_address").default({}), // Dirección de facturación separada
   source: varchar("source", { length: 50 }).default('instagram'),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
+  status: varchar("status", { length: 20 }).default(customerStatusEnum.ACTIVE), // Estado del cliente (Activo, Inactivo, VIP)
+  tags: jsonb("tags").default([]), // Etiquetas del cliente
+  totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0"), // Valor histórico comprado
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
+  lastPurchase: timestamp("last_purchase"), // Fecha de última compra
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -113,10 +190,13 @@ export const leads = pgTable("leads", {
   province: text("province"),
   deliveryInstructions: text("delivery_instructions"),
   status: varchar("status", { length: 50 }).notNull().default(leadStatusEnum.NEW),
+  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM), // Prioridad del lead (Alta, Media, Baja)
   source: varchar("source", { length: 50 }).notNull().default(sourceEnum.INSTAGRAM),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   brandInterest: varchar("brand_interest", { length: 50 }), // Marca específica de interés
   notes: text("notes"),
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario responsable del seguimiento
+  communicationPreference: varchar("communication_preference", { length: 20 }), // Preferencia de comunicación
   convertedToCustomer: boolean("converted_to_customer").default(false),
   convertedCustomerId: integer("converted_customer_id").references(() => customers.id),
   lastContact: timestamp("last_contact"),
@@ -130,8 +210,16 @@ export const leadActivities = pgTable("lead_activities", {
   id: serial("id").primaryKey(),
   leadId: integer("lead_id").notNull().references(() => leads.id),
   type: varchar("type", { length: 50 }).notNull(),
+  title: text("title"), // Título o resumen de la actividad
   notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull()
+  status: varchar("status", { length: 20 }).default(activityStatusEnum.PENDING), // Estado de la actividad
+  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM), // Prioridad 
+  dueDate: timestamp("due_date"), // Fecha límite
+  completedDate: timestamp("completed_date"), // Fecha de completado
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
+  result: text("result"), // Resultado de la actividad
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 // Define product categories table
@@ -155,13 +243,17 @@ export const products = pgTable("products", {
   description: text("description"),
   categoryId: integer("category_id").references(() => productCategories.id),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  priceDiscount: decimal("price_discount", { precision: 10, scale: 2 }), // Precio de oferta
   stock: integer("stock").default(0),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   wooCommerceId: integer("woocommerce_id"), // ID del producto en WooCommerce para sincronización
   wooCommerceUrl: text("woocommerce_url"), // URL del producto en WooCommerce
   active: boolean("active").default(true),
+  productType: varchar("product_type", { length: 50 }).default('simple'), // Tipo de producto (simple, variable, etc.)
   images: jsonb("images").default([]), // URLs de imágenes como array JSON
   attributes: jsonb("attributes").default({}), // Atributos como objeto JSON (color, talla, etc.)
+  variants: jsonb("variants").default([]), // Variaciones del producto
+  relatedProducts: jsonb("related_products").default([]), // Productos relacionados (upsell, cross-sell)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -173,14 +265,24 @@ export const orders = pgTable("orders", {
   leadId: integer("lead_id").references(() => leads.id), // Opcional: si el pedido viene de un lead que aún no es cliente
   orderNumber: text("order_number").unique(), // Número de pedido único (puede ser generado o externo)
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }), // Subtotal antes de impuestos y descuentos
+  tax: decimal("tax", { precision: 10, scale: 2 }).default("0"), // Impuesto aplicado
+  discount: decimal("discount", { precision: 10, scale: 2 }).default("0"), // Descuento total aplicado
+  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }).default("0"), // Costo de envío
   status: varchar("status", { length: 50 }).default(orderStatusEnum.NEW),
   paymentStatus: varchar("payment_status", { length: 50 }).default(paymentStatusEnum.PENDING),
   paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentDetails: jsonb("payment_details").default({}), // Detalles de pago (números de transacción, etc)
+  paymentDate: timestamp("payment_date"), // Fecha de pago
   source: varchar("source", { length: 50 }).default(sourceEnum.WEBSITE),
   wooCommerceId: integer("woocommerce_id"), // ID del pedido en WooCommerce para sincronización
+  trackingNumber: text("tracking_number"), // Número de seguimiento de envío
+  shippingMethod: varchar("shipping_method", { length: 50 }), // Método de envío seleccionado
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   shippingAddress: jsonb("shipping_address").default({}), // Dirección de envío como objeto JSON
   billingAddress: jsonb("billing_address").default({}), // Dirección de facturación como objeto JSON
+  couponCode: text("coupon_code"), // Código de cupón aplicado
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario que maneja el pedido
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -228,12 +330,83 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
+// Nueva tabla para CRM Users (Usuarios internos)
+export const crmUsers = pgTable("crm_users", {
+  id: serial("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(), // Se almacenará encriptada
+  role: varchar("role", { length: 20 }).notNull().default(userRoleEnum.SALES),
+  active: boolean("active").default(true).notNull(),
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Nueva tabla para Oportunidades (Pipeline)
+export const opportunities = pgTable("opportunities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  customerId: integer("customer_id").references(() => customers.id),
+  leadId: integer("lead_id").references(() => leads.id),
+  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }).notNull(),
+  probability: integer("probability"), // porcentaje de probabilidad
+  status: varchar("status", { length: 50 }).notNull().default(opportunityStatusEnum.NEGOTIATION),
+  stage: varchar("stage", { length: 50 }).notNull(), // Etapa personalizada del pipeline
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  estimatedCloseDate: timestamp("estimated_close_date"),
+  notes: text("notes"),
+  productsInterested: jsonb("products_interested").default([]), // Productos en los que está interesado
+  nextActionDate: timestamp("next_action_date") // Fecha próxima acción
+});
+
+// Nueva tabla para Interacciones (comunicaciones con clientes/leads)
+export const interactions = pgTable("interactions", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id),
+  leadId: integer("lead_id").references(() => leads.id),
+  opportunityId: integer("opportunity_id").references(() => opportunities.id),
+  type: varchar("type", { length: 50 }).notNull().default(interactionTypeEnum.QUERY),
+  channel: varchar("channel", { length: 50 }).notNull().default(interactionChannelEnum.WHATSAPP),
+  content: text("content").notNull(), // Contenido de la interacción
+  attachments: jsonb("attachments").default([]), // URLs o datos de archivos adjuntos
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isResolved: boolean("is_resolved").default(false),
+  resolutionNotes: text("resolution_notes")
+});
+
+// Nueva tabla para Actividades (Calendario CRM)
+export const activities = pgTable("activities", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 50 }).notNull().default(activityTypeEnum.TASK),
+  title: text("title").notNull(),
+  description: text("description"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  customerId: integer("customer_id").references(() => customers.id),
+  leadId: integer("lead_id").references(() => leads.id),
+  opportunityId: integer("opportunity_id").references(() => opportunities.id),
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default(activityStatusEnum.PENDING),
+  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM),
+  reminderTime: timestamp("reminder_time"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Define relations
 export const customerRelations = relations(customers, ({ many }) => ({
   sales: many(sales),
   orders: many(orders),
   leads: many(leads, { relationName: "convertedLeads" }),
-  whatsappMessages: many(whatsappMessages, { relationName: "customerMessages" })
+  whatsappMessages: many(whatsappMessages, { relationName: "customerMessages" }),
+  opportunities: many(opportunities),
+  interactions: many(interactions),
+  activities: many(activities)
 }));
 
 export const leadRelations = relations(leads, ({ one, many }) => ({
@@ -244,13 +417,20 @@ export const leadRelations = relations(leads, ({ one, many }) => ({
   }),
   activities: many(leadActivities),
   orders: many(orders),
-  whatsappMessages: many(whatsappMessages, { relationName: "leadMessages" })
+  whatsappMessages: many(whatsappMessages, { relationName: "leadMessages" }),
+  opportunities: many(opportunities),
+  interactions: many(interactions),
+  crmActivities: many(activities)
 }));
 
 export const leadActivityRelations = relations(leadActivities, ({ one }) => ({
   lead: one(leads, {
     fields: [leadActivities.leadId],
     references: [leads.id]
+  }),
+  assignedUser: one(crmUsers, {
+    fields: [leadActivities.assignedUserId],
+    references: [crmUsers.id]
   })
 }));
 
@@ -321,6 +501,75 @@ export const productCategoryRelations = relations(productCategories, ({ one, man
   products: many(products)
 }));
 
+// Relaciones para usuarios CRM
+export const crmUserRelations = relations(crmUsers, ({ many }) => ({
+  opportunities: many(opportunities, { relationName: "assignedOpportunities" }),
+  interactions: many(interactions, { relationName: "assignedInteractions" }),
+  activities: many(activities, { relationName: "assignedActivities" }),
+  leadActivities: many(leadActivities)
+}));
+
+// Relaciones para oportunidades
+export const opportunityRelations = relations(opportunities, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [opportunities.customerId],
+    references: [customers.id]
+  }),
+  lead: one(leads, {
+    fields: [opportunities.leadId],
+    references: [leads.id]
+  }),
+  assignedUser: one(crmUsers, {
+    fields: [opportunities.assignedUserId],
+    references: [crmUsers.id],
+    relationName: "assignedOpportunities"
+  }),
+  interactions: many(interactions),
+  activities: many(activities)
+}));
+
+// Relaciones para interacciones
+export const interactionRelations = relations(interactions, ({ one }) => ({
+  customer: one(customers, {
+    fields: [interactions.customerId],
+    references: [customers.id]
+  }),
+  lead: one(leads, {
+    fields: [interactions.leadId],
+    references: [leads.id]
+  }),
+  opportunity: one(opportunities, {
+    fields: [interactions.opportunityId],
+    references: [opportunities.id]
+  }),
+  assignedUser: one(crmUsers, {
+    fields: [interactions.assignedUserId],
+    references: [crmUsers.id],
+    relationName: "assignedInteractions"
+  })
+}));
+
+// Relaciones para actividades
+export const activityRelations = relations(activities, ({ one }) => ({
+  customer: one(customers, {
+    fields: [activities.customerId],
+    references: [customers.id]
+  }),
+  lead: one(leads, {
+    fields: [activities.leadId],
+    references: [leads.id]
+  }),
+  opportunity: one(opportunities, {
+    fields: [activities.opportunityId],
+    references: [opportunities.id]
+  }),
+  assignedUser: one(crmUsers, {
+    fields: [activities.assignedUserId],
+    references: [crmUsers.id],
+    relationName: "assignedActivities"
+  })
+}));
+
 // Schemas for validation
 export const insertLeadSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -345,13 +594,16 @@ export const insertLeadSchema = z.object({
 export const insertCustomerSchema = createInsertSchema(customers);
 export const insertSaleSchema = createInsertSchema(sales);
 export const insertWebhookSchema = createInsertSchema(webhooks);
-
-
+export const insertLeadActivitySchema = createInsertSchema(leadActivities);
 export const insertProductSchema = createInsertSchema(products);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export const insertProductCategorySchema = createInsertSchema(productCategories);
 export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages);
+export const insertCrmUserSchema = createInsertSchema(crmUsers);
+export const insertOpportunitySchema = createInsertSchema(opportunities);
+export const insertInteractionSchema = createInsertSchema(interactions);
+export const insertActivitySchema = createInsertSchema(activities);
 export const selectCustomerSchema = createSelectSchema(customers);
 export const selectSaleSchema = createSelectSchema(sales);
 export const selectWebhookSchema = createSelectSchema(webhooks);
@@ -362,6 +614,11 @@ export const selectProductSchema = createSelectSchema(products);
 export const selectOrderSchema = createSelectSchema(orders);
 export const selectOrderItemSchema = createSelectSchema(orderItems);
 export const selectProductCategorySchema = createSelectSchema(productCategories);
+export const selectCrmUserSchema = createSelectSchema(crmUsers);
+export const selectOpportunitySchema = createSelectSchema(opportunities);
+export const selectInteractionSchema = createSelectSchema(interactions);
+export const selectActivitySchema = createSelectSchema(activities);
+export const selectLeadActivitySchema = createSelectSchema(leadActivities);
 // Type exports
 export type Customer = typeof customers.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
@@ -373,3 +630,7 @@ export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type ProductCategory = typeof productCategories.$inferSelect;
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type CrmUser = typeof crmUsers.$inferSelect;
+export type Opportunity = typeof opportunities.$inferSelect;
+export type Interaction = typeof interactions.$inferSelect;
+export type Activity = typeof activities.$inferSelect;

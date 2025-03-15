@@ -1,0 +1,166 @@
+
+Implementa claramente la siguiente estructura completa para la base de datos del CRM según mejores prácticas del mercado (similar a Salesforce, HubSpot):
+
+Tablas obligatorias:
+1. Leads
+2. Clientes
+3. Oportunidades (Pipeline)
+4. Pedidos (Ventas)
+5. Productos y servicios
+6. Interacciones (comunicación con clientes)
+7. Usuarios CRM (internos)
+8. Actividades (Calendario CRM)
+
+Para cada tabla usa campos indicados claramente abajo en el detalle adjunto
+
+Claves primarias únicas claras para cada registro (ID autonumérico).
+Relaciones adecuadas entre tablas (Cliente → Oportunidades → Pedidos → Productos/Servicios).
+Asegura facilidad para futuras integraciones API REST y Webhooks (especialmente con WooCommerce).
+
+NO integres aún sincronización WooCommerce, solo estructura claramente la base CRM interna según mejores prácticas CRM globales.
+
+Entrega nuevo esquema claro, implementa y verifica estabilidad del sistema.
+
+Los campos para las tablas mencionadas: 
+
+La estructura ideal para un CRM se divide en estas áreas clave:
+
+📂 1. LEADS (Prospectos)
+
+Gestionan contactos iniciales que no son clientes todavía.
+	•	ID Lead
+	•	Nombre completo
+	•	Correo electrónico
+	•	Teléfono
+	•	Fecha de contacto inicial
+	•	Fuente del lead (Instagram, WhatsApp, formulario web, etc.)
+	•	Estado del lead (Nuevo, En contacto, Calificado, Perdido, Convertido)
+	•	Prioridad (Alta, Media, Baja)
+	•	Responsable del seguimiento (usuario CRM)
+	•	Notas de interacciones
+	•	Interacciones anteriores (mensajes, citas, emails enviados)
+
+⸻
+
+📂 2. CLIENTES (Contactos)
+
+Datos detallados de clientes reales, luego de conversión.
+	•	ID Cliente
+	•	Tipo de cliente (Persona o Empresa)
+	•	Nombre completo o razón social
+	•	Correo electrónico
+	•	Teléfono principal y secundario
+	•	Dirección de facturación
+	•	Dirección de envío
+	•	Fecha de registro
+	•	Última compra
+	•	Valor total histórico comprado
+	•	Histórico completo de interacciones (mensajes WhatsApp, Instagram, Emails, llamadas)
+	•	Estado cliente (Activo, Inactivo, VIP)
+	•	Etiquetas (novia, cliente recurrente, proveedor, etc.)
+	•	Notas internas (preferencias, cumpleaños, etc.)
+
+⸻
+
+📂 3. OPORTUNIDADES o PIPELINE
+
+Donde gestionas el proceso comercial, seguimiento de la oportunidad hasta la venta.
+	•	ID Oportunidad
+	•	Cliente o Lead vinculado
+	•	Fecha creación oportunidad
+	•	Fecha estimada cierre
+	•	Valor estimado
+	•	Estado oportunidad (Negociación, En Propuesta, Cerrado ganado, Cerrado perdido)
+	•	Responsable seguimiento
+	•	Notas internas
+	•	Productos interesados
+	•	Fecha próxima acción (recordatorio de seguimiento)
+	•	Etapa pipeline (personalizado por marca o tipo negocio)
+
+(Para Civetta Bride, estas oportunidades son especialmente importantes debido al proceso largo y personalizado.)
+
+⸻
+
+📂 4. VENTAS (Pedidos concretados)
+
+Registra los detalles precisos de las transacciones cerradas.
+	•	ID Pedido/Venta
+	•	Fecha pedido
+	•	Cliente asociado
+	•	Productos/servicios vendidos (detalle completo)
+	•	Cantidades
+	•	Precios individuales y totales
+	•	Descuentos aplicados
+	•	Impuestos aplicados
+	•	Estado pedido (Pagado, Pendiente, Enviado, Entregado)
+	•	Forma de pago
+	•	Factura emitida
+	•	Responsable venta (usuario CRM)
+	•	Notas internas (instrucciones especiales, personalizaciones)
+
+⸻
+
+📂 5. PRODUCTOS / SERVICIOS
+
+Base detallada de productos y servicios disponibles (sincronizado con WooCommerce idealmente).
+	•	ID Producto
+	•	Nombre producto
+	•	SKU
+	•	Categoría/subcategoría
+	•	Descripción corta y larga
+	•	Precio estándar
+	•	Precio oferta
+	•	Stock / Inventario disponible
+	•	Variantes disponibles (talla, color, etc.)
+	•	Estado producto (activo, descontinuado, borrador)
+	•	Imágenes del producto (URLs)
+	•	Productos relacionados (up-sell, cross-sell)
+	•	Campos personalizados (según negocio)
+
+⸻
+
+📂 6. INTERACCIONES (Comunicación)
+
+Historial completo de comunicaciones con clientes o leads.
+	•	ID interacción
+	•	Fecha/hora interacción
+	•	Cliente/Lead asociado
+	•	Canal comunicación (WhatsApp, Instagram, teléfono, email, reunión presencial)
+	•	Tipo interacción (consulta, queja, seguimiento, pedido, soporte)
+	•	Usuario CRM responsable
+	•	Contenido de interacción (texto, fotos, documentos adjuntos)
+
+⸻
+
+📂 7. USUARIOS CRM (Gestión interna)
+
+Gestiona los usuarios internos del CRM con roles claros.
+	•	ID Usuario
+	•	Nombre completo
+	•	Email usuario
+	•	Contraseña (encriptada)
+	•	Rol (Admin, Gerente, Ventas)
+	•	Fecha creación usuario
+	•	Último inicio sesión
+	•	Estado usuario (activo/inactivo)
+
+⸻
+
+📂 8. REPORTES Y ANÁLISIS
+
+Para informes claros y toma de decisiones.
+
+(No es una tabla en sí, sino consultas estructuradas para generar informes claros por fecha, producto, vendedor, cliente, pipeline, desempeño ventas, etc.)
+
+⸻
+
+📂 9. ACTIVIDADES / CALENDARIO CRM
+
+Para gestión clara del tiempo, actividades y seguimientos.
+	•	ID actividad
+	•	Tipo actividad (llamada, reunión, tarea, seguimiento)
+	•	Fecha/hora inicio y fin
+	•	Responsable actividad
+	•	Cliente o lead asociado
+	•	Estado actividad (pendiente, completado)
+	•	Notas actividad
