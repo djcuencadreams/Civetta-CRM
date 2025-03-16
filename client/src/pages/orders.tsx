@@ -5,9 +5,11 @@ import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { t } from "@/lib/i18n";
+import { DateRange } from "react-day-picker";
+import { format, isAfter, isBefore, isEqual, parseISO, startOfDay, endOfDay } from "date-fns";
 
 // UI
-import { CaretSortIcon, DotsHorizontalIcon } from "@radix-ui/react-icons";
+import { CaretSortIcon, DotsHorizontalIcon, ChevronDownIcon, ChevronUpIcon } from "@radix-ui/react-icons";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -19,8 +21,24 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  ExpandedState,
 } from "@tanstack/react-table";
-import { Loader2, Plus, ShoppingCart, Eye, ChevronsUpDown } from "lucide-react";
+import { 
+  Loader2, 
+  Plus, 
+  ShoppingCart, 
+  Eye, 
+  Calendar, 
+  User, 
+  CreditCard, 
+  Clock, 
+  Filter, 
+  ChevronDown, 
+  Package,
+  FileText,
+  Truck,
+  DollarSign
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -58,11 +76,15 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
 import { OrderForm } from "@/components/crm/OrderForm";
 import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
 import { OrderPaymentStatusUpdater } from "@/components/crm/OrderPaymentStatusUpdater";
 import { OrderDetailsSheet } from "@/components/crm/OrderDetailsSheet";
 import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
+import { OrderItemsExpanded } from "@/components/crm/OrderItemsExpanded";
+import { OrderDateFilter } from "@/components/crm/OrderDateFilter";
 
 // Tipos
 type Order = {
@@ -222,6 +244,30 @@ export default function OrdersPage() {
   // Definición de columnas
   const columns: ColumnDef<Order>[] = [
     {
+      id: "expand",
+      header: () => null,
+      cell: ({ row }) => {
+        const hasItems = row.original.items && row.original.items.length > 0;
+        return (
+          hasItems ? (
+            <Button
+              variant="ghost"
+              onClick={() => row.toggleExpanded(!row.getIsExpanded())}
+              className="p-0 h-8 w-8"
+            >
+              {row.getIsExpanded() ? (
+                <ChevronUpIcon className="h-4 w-4" />
+              ) : (
+                <ChevronDownIcon className="h-4 w-4" />
+              )}
+            </Button>
+          ) : null
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
       id: "select",
       header: ({ table }) => (
         <Checkbox
@@ -250,7 +296,9 @@ export default function OrdersPage() {
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
+            <ShoppingCart className="mr-2 h-4 w-4" />
             Nº Pedido
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
@@ -263,13 +311,58 @@ export default function OrdersPage() {
       ),
     },
     {
+      accessorKey: "createdAt",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Fecha pedido
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const date = new Date(row.original.createdAt);
+        const formatted = formatDate(row.original.createdAt);
+        
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="font-medium text-sm">
+                  {formatted}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {new Date(row.original.createdAt).toLocaleString("es-ES", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  })}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      },
+    },
+    {
       accessorKey: "customer.name",
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
+            <User className="mr-2 h-4 w-4" />
             Cliente
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
@@ -296,7 +389,9 @@ export default function OrdersPage() {
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
+            <DollarSign className="mr-2 h-4 w-4" />
             Total
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
@@ -319,7 +414,9 @@ export default function OrdersPage() {
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
+            <Package className="mr-2 h-4 w-4" />
             Estado
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
@@ -343,7 +440,9 @@ export default function OrdersPage() {
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
+            <CreditCard className="mr-2 h-4 w-4" />
             Pago
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
@@ -361,57 +460,52 @@ export default function OrdersPage() {
       },
     },
     {
-      accessorKey: "source",
-      header: "Origen",
-      cell: ({ row }) => (
-        <div>{row.original.source || "Directo"}</div>
-      ),
-    },
-    {
-      accessorKey: "brand",
-      header: "Marca",
-      cell: ({ row }) => (
-        <div>{row.original.brand === "bride" ? "Civetta Bride" : "Civetta Sleepwear"}</div>
-      ),
-    },
-    {
-      accessorKey: "assignedUser.fullName",
-      header: "Responsable",
-      cell: ({ row }) => (
-        <div>
-          {row.original.assignedUser ? (
-            <span className="text-muted-foreground">
-              {row.original.assignedUser.fullName}
-            </span>
-          ) : (
-            <span className="text-gray-400 text-sm italic">No asignado</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "createdAt",
+      accessorKey: "paymentMethod",
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
           >
-            Fecha
+            <CreditCard className="mr-2 h-4 w-4" />
+            Forma de pago
             <CaretSortIcon className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-      cell: ({ row }) => {
-        const date = new Date(row.original.createdAt);
-        const formatted = new Intl.DateTimeFormat("es-ES", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }).format(date);
-
-        return <div>{formatted}</div>;
+      cell: ({ row }) => (
+        <div className="text-sm">
+          {getPaymentMethodText(row.original.paymentMethod)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "assignedUser.fullName",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="whitespace-nowrap"
+          >
+            <User className="mr-2 h-4 w-4" />
+            Responsable
+            <CaretSortIcon className="ml-2 h-4 w-4" />
+          </Button>
+        );
       },
+      cell: ({ row }) => (
+        <div>
+          {row.original.assignedUser ? (
+            <span className="text-muted-foreground text-sm">
+              {row.original.assignedUser.fullName}
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs italic">No asignado</span>
+          )}
+        </div>
+      ),
     },
     {
       id: "actions",
@@ -440,6 +534,7 @@ export default function OrdersPage() {
                 setOrderToEdit(order);
                 setDialogOpen(true);
               }}>
+                <FileText className="h-4 w-4 mr-2" />
                 Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -461,7 +556,7 @@ export default function OrdersPage() {
   ];
 
   // Cargar usuarios para filtrar por responsable
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
@@ -524,10 +619,68 @@ export default function OrdersPage() {
     }
   ];
 
+  // Estado para el filtro de fechas
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  
+  // Estado para filas expandidas
+  const [expanded, setExpanded] = useState<ExpandedState>({});
+
+  // Manejar la selección de rango de fechas
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+  };
+
+  // Formato para fechas
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(date);
+    } catch (e) {
+      return "Fecha inválida";
+    }
+  };
+  
+  // Obtener texto para método de pago
+  const getPaymentMethodText = (method: string | null): string => {
+    if (!method) return 'No especificado';
+    switch (method) {
+      case "cash": return "Efectivo";
+      case "credit_card": return "Tarjeta de crédito";
+      case "debit_card": return "Tarjeta de débito";
+      case "transfer": return "Transferencia";
+      case "paypal": return "PayPal";
+      default: return method;
+    }
+  };
+
   // Filtrar pedidos según los filtros aplicados - versión optimizada
   const filteredOrders = React.useMemo(() => {
-    // Si no hay filtros, devolver todos los pedidos
-    if (!orders || Object.keys(filters).length === 0) return orders;
+    // Si no hay pedidos, devolver un arreglo vacío
+    if (!orders) return [] as Order[];
+    
+    // Comenzar con todos los pedidos
+    let filtered = [...orders];
+    
+    // Filtrar por rango de fechas si existe
+    if (dateRange && dateRange.from) {
+      const fromDate = startOfDay(dateRange.from);
+      const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      
+      filtered = filtered.filter(order => {
+        const orderDate = parseISO(order.createdAt);
+        return (
+          (isAfter(orderDate, fromDate) || isEqual(orderDate, fromDate)) &&
+          (isBefore(orderDate, toDate) || isEqual(orderDate, toDate))
+        );
+      });
+    }
+    
+    // Si no hay más filtros, devolver lo filtrado por fecha
+    if (Object.keys(filters).length === 0) return filtered;
     
     // Extraer el término de búsqueda para no calcularlo en cada iteración
     const searchTerm = filters.search ? (filters.search as string).toLowerCase() : null;
@@ -535,7 +688,7 @@ export default function OrdersPage() {
     // Preparar otros filtros para no repetir accesos en cada iteración
     const otherFilters = Object.entries(filters).filter(([key]) => key !== "search" && filters[key]);
     
-    return orders.filter((order: Order) => {
+    return filtered.filter((order: Order) => {
       // Primero verificar filtros específicos que son más rápidos
       if (otherFilters.length > 0) {
         const passesSpecificFilters = otherFilters.every(([key, value]) => {
@@ -554,15 +707,17 @@ export default function OrdersPage() {
         const customerName = order.customer?.name?.toLowerCase() || "";
         const orderNumber = order.orderNumber?.toLowerCase() || "";
         const orderId = order.id.toString().toLowerCase();
+        const notes = order.notes?.toLowerCase() || "";
         
         return customerName.includes(searchTerm) || 
                orderNumber.includes(searchTerm) || 
-               orderId.includes(searchTerm);
+               orderId.includes(searchTerm) ||
+               notes.includes(searchTerm);
       }
       
       return true;
     });
-  }, [orders, filters]);
+  }, [orders, filters, dateRange]);
 
   // Inicializar tabla
   const table = useReactTable({
@@ -576,11 +731,15 @@ export default function OrdersPage() {
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onExpandedChange: setExpanded,
+    getSubRows: (row: Order) => undefined, // No hay filas secundarias en este caso
+    getRowCanExpand: () => true, // Todas las filas pueden expandirse
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
+      expanded
     },
   });
 
@@ -614,13 +773,33 @@ export default function OrdersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <SearchFilterBar
-              searchPlaceholder="Buscar por cliente o número de pedido..."
-              filterOptions={filterOptions}
-              filters={filters}
-              setFilters={setFilters}
-            />
+          <div className="space-y-4">
+            {/* Barra de búsqueda con filtros */}
+            <div className="mb-2">
+              <SearchFilterBar
+                searchPlaceholder="Buscar por cliente, número de pedido o notas..."
+                filterOptions={filterOptions}
+                filters={filters}
+                setFilters={setFilters}
+              />
+            </div>
+            
+            {/* Filtro de fechas */}
+            <div className="flex gap-4 flex-wrap">
+              <OrderDateFilter 
+                onRangeChange={handleDateRangeChange}
+                initialRange={dateRange}
+              />
+              
+              <div className="flex items-center text-sm text-muted-foreground">
+                {filteredOrders.length} pedidos encontrados
+                {dateRange?.from && (
+                  <span className="ml-2">
+                    en el período seleccionado
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {isLoading ? (
@@ -655,19 +834,47 @@ export default function OrdersPage() {
                   <TableBody>
                     {table.getRowModel().rows?.length ? (
                       table.getRowModel().rows.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          data-state={row.getIsSelected() && "selected"}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={isMobile ? "text-xs px-2 py-3" : ""}>
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </TableCell>
-                          ))}
-                        </TableRow>
+                        <React.Fragment key={row.id}>
+                          <TableRow
+                            data-state={row.getIsSelected() && "selected"}
+                            className={row.getIsExpanded() ? "border-b-0" : undefined}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id} className={isMobile ? "text-xs px-2 py-3" : ""}>
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                          {/* Fila expandible para mostrar productos */}
+                          {row.getIsExpanded() && (
+                            <TableRow>
+                              <TableCell colSpan={columns.length} className="bg-muted/30 p-2">
+                                <div className="rounded border p-2 bg-background">
+                                  <div className="flex items-center mb-2 text-sm font-medium">
+                                    <Package className="mr-2 h-4 w-4" />
+                                    Productos del pedido
+                                  </div>
+                                  <OrderItemsExpanded items={row.original.items} />
+                                  
+                                  {row.original.notes && (
+                                    <div className="mt-3 pt-3 border-t border-border">
+                                      <div className="flex items-center mb-1 text-sm font-medium">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Notas internas
+                                      </div>
+                                      <div className="text-sm p-2 bg-muted/50 rounded">
+                                        {row.original.notes}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
                       ))
                     ) : (
                       <TableRow>
@@ -675,7 +882,7 @@ export default function OrdersPage() {
                           colSpan={columns.length}
                           className="h-24 text-center"
                         >
-                          No se encontraron pedidos.
+                          No se encontraron pedidos que coincidan con los filtros.
                         </TableCell>
                       </TableRow>
                     )}
