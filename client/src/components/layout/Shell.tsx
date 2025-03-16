@@ -2,8 +2,8 @@ import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { useIsMobile, useBreakpoint } from "../../hooks/use-is-mobile";
-import { useDeviceInfo } from "../../hooks/use-device-type";
+import { useBreakpoint } from "../../hooks/use-media-query";
+import { useDeviceInfo, useIsMobile } from "../../hooks/use-device-type";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -12,18 +12,21 @@ interface ShellProps {
 }
 
 export function Shell({ children }: ShellProps) {
+  // Hooks de estado
+  const [isOnline, setIsOnline] = React.useState(true);
+  const [sidebarVisible, setSidebarVisible] = React.useState(false);
+  
+  // Custom hooks - Se reorganizan para seguir las reglas de hooks
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const { deviceType, isPortrait } = useDeviceInfo();
   const breakpoint = useBreakpoint();
-  const { toast } = useToast();
-  const [isOnline, setIsOnline] = React.useState(true);
-  const [sidebarVisible, setSidebarVisible] = React.useState(false);
-
-  // Toggle sidebar visibility for small devices
-  const toggleSidebar = () => setSidebarVisible(prev => !prev);
   
   // Get current location path for routing
   const [location] = useLocation();
+  
+  // Toggle sidebar visibility for small devices
+  const toggleSidebar = () => setSidebarVisible(prev => !prev);
 
   // Auto-hide sidebar when route changes on mobile
   React.useEffect(() => {
@@ -74,14 +77,16 @@ export function Shell({ children }: ShellProps) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background relative">
       {/* Sidebar with responsive visibility control */}
       <Sidebar 
         className={cn(
           // Responsive visibility with proper transitions
-          deviceType === 'desktop' ? "hidden md:block" : 
+          deviceType === 'desktop' ? "relative block w-64" : 
             sidebarVisible ? "fixed z-50 h-full w-full sm:w-72 animate-in slide-in-from-left duration-300" : "hidden",
-          "shadow-lg" // Add shadow for better visibility
+          "shadow-lg", // Add shadow for better visibility
+          "h-screen", // Ensure full height
+          "bg-background" // Ensure background color is visible
         )} 
         onClose={() => deviceType !== 'desktop' && setSidebarVisible(false)}
       />

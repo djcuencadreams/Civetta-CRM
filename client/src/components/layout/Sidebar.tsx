@@ -1,5 +1,5 @@
 import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart, 
-  PieChart, LineChart, TrendingUp, ShoppingCart, Package, Kanban, MessageSquare } from "lucide-react";
+  PieChart, LineChart, TrendingUp, ShoppingCart, Package, Kanban, MessageSquare, Calendar } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "../../hooks/use-is-mobile";
@@ -42,6 +42,11 @@ const navigation = [
     icon: MessageSquare
   },
   {
+    href: "/activities",
+    label: "Actividades",
+    icon: Calendar
+  },
+  {
     href: "/products",
     label: "Productos",
     icon: Package
@@ -74,6 +79,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     if (onClose) onClose();
   };
 
+  // Solo muestra el botón de menú en dispositivos móviles cuando el menú está cerrado
   if (isMobile && !isOpen) {
     return (
       <button 
@@ -88,7 +94,8 @@ export function Sidebar({ className, onClose }: SidebarProps) {
   return (
     <aside className={cn(
       "h-screen border-r bg-background transition-all duration-300", 
-      isMobile ? "w-full sm:w-72 shadow-lg fixed z-50" : "w-64",
+      isMobile ? "w-full sm:w-72 shadow-lg fixed z-50" : "w-64 relative",
+      "flex flex-col", // Use flexbox for better layout
       className
     )}>
       <div className="p-4 border-b flex justify-between items-center">
@@ -103,8 +110,8 @@ export function Sidebar({ className, onClose }: SidebarProps) {
           </button>
         )}
       </div>
-      <nav className="flex h-full flex-col bg-background px-3 py-4">
-        <div className="flex-1 space-y-1">
+      <nav className="flex-1 overflow-y-auto bg-background px-3 py-4">
+        <div className="space-y-1">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.href;
