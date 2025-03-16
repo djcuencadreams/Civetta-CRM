@@ -94,21 +94,13 @@ export const userRoleEnum = {
   SUPPORT: 'support'
 } as const;
 
-// Define opportunity status enum values
-export const opportunityStatusEnum = {
-  NEGOTIATION: 'negotiation',
-  PROPOSAL: 'proposal',
-  CLOSED_WON: 'closed_won',
-  CLOSED_LOST: 'closed_lost'
-} as const;
-
 // Define interaction type enum values
 export const interactionTypeEnum = {
   QUERY: 'query',
   COMPLAINT: 'complaint',
   FOLLOWUP: 'followup',
   ORDER: 'order',
-  SUPPORT: 'support'
+  SUPPORT: 'support',
 } as const;
 
 // Define interaction channel enum values
@@ -117,8 +109,18 @@ export const interactionChannelEnum = {
   INSTAGRAM: 'instagram',
   PHONE: 'phone',
   EMAIL: 'email',
-  MEETING: 'meeting'
+  MEETING: 'meeting',
 } as const;
+
+// Define opportunity status enum values
+export const opportunityStatusEnum = {
+  NEGOTIATION: 'negotiation',
+  PROPOSAL: 'proposal',
+  CLOSED_WON: 'closed_won',
+  CLOSED_LOST: 'closed_lost'
+} as const;
+
+
 
 // Define activity type enum values
 export const activityTypeEnum = {

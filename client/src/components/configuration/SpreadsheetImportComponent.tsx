@@ -932,7 +932,7 @@ export function SpreadsheetImportComponent() {
                                     <SelectValue placeholder="Seleccionar campo" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">No importar</SelectItem>
+                                    <SelectItem value="skip">No importar</SelectItem>
                                     {getFieldsForImportType().map((field) => (
                                       <SelectItem key={field.name} value={field.name}>
                                         <div className="flex items-center">

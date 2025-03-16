@@ -52,5 +52,10 @@ export enum EventTypes {
   PRODUCT_CREATED = 'product.created',
   PRODUCT_UPDATED = 'product.updated',
   PRODUCT_DELETED = 'product.deleted',
-  PRODUCT_STOCK_CHANGED = 'product.stock.changed'
+  PRODUCT_STOCK_CHANGED = 'product.stock.changed',
+  
+  // Interaction events
+  INTERACTION_CREATED = 'interaction.created',
+  INTERACTION_UPDATED = 'interaction.updated',
+  INTERACTION_DELETED = 'interaction.deleted'
 }

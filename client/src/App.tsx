@@ -17,6 +17,7 @@ import Configuration from './pages/configuration'
 import Opportunities from './pages/opportunities'
 import OpportunitiesNew from './pages/opportunities/new'
 import OpportunityDetail from './pages/opportunities/[id]'
+import Interactions from './pages/interactions'
 import NotFound from './pages/not-found'
 
 function App() {
@@ -64,6 +65,9 @@ function App() {
         </Route>
         <Route path="/opportunities/:id">
           <OpportunityDetail />
+        </Route>
+        <Route path="/interactions">
+          <Interactions />
         </Route>
         <Route>
           <NotFound />
