@@ -1,78 +1,77 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryFunction } from "@tanstack/react-query";
+
+async function throwIfResNotOk(res: Response) {
+  if (!res.ok) {
+    const text = (await res.text()) || res.statusText;
+    throw new Error(`${res.status}: ${text}`);
+  }
+}
+
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+): Promise<Response> {
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+
+  await throwIfResNotOk(res);
+  return res;
+}
+
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    // Construir la URL basada en los elementos de queryKey
+    let url: string;
+    
+    if (typeof queryKey[0] === 'string') {
+      if (queryKey.length === 1) {
+        // Si solo hay un elemento en el queryKey, usarlo como URL completa
+        url = queryKey[0];
+      } else {
+        // Si hay más elementos, construir la URL combinando el endpoint base con los parámetros
+        const baseEndpoint = queryKey[0];
+        // Convertir cada parámetro a string y unirlos
+        const params = queryKey.slice(1).map(param => String(param)).join('/');
+        url = `${baseEndpoint}/${params}`;
+      }
+    } else {
+      throw new Error('El primer elemento de queryKey debe ser una cadena');
+    }
+    
+    console.log(`📡 Realizando petición a: ${url}`);
+    
+    const res = await fetch(url, {
+      credentials: "include",
+    });
+
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
+    }
+
+    await throwIfResNotOk(res);
+    return await res.json();
+  };
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      queryFn: getQueryFn({ on401: "throw" }),
+      refetchInterval: false,
       refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      retry: false,
+    },
+    mutations: {
+      retry: false,
     },
   },
 });
-
-interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  headers?: Record<string, string>;
-  data?: any;
-}
-
-/**
- * Función utilitaria para hacer peticiones API
- * @param url URL a solicitar
- * @param options Opciones de la petición (method, headers, data)
- * @returns Datos de la respuesta
- */
-export async function apiRequest(url: string, options: RequestOptions = {}) {
-  const { method = 'GET', headers = {}, data } = options;
-  
-  const fetchOptions: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    credentials: 'same-origin',
-  };
-  
-  if (data) {
-    fetchOptions.body = JSON.stringify(data);
-  }
-  
-  try {
-    const response = await fetch(url, fetchOptions);
-    
-    // Manejo de errores HTTP
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-    }
-    
-    // Devolver datos JSON o una respuesta vacía si no hay contenido
-    if (response.status === 204) {
-      return null;
-    }
-    
-    return await response.json();
-  } catch (error: any) {
-    console.error('API Request Error:', error);
-    throw error;
-  }
-}
-
-/**
- * Función para obtener una función queryFn para TanStack Query
- * @param url URL base para la solicitud
- * @returns QueryFn compatible con useQuery
- */
-export function getQueryFn(url: string) {
-  return async ({ queryKey }: { queryKey: any[] }) => {
-    // Si la URL ya incluye un signo de interrogación, usar & para agregar parámetros
-    const separator = url.includes('?') ? '&' : '?';
-    
-    // Añadir timestamp para evitar caché
-    const timestamp = new Date().getTime();
-    const finalUrl = `${url}${separator}_=${timestamp}`;
-    
-    return apiRequest(finalUrl);
-  };
-}

@@ -57,11 +57,5 @@ export enum EventTypes {
   // Interaction events
   INTERACTION_CREATED = 'interaction.created',
   INTERACTION_UPDATED = 'interaction.updated',
-  INTERACTION_DELETED = 'interaction.deleted',
-  
-  // Activity events
-  ACTIVITY_CREATED = 'activity.created',
-  ACTIVITY_UPDATED = 'activity.updated',
-  ACTIVITY_DELETED = 'activity.deleted',
-  ACTIVITY_STATUS_CHANGED = 'activity.status.changed'
+  INTERACTION_DELETED = 'interaction.deleted'
 }

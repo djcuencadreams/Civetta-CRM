@@ -12,7 +12,6 @@ import { wooCommerceService } from './woocommerce.service';
 import { socialService } from './social.service';
 import { opportunitiesService } from './opportunities.service';
 import { interactionsService } from './interactions.service';
-import { activitiesService } from './activities.service';
 
 // Register all services
 serviceRegistry.register(leadsService);
@@ -24,7 +23,6 @@ serviceRegistry.register(wooCommerceService);
 serviceRegistry.register(socialService);
 serviceRegistry.register(opportunitiesService);
 serviceRegistry.register(interactionsService);
-serviceRegistry.register(activitiesService);
 
 // Export all services and registry
 export {
@@ -37,6 +35,5 @@ export {
   wooCommerceService,
   socialService,
   opportunitiesService,
-  interactionsService,
-  activitiesService
+  interactionsService
 };

@@ -18,7 +18,6 @@ import Opportunities from './pages/opportunities'
 import OpportunitiesNew from './pages/opportunities/new'
 import OpportunityDetail from './pages/opportunities/[id]'
 import Interactions from './pages/interactions'
-import Activities from './pages/activities'
 import NotFound from './pages/not-found'
 
 function App() {
@@ -69,9 +68,6 @@ function App() {
         </Route>
         <Route path="/interactions">
           <Interactions />
-        </Route>
-        <Route path="/activities">
-          <Activities />
         </Route>
         <Route>
           <NotFound />
