@@ -20,7 +20,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Loader2, Plus, ShoppingCart } from "lucide-react";
+import { Loader2, Plus, ShoppingCart, Eye, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -56,9 +56,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { OrderForm } from "@/components/crm/OrderForm";
 import { OrderStatusUpdater } from "@/components/crm/OrderStatusUpdater";
 import { OrderPaymentStatusUpdater } from "@/components/crm/OrderPaymentStatusUpdater";
+import { OrderDetailsSheet } from "@/components/crm/OrderDetailsSheet";
 import { SearchFilterBar, FilterOption, FilterState } from "@/components/crm/SearchFilterBar";
 
 // Tipos
@@ -77,9 +80,21 @@ type Order = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  assignedUserId?: number | null;
+  shippingMethod?: string | null;
+  trackingNumber?: string | null;
+  shippingCost?: number;
+  tax?: number;
+  discount?: number;
+  subtotal?: number;
+  paymentDate?: string | null;
   customer?: {
     name: string;
     id: number;
+  };
+  assignedUser?: {
+    id: number;
+    fullName: string;
   };
   items?: OrderItem[];
 };
@@ -93,6 +108,7 @@ type OrderItem = {
   unitPrice: number;
   discount: number;
   subtotal: number;
+  attributes?: Record<string, any>;
   createdAt: string;
 };
 
@@ -109,6 +125,8 @@ export default function OrdersPage() {
   const [location] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
+  const [detailsOrderId, setDetailsOrderId] = useState<number | null>(null);
+  const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
 
   // Estados para la tabla
@@ -357,6 +375,21 @@ export default function OrdersPage() {
       ),
     },
     {
+      accessorKey: "assignedUser.fullName",
+      header: "Responsable",
+      cell: ({ row }) => (
+        <div>
+          {row.original.assignedUser ? (
+            <span className="text-muted-foreground">
+              {row.original.assignedUser.fullName}
+            </span>
+          ) : (
+            <span className="text-gray-400 text-sm italic">No asignado</span>
+          )}
+        </div>
+      ),
+    },
+    {
       accessorKey: "createdAt",
       header: ({ column }) => {
         return (
@@ -397,6 +430,13 @@ export default function OrdersPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => {
+                setDetailsOrderId(order.id);
+                setDetailsSheetOpen(true);
+              }}>
+                <Eye className="h-4 w-4 mr-2" />
+                Ver detalles
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
                 setOrderToEdit(order);
                 setDialogOpen(true);
               }}>
@@ -419,6 +459,12 @@ export default function OrdersPage() {
       },
     },
   ];
+
+  // Cargar usuarios para filtrar por responsable
+  const { data: users = [] } = useQuery({
+    queryKey: ["/api/users"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
 
   // Filtros disponibles
   const filterOptions: FilterOption[] = [
@@ -463,6 +509,18 @@ export default function OrdersPage() {
         { value: "instagram", label: "Instagram" },
         { value: "direct", label: "Directo" },
       ],
+    },
+    {
+      id: "assignedUserId",
+      label: "Responsable",
+      type: "select",
+      options: [
+        { value: "unassigned", label: "Sin asignar" },
+        ...users.map((user: any) => ({
+          value: user.id.toString(),
+          label: user.fullName
+        }))
+      ],
     }
   ];
 
@@ -481,6 +539,10 @@ export default function OrdersPage() {
       // Primero verificar filtros específicos que son más rápidos
       if (otherFilters.length > 0) {
         const passesSpecificFilters = otherFilters.every(([key, value]) => {
+          // Caso especial para filtrar por responsable no asignado
+          if (key === "assignedUserId" && value === "unassigned") {
+            return order.assignedUserId === null || order.assignedUserId === undefined;
+          }
           return order[key as keyof Order] === value;
         });
         
@@ -675,6 +737,49 @@ export default function OrdersPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Panel lateral para detalles de pedido */}
+      <Sheet open={detailsSheetOpen} onOpenChange={setDetailsSheetOpen}>
+        <SheetContent className="w-full sm:max-w-[650px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Detalles del Pedido</SheetTitle>
+            <SheetDescription>
+              Información completa y artículos del pedido
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6">
+            {detailsOrderId ? (
+              <OrderDetailsSheet 
+                orderId={detailsOrderId} 
+                onEdit={(order) => {
+                  // Asegura la compatibilidad de tipos con la orden esperada
+                  const orderForEdit = {
+                    ...order,
+                    woocommerceId: order.wooCommerceId // Corregir la diferencia de nomenclatura
+                  };
+                  setOrderToEdit(orderForEdit as any);
+                  setDetailsSheetOpen(false);
+                  setDialogOpen(true);
+                }} 
+              />
+            ) : (
+              <div className="flex justify-center items-center h-[300px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-8 flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setDetailsSheetOpen(false)}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

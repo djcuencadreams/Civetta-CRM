@@ -5,6 +5,7 @@ import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CustomerSearchSelect } from "@/components/crm/CustomerSearchSelect";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, PlusIcon, TrashIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, PlusIcon, TrashIcon, Calendar } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 // Tipos
 interface OrderFormProps {
@@ -50,6 +52,14 @@ type Order = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  assignedUserId?: number | null;
+  shippingMethod?: string | null;
+  trackingNumber?: string | null;
+  shippingCost?: number;
+  tax?: number;
+  discount?: number;
+  subtotal?: number;
+  paymentDate?: string | null;
   items?: OrderItem[];
 };
 
@@ -62,6 +72,7 @@ type OrderItem = {
   unitPrice: number;
   discount: number;
   subtotal: number;
+  attributes?: Record<string, any>;
 };
 
 type Customer = {
@@ -77,6 +88,11 @@ type Product = {
   brand: string;
 };
 
+type User = {
+  id: number;
+  fullName: string;
+};
+
 // Esquema de validación
 const orderFormSchema = z.object({
   customerId: z.coerce.number().min(1, { message: "Cliente requerido" }),
@@ -88,6 +104,12 @@ const orderFormSchema = z.object({
   source: z.string().optional().nullable(),
   brand: z.string(),
   notes: z.string().optional().nullable(),
+  assignedUserId: z.coerce.number().optional().nullable(),
+  shippingMethod: z.string().optional().nullable(),
+  trackingNumber: z.string().optional().nullable(),
+  shippingCost: z.coerce.number().optional().nullable(),
+  tax: z.coerce.number().optional().nullable(),
+  paymentDate: z.date().optional().nullable(),
   items: z.array(
     z.object({
       productId: z.coerce.number().nullable(),
@@ -96,6 +118,7 @@ const orderFormSchema = z.object({
       unitPrice: z.coerce.number().min(0, { message: "El precio unitario debe ser mayor o igual a 0" }),
       discount: z.coerce.number().min(0, { message: "El descuento debe ser mayor o igual a 0" }),
       subtotal: z.coerce.number().min(0, { message: "El subtotal debe ser mayor o igual a 0" }),
+      attributes: z.record(z.string(), z.any()).optional(),
     })
   ).min(1, { message: "Debe agregar al menos un producto" }),
 });
@@ -146,6 +169,12 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
     },
   });
 
+  // Cargar usuarios para asignar responsable
+  const { data: users = [] as User[], isLoading: isLoadingUsers } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+
   // Inicializar formulario
   const form = useForm<z.infer<typeof orderFormSchema>>({
     resolver: zodResolver(orderFormSchema),
@@ -159,6 +188,12 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
       source: order?.source || "direct",
       brand: order?.brand || "sleepwear",
       notes: order?.notes || null,
+      assignedUserId: order?.assignedUserId || null,
+      shippingMethod: order?.shippingMethod || null,
+      trackingNumber: order?.trackingNumber || null,
+      shippingCost: order?.shippingCost || 0,
+      tax: order?.tax || 0,
+      paymentDate: order?.paymentDate ? new Date(order.paymentDate) : null,
       items: order?.items?.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -166,6 +201,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
         unitPrice: item.unitPrice,
         discount: item.discount || 0,
         subtotal: item.subtotal,
+        attributes: item.attributes || {},
       })) || [
         {
           productId: null,
@@ -174,6 +210,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
           unitPrice: 0,
           discount: 0,
           subtotal: 0,
+          attributes: {},
         }
       ],
     },
@@ -414,6 +451,131 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
             )}
           />
 
+          {/* Responsable de venta */}
+          <FormField
+            control={form.control}
+            name="assignedUserId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Responsable</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                  value={field.value?.toString() || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un responsable" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {isLoadingUsers ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : (
+                      users.map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.fullName}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Vendedor o empleado responsable del pedido
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Método de envío */}
+          <FormField
+            control={form.control}
+            name="shippingMethod"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Método de envío</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un método de envío" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="pickup">Retiro en tienda</SelectItem>
+                    <SelectItem value="standard">Envío estándar</SelectItem>
+                    <SelectItem value="express">Envío express</SelectItem>
+                    <SelectItem value="international">Envío internacional</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Número de seguimiento */}
+          <FormField
+            control={form.control}
+            name="trackingNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Número de seguimiento</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Número de seguimiento del envío" 
+                    {...field} 
+                    value={field.value || ""} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Costo de envío */}
+          <FormField
+            control={form.control}
+            name="shippingCost"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Costo de envío</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00" 
+                    {...field} 
+                    value={field.value || 0} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Fecha de pago */}
+          <FormField
+            control={form.control}
+            name="paymentDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Fecha de pago</FormLabel>
+                <FormControl>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {/* Notas */}
           <FormField
             control={form.control}
@@ -423,7 +585,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
                 <FormLabel>Notas</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Notas adicionales sobre el pedido..."
+                    placeholder="Notas adicionales sobre el pedido (instrucciones, personalizaciones, etc.)..."
                     {...field}
                     value={field.value || ""}
                   />
