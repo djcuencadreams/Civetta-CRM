@@ -190,12 +190,10 @@ export class OrdersService implements Service {
         for (const item of items) {
           if (item.productId) {
             try {
-              // Verificar si el producto existe y tiene wooCommerceId usando SQL parametrizado
-              const productResult = await dbNew.select().from(products)
-                .where(sql`${products.id} = ${item.productId}`)
-                .limit(1);
-              
-              const product = productResult.length > 0 ? productResult[0] : null;
+              // Verificar si el producto existe usando Drizzle query builder
+              const product = await dbNew.query.products.findFirst({
+                where: eq(products.id, item.productId)
+              });
               
               // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
               if (product && !product.wooCommerceId) {
@@ -311,15 +309,13 @@ export class OrdersService implements Service {
         for (const item of items) {
           if (item.productId) {
             try {
-              // Verificar si el producto existe y tiene wooCommerceId usando SQL parametrizado
-              const productResult = await dbNew.execute(sql`
-                SELECT * FROM products WHERE id = ${item.productId} LIMIT 1
-              `);
-              
-              const product = productResult.length > 0 ? productResult[0] : null;
+              // Verificar si el producto existe usando Drizzle query builder
+              const product = await dbNew.query.products.findFirst({
+                where: eq(products.id, item.productId)
+              });
               
               // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
-              if (product && !product.woocommerce_id) {
+              if (product && !product.wooCommerceId) {
                 console.log(`Sincronizando producto ${product.name} (ID: ${product.id}) con WooCommerce antes de actualizar orden`);
                 
                 // Importar función de sincronización desde WooCommerce service
