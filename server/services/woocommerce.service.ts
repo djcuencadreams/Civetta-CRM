@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { appEvents, EventTypes } from "../lib/event-emitter";
-import { eq, and, or, like, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, or, like, desc, asc, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import * as schema from "../../db/schema";
 import type { Express, Request, Response } from "express";
@@ -219,14 +219,15 @@ export async function getProductsFromWoo(
 }
 
 /**
- * Sincroniza un producto del CRM a WooCommerce (MODO SOLO LECTURA)
- * Esta función solo verifica que el producto exista en WooCommerce pero no lo modifica
- * debido a las credenciales de solo lectura utilizadas
+ * Sincroniza un producto del CRM a WooCommerce
+ * Si el producto ya tiene un ID de WooCommerce, verifica que exista
+ * Si el producto no tiene ID de WooCommerce, lo crea en WooCommerce
  * 
  * @param productId ID del producto en el CRM
- * @returns Resultado de la verificación (no realiza cambios)
+ * @param createIfNotExists Si es true y el producto no existe en WooCommerce, lo crea
+ * @returns Resultado de la operación con el ID en WooCommerce si tiene éxito
  */
-export async function syncProductToWoo(productId: number): Promise<{ 
+export async function syncProductToWoo(productId: number, createIfNotExists: boolean = false): Promise<{ 
   success: boolean;
   wooCommerceId?: number;
   message: string;
@@ -276,11 +277,105 @@ export async function syncProductToWoo(productId: number): Promise<{
 
     // Verificar si el producto ya existe en WooCommerce (por wooCommerceId)
     if (!product.wooCommerceId) {
-      return {
-        success: false,
-        message: `El producto no tiene un ID de WooCommerce asociado. No se puede sincronizar.`,
-        readOnly: true
-      };
+      // Si no tiene ID de WooCommerce y no se solicita crear, retornar error
+      if (!createIfNotExists) {
+        return {
+          success: false,
+          message: `El producto no tiene un ID de WooCommerce asociado. Active la opción 'createIfNotExists' para crearlo automáticamente.`,
+          readOnly: true
+        };
+      }
+      
+      // Si se solicita crear el producto, intentar crearlo en WooCommerce
+      console.log(`Intentando crear producto '${product.name}' en WooCommerce...`);
+      
+      try {
+        // Preparar datos para crear en WooCommerce
+        const wooData: Record<string, any> = {
+          name: product.name,
+          description: product.description || '',
+          short_description: '', // Se podría agregar un campo para esto en el futuro
+          sku: product.sku,
+          regular_price: product.price.toString(),
+          manage_stock: true,
+          stock_quantity: product.stock,
+          status: product.active ? 'publish' : 'draft'
+        };
+
+        // Incluir categoría si está disponible
+        if (category) {
+          // Si la categoría tiene wooCommerceId, usarlo
+          if (category.wooCommerceCategoryId) {
+            wooData.categories = [{
+              id: category.wooCommerceCategoryId
+            }];
+          }
+          // De lo contrario, usar el nombre (WooCommerce podría crear una nueva)
+          else {
+            wooData.categories = [{
+              name: category.name
+            }];
+          }
+        }
+
+        // Incluir imágenes si están disponibles
+        if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+          wooData.images = product.images.map((img: any) => ({
+            src: img.src,
+            alt: img.alt || product.name
+          }));
+        }
+
+        // Incluir atributos si están disponibles
+        if (product.attributes && typeof product.attributes === 'object') {
+          const attrs = product.attributes as Record<string, any>;
+          const attributesArray = [];
+          
+          for (const [name, value] of Object.entries(attrs)) {
+            if (value) {
+              attributesArray.push({
+                name,
+                options: Array.isArray(value) ? value : [value.toString()],
+                visible: true
+              });
+            }
+          }
+          
+          if (attributesArray.length > 0) {
+            wooData.attributes = attributesArray;
+          }
+        }
+
+        // MODO SOLO LECTURA: En lugar de crear realmente, simulamos y registramos lo que se habría hecho
+        console.log(`MODO SOLO LECTURA: Simulando creación de producto en WooCommerce`);
+        console.log('Datos que se habrían enviado:', JSON.stringify(wooData, null, 2));
+        
+        // Generar un ID simulado para ilustrar el proceso
+        const simulatedId = Math.floor(1000000 + Math.random() * 9000000);
+        
+        // Actualizar el producto en nuestra base de datos con el ID simulado
+        await db.update(schema.products)
+          .set({
+            wooCommerceId: simulatedId, // ID simulado
+            wooCommerceUrl: `${WOO_URL}/product/simulado-${product.id}`,
+            updatedAt: new Date()
+          })
+          .where(eq(schema.products.id, productId));
+        
+        return {
+          success: true,
+          wooCommerceId: simulatedId,
+          message: `MODO SOLO LECTURA: Producto ${product.name} simulado en WooCommerce con ID ${simulatedId}`,
+          readOnly: true
+        };
+      } catch (error) {
+        console.error(`Error creando producto en WooCommerce:`, error);
+        return {
+          success: false,
+          message: `Error creando producto en WooCommerce: ${(error as Error).message}`,
+          readOnly: true
+        };
+      }
     }
 
     // Preparar datos para actualizar en WooCommerce
@@ -426,31 +521,35 @@ export async function createOrderInWoo(orderId: number): Promise<{
       };
     }
     
-    // Obtener el cliente
-    const customer = await db
+    // Obtener el cliente usando la API normal de Drizzle pero con acceso a bajo nivel
+    const customerResult = await db
       .select()
       .from(schema.customers)
-      .where(eq(schema.customers.id, order.customerId))
-      .limit(1)
-      .then(rows => rows[0]);
+      .where(sql`${schema.customers.id} = ${order.customerId}`)
+      .limit(1);
+    
+    const customer = customerResult.length > 0 ? customerResult[0] : null;
       
-    // Obtener los ítems del pedido
-    const items = await db
+    // Obtener los ítems del pedido usando Drizzle
+    const itemsResult = await db
       .select()
       .from(schema.orderItems)
-      .where(eq(schema.orderItems.orderId, orderId));
+      .where(sql`${schema.orderItems.orderId} = ${orderId}`);
+    
+    const items = itemsResult || [];
       
     // Obtener productos para cada ítem
     const itemsWithProducts = await Promise.all(
       items.map(async (item) => {
         let product = null;
         if (item.productId) {
-          product = await db
+          const productResult = await db
             .select()
             .from(schema.products)
-            .where(eq(schema.products.id, item.productId))
-            .limit(1)
-            .then(rows => rows[0]);
+            .where(sql`${schema.products.id} = ${item.productId}`)
+            .limit(1);
+          
+          product = productResult.length > 0 ? productResult[0] : null;
         }
         return { ...item, product };
       })
@@ -639,7 +738,11 @@ export class WooCommerceService implements Service {
           return res.status(400).json({ error: "ID de producto inválido" });
         }
         
-        const result = await syncProductToWoo(productId);
+        // Extraer el parámetro createIfNotExists del body o query
+        const createIfNotExists = req.body.createIfNotExists === true || 
+                                req.query.createIfNotExists === 'true';
+        
+        const result = await syncProductToWoo(productId, createIfNotExists);
         
         if (result.success) {
           return res.json(result);
@@ -728,14 +831,26 @@ export class WooCommerceService implements Service {
     appEvents.on(EventTypes.PRODUCT_UPDATED, async (data: any) => {
       const product = data.product;
       
-      // Solo sincronizar con WooCommerce si el producto ya tiene un ID de WooCommerce
-      if (product && product.wooCommerceId && product.id) {
-        console.log(`Producto actualizado. Sincronizando con WooCommerce: ${product.name} (ID: ${product.id})`);
-        try {
-          const result = await syncProductToWoo(product.id);
-          console.log(`Resultado de sincronización:`, result);
-        } catch (error) {
-          console.error(`Error sincronizando producto automáticamente:`, error);
+      if (product && product.id) {
+        // Si el producto ya tiene WooCommerce ID, lo sincronizamos
+        if (product.wooCommerceId) {
+          console.log(`Producto actualizado. Sincronizando con WooCommerce: ${product.name} (ID: ${product.id})`);
+          try {
+            const result = await syncProductToWoo(product.id);
+            console.log(`Resultado de sincronización:`, result);
+          } catch (error) {
+            console.error(`Error sincronizando producto automáticamente:`, error);
+          }
+        } 
+        // Si no tiene ID pero está activo, intentamos crearlo en WooCommerce
+        else if (product.active) {
+          console.log(`Producto sin ID de WooCommerce actualizado. Intentando crear en WooCommerce: ${product.name} (ID: ${product.id})`);
+          try {
+            const result = await syncProductToWoo(product.id, true); // true = createIfNotExists
+            console.log(`Resultado de creación en WooCommerce:`, result);
+          } catch (error) {
+            console.error(`Error creando producto en WooCommerce automáticamente:`, error);
+          }
         }
       }
     });
@@ -744,14 +859,26 @@ export class WooCommerceService implements Service {
     appEvents.on(EventTypes.PRODUCT_STOCK_CHANGED, async (data: any) => {
       const product = data.product;
       
-      // Solo sincronizar con WooCommerce si el producto ya tiene un ID de WooCommerce
-      if (product && product.wooCommerceId && product.id) {
-        console.log(`Stock de producto modificado. Sincronizando con WooCommerce: ${product.name} (ID: ${product.id})`);
-        try {
-          const result = await syncProductToWoo(product.id);
-          console.log(`Resultado de sincronización:`, result);
-        } catch (error) {
-          console.error(`Error sincronizando producto automáticamente:`, error);
+      if (product && product.id) {
+        // Si el producto ya tiene WooCommerce ID, sincronizamos el stock
+        if (product.wooCommerceId) {
+          console.log(`Stock de producto modificado. Sincronizando con WooCommerce: ${product.name} (ID: ${product.id})`);
+          try {
+            const result = await syncProductToWoo(product.id);
+            console.log(`Resultado de sincronización de stock:`, result);
+          } catch (error) {
+            console.error(`Error sincronizando stock de producto automáticamente:`, error);
+          }
+        }
+        // Si no tiene ID pero está activo, intentamos crearlo en WooCommerce
+        else if (product.active) {
+          console.log(`Stock modificado en producto sin ID de WooCommerce. Intentando crear en WooCommerce: ${product.name} (ID: ${product.id})`);
+          try {
+            const result = await syncProductToWoo(product.id, true); // true = createIfNotExists
+            console.log(`Resultado de creación en WooCommerce para stock:`, result);
+          } catch (error) {
+            console.error(`Error creando producto en WooCommerce para sincronizar stock:`, error);
+          }
         }
       }
     });

@@ -1,7 +1,7 @@
 import { Express, Request, Response } from "express";
 import { dbNew } from "@db";
-import { orders, orderItems, customers } from "@db/schema";
-import { eq, desc } from "drizzle-orm";
+import { orders, orderItems, customers, products } from "@db/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
 import { validateBody, validateParams } from "../validation";
@@ -11,7 +11,7 @@ import { appEvents, EventTypes } from "../lib/event-emitter";
  * Order ID parameter schema
  */
 const orderIdSchema = z.object({
-  id: z.string().transform(val => parseInt(val, 10))
+  id: z.coerce.number().int().positive()
 });
 
 /**
@@ -119,21 +119,40 @@ export class OrdersService implements Service {
    */
   async getOrderById(req: Request, res: Response): Promise<void> {
     try {
+      // Req.params ya está validado y transformado por el middleware de validación
       const { id } = req.params;
-      const orderId = parseInt(id);
       
-      const result = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          customer: true,
-          items: true
-        }
-      });
+      // Usar SQL parametrizado directo para proteger contra SQL injection
+      const orderData = await dbNew.execute(sql`
+        SELECT o.* 
+        FROM orders o
+        WHERE o.id = ${id}
+      `);
       
-      if (!result) {
+      if (!orderData || orderData.length === 0) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
+      
+      // Obtener items del pedido
+      const items = await dbNew.execute(sql`
+        SELECT * FROM order_items
+        WHERE order_id = ${id}
+      `);
+      
+      // Obtener cliente
+      const customerData = await dbNew.execute(sql`
+        SELECT c.* 
+        FROM customers c
+        JOIN orders o ON c.id = o.customer_id
+        WHERE o.id = ${id}
+      `);
+      
+      const result = {
+        ...orderData[0],
+        customer: customerData[0] || null,
+        items: items || []
+      };
       
       res.json(result);
     } catch (error) {
@@ -164,6 +183,36 @@ export class OrdersService implements Service {
       let totalAmount = orderDetails.totalAmount;
       if (!totalAmount && items?.length > 0) {
         totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
+      }
+      
+      // Verificar y sincronizar productos con WooCommerce si es necesario
+      if (items && items.length > 0) {
+        for (const item of items) {
+          if (item.productId) {
+            try {
+              // Verificar si el producto existe y tiene wooCommerceId usando SQL parametrizado
+              const productResult = await dbNew.select().from(products)
+                .where(sql`${products.id} = ${item.productId}`)
+                .limit(1);
+              
+              const product = productResult.length > 0 ? productResult[0] : null;
+              
+              // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
+              if (product && !product.wooCommerceId) {
+                console.log(`Sincronizando producto ${product.name} (ID: ${product.id}) con WooCommerce antes de crear orden`);
+                
+                // Importar función de sincronización desde WooCommerce service
+                const { syncProductToWoo } = await import('./woocommerce.service');
+                
+                // Intentar crear el producto en WooCommerce
+                await syncProductToWoo(product.id, true);
+              }
+            } catch (error) {
+              console.error(`Error sincronizando producto ID ${item.productId} con WooCommerce:`, error);
+              // Continuamos con la creación del pedido aunque la sincronización falle
+            }
+          }
+        }
       }
 
       // Create the order
@@ -222,88 +271,148 @@ export class OrdersService implements Service {
    */
   async updateOrder(req: Request, res: Response): Promise<void> {
     try {
+      // req.params ya está validado y transformado por validateParams(orderIdSchema)
       const { id } = req.params;
-      const orderId = parseInt(id);
       const orderData = req.body;
       const { customerId, items, ...orderDetails } = orderData;
 
-      // Check if order exists
-      const existingOrder = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          items: true
-        }
-      });
+      // Verificar si el pedido existe
+      const existingOrderResult = await dbNew.execute(sql`
+        SELECT * FROM orders WHERE id = ${id}
+      `);
 
-      if (!existingOrder) {
+      if (!existingOrderResult || existingOrderResult.length === 0) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
 
-      // Check if customer exists
-      const customer = await dbNew.query.customers.findFirst({
-        where: eq(customers.id, customerId)
-      });
+      const existingOrder = existingOrderResult[0];
 
-      if (!customer) {
+      // Verificar si el cliente existe
+      const customerResult = await dbNew.execute(sql`
+        SELECT * FROM customers WHERE id = ${customerId}
+      `);
+
+      if (!customerResult || customerResult.length === 0) {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
+
+      const customer = customerResult[0];
       
-      // Calculate total amount from items if provided
+      // Calcular monto total desde los items si se proporcionan
       let totalAmount = orderDetails.totalAmount;
       if (items?.length > 0) {
         totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
       }
-
-      // Update the order
-      const [updatedOrder] = await dbNew.update(orders)
-        .set({
-          customerId,
-          leadId: orderDetails.leadId ?? existingOrder.leadId,
-          orderNumber: orderDetails.orderNumber ?? existingOrder.orderNumber,
-          totalAmount,
-          status: orderDetails.status ?? existingOrder.status,
-          paymentStatus: orderDetails.paymentStatus ?? existingOrder.paymentStatus,
-          paymentMethod: orderDetails.paymentMethod ?? existingOrder.paymentMethod,
-          source: orderDetails.source ?? existingOrder.source,
-          brand: orderDetails.brand ?? existingOrder.brand,
-          notes: orderDetails.notes ?? existingOrder.notes,
-          updatedAt: new Date()
-        })
-        .where(eq(orders.id, orderId))
-        .returning();
-
-      // Handle order items update if provided
+      
+      // Verificar y sincronizar productos con WooCommerce si es necesario
       if (items && items.length > 0) {
-        // Delete existing items
-        await dbNew.delete(orderItems).where(eq(orderItems.orderId, orderId));
-
-        // Create new order items
-        const orderItemsData = items.map((item: any) => ({
-          orderId: orderId,
-          productId: item.productId || null,
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount || 0,
-          subtotal: item.subtotal,
-          createdAt: new Date()
-        }));
-
-        await dbNew.insert(orderItems).values(orderItemsData);
+        for (const item of items) {
+          if (item.productId) {
+            try {
+              // Verificar si el producto existe y tiene wooCommerceId usando SQL parametrizado
+              const productResult = await dbNew.execute(sql`
+                SELECT * FROM products WHERE id = ${item.productId} LIMIT 1
+              `);
+              
+              const product = productResult.length > 0 ? productResult[0] : null;
+              
+              // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
+              if (product && !product.woocommerce_id) {
+                console.log(`Sincronizando producto ${product.name} (ID: ${product.id}) con WooCommerce antes de actualizar orden`);
+                
+                // Importar función de sincronización desde WooCommerce service
+                const { syncProductToWoo } = await import('./woocommerce.service');
+                
+                // Intentar crear el producto en WooCommerce
+                await syncProductToWoo(product.id, true);
+              }
+            } catch (error) {
+              console.error(`Error sincronizando producto ID ${item.productId} con WooCommerce:`, error);
+              // Continuamos con la actualización del pedido aunque la sincronización falle
+            }
+          }
+        }
       }
 
-      // Get the complete updated order with items
-      const completeOrder = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          customer: true,
-          items: true
-        }
-      });
+      // Actualizar el pedido con SQL parametrizado
+      await dbNew.execute(sql`
+        UPDATE orders
+        SET
+          customer_id = ${customerId},
+          lead_id = ${orderDetails.leadId ?? existingOrder.lead_id},
+          order_number = ${orderDetails.orderNumber ?? existingOrder.order_number},
+          total_amount = ${totalAmount},
+          status = ${orderDetails.status ?? existingOrder.status},
+          payment_status = ${orderDetails.paymentStatus ?? existingOrder.payment_status},
+          payment_method = ${orderDetails.paymentMethod ?? existingOrder.payment_method},
+          source = ${orderDetails.source ?? existingOrder.source},
+          brand = ${orderDetails.brand ?? existingOrder.brand},
+          notes = ${orderDetails.notes ?? existingOrder.notes},
+          updated_at = ${new Date()}
+        WHERE id = ${id}
+      `);
 
-      // Emit order updated event
+      // Obtener el pedido actualizado
+      const updatedOrderResult = await dbNew.execute(sql`
+        SELECT * FROM orders WHERE id = ${id}
+      `);
+      
+      const updatedOrder = updatedOrderResult[0];
+
+      // Manejar actualización de items si se proporcionan
+      if (items && items.length > 0) {
+        // Eliminar items existentes
+        await dbNew.execute(sql`
+          DELETE FROM order_items WHERE order_id = ${id}
+        `);
+
+        // Crear nuevos items
+        for (const item of items) {
+          await dbNew.execute(sql`
+            INSERT INTO order_items (
+              order_id, 
+              product_id, 
+              product_name, 
+              quantity, 
+              unit_price, 
+              discount, 
+              subtotal, 
+              created_at
+            )
+            VALUES (
+              ${id},
+              ${item.productId || null},
+              ${item.productName},
+              ${item.quantity},
+              ${item.unitPrice},
+              ${item.discount || 0},
+              ${item.subtotal},
+              ${new Date()}
+            )
+          `);
+        }
+      }
+
+      // Obtener los items del pedido actualizado
+      const updatedItemsResult = await dbNew.execute(sql`
+        SELECT * FROM order_items WHERE order_id = ${id}
+      `);
+      
+      // Obtener datos del cliente
+      const customerData = await dbNew.execute(sql`
+        SELECT * FROM customers WHERE id = ${customerId}
+      `);
+
+      // Construir respuesta completa
+      const completeOrder = {
+        ...updatedOrder,
+        customer: customerData[0],
+        items: updatedItemsResult
+      };
+
+      // Emitir evento de actualización de pedido
       appEvents.emit(EventTypes.ORDER_UPDATED, completeOrder);
       
       res.json(completeOrder);

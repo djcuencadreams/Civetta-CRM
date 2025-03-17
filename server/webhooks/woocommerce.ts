@@ -228,6 +228,27 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
           
           if (productResult.rows.length > 0) {
             productId = productResult.rows[0].id;
+          } else {
+            // Si el producto no existe en el CRM pero sí en WooCommerce, lo sincronizamos
+            try {
+              console.log(`Sincronizando producto de WooCommerce que no existe en el CRM: ${item.name} (ID: ${item.product_id})`);
+              
+              // Obtener datos completos del producto desde WooCommerce
+              const wooProduct = await fetch(
+                `${process.env.WOOCOMMERCE_URL}/wp-json/wc/v3/products/${item.product_id}?consumer_key=${process.env.WOOCOMMERCE_CONSUMER_KEY}&consumer_secret=${process.env.WOOCOMMERCE_CONSUMER_SECRET}`
+              ).then(res => res.json());
+              
+              if (wooProduct && wooProduct.id) {
+                // Procesar el producto para crearlo en el CRM
+                const result = await processWooCommerceProduct(wooProduct);
+                if (result.success && result.productId) {
+                  productId = result.productId;
+                  console.log(`Producto de WooCommerce sincronizado exitosamente: ${item.name} (CRM ID: ${productId})`);
+                }
+              }
+            } catch (error) {
+              console.error(`Error al sincronizar producto desde WooCommerce:`, error);
+            }
           }
         }
         
