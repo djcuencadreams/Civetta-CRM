@@ -11,7 +11,6 @@ import { FunnelChart } from "@/components/crm/FunnelChart";
 import { type Lead, type Sale, type Customer, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
 import { FilterState } from "@/components/crm/SearchFilterBar";
-import { AbortErrorTest } from "@/components/AbortErrorTest";
 import {
   TrendingUp,
   TrendingDown,
@@ -528,21 +527,6 @@ export default function DashboardPage() {
           />
         </DialogContent>
       </Dialog>
-
-      {/* Error Handling Tools Section */}
-      <div className="grid gap-4 mt-6">
-        <Card>
-          <CardHeader className="pb-0">
-            <CardTitle>Herramientas de Desarrollo</CardTitle>
-            <CardDescription>
-              Herramientas para probar y verificar la robustez del sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <AbortErrorTest />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
