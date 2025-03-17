@@ -69,16 +69,21 @@ type Product = {
   sku: string;
   description: string | null;
   price: number;
+  priceDiscount?: number | null;
   stock: number;
   active: boolean;
+  status?: string;
   brand: string | null;
   category_id: number | null;
   category_name?: string;
   woocommerce_id: number | null;
   woocommerce_parent_id: number | null;
   product_type: string | null;
+  weight?: number | null;
+  dimensions?: Record<string, any> | null;
   attributes: Record<string, any> | null;
-  images: any[] | null;
+  images: string[] | null;
+  relatedProducts?: number[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -235,10 +240,28 @@ export default function ProductsPage() {
       },
       cell: ({ row }) => {
         const price = parseFloat(row.getValue("price"));
+        const product = row.original;
+        const discountPrice = product.priceDiscount ? parseFloat(String(product.priceDiscount)) : null;
+        
         const formatted = new Intl.NumberFormat("es-ES", {
           style: "currency",
           currency: "USD",
         }).format(price);
+        
+        // Si hay un precio de descuento, mostrarlo junto con el precio regular tachado
+        if (discountPrice !== null && !isNaN(discountPrice)) {
+          const formattedDiscount = new Intl.NumberFormat("es-ES", {
+            style: "currency",
+            currency: "USD",
+          }).format(discountPrice);
+          
+          return (
+            <div className="text-right">
+              <span className="line-through text-muted-foreground text-sm mr-1">{formatted}</span>
+              <span className="font-medium text-red-600">{formattedDiscount}</span>
+            </div>
+          );
+        }
 
         return <div className="text-right font-medium">{formatted}</div>;
       },

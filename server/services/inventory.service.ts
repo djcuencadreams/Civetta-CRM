@@ -1,7 +1,7 @@
 import { Express, Request, Response } from "express";
 import { db } from "@db";
 import { products, productCategories } from "@db/schema";
-import { desc, eq, like } from "drizzle-orm";
+import { desc, eq, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
 import { validateBody, validateParams } from "../validation";
@@ -29,11 +29,20 @@ const productSchema = z.object({
   sku: z.string().optional(),
   description: z.string().nullable().optional(),
   price: z.number().min(0),
+  priceDiscount: z.number().nullable().optional(), // Precio de oferta
   stock: z.number().min(0).default(0),
   active: z.boolean().default(true),
+  status: z.string().optional().default('active'), // Estado del producto (active, draft, discontinued)
   brand: z.string().nullable().optional(),
-  category: z.string().nullable().optional(),
-  wooCommerceId: z.number().nullable().optional()
+  category_id: z.number().nullable().optional(), // ID de categoría
+  wooCommerceId: z.number().nullable().optional(),
+  wooCommerceParentId: z.number().nullable().optional(), // ID del producto padre (para variaciones)
+  productType: z.string().optional().default('simple'), // Tipo de producto (simple, variable, variation)
+  weight: z.number().nullable().optional(), // Peso del producto en kg
+  dimensions: z.record(z.any()).optional(), // Dimensiones como objeto JSON
+  images: z.array(z.string()).optional(), // URLs de imágenes
+  attributes: z.record(z.any()).nullable().optional(), // Atributos
+  relatedProducts: z.array(z.number()).optional(), // IDs de productos relacionados
 });
 
 /**
@@ -90,7 +99,7 @@ export class InventoryService implements Service {
       if (search) {
         const searchTerm = `%${search}%`;
         query = query.where(
-          db.or(
+          or(
             like(products.name, searchTerm),
             like(products.sku, searchTerm),
             like(products.description, searchTerm)
@@ -103,7 +112,10 @@ export class InventoryService implements Service {
       }
       
       if (category) {
-        query = query.where(eq(products.category, category as string));
+        const categoryIdValue = parseInt(category as string, 10);
+        if (!isNaN(categoryIdValue)) {
+          query = query.where(eq(products.categoryId, categoryIdValue));
+        }
       }
       
       if (active !== undefined) {
@@ -163,11 +175,20 @@ export class InventoryService implements Service {
         sku: productData.sku,
         description: productData.description || null,
         price: productData.price,
+        priceDiscount: productData.priceDiscount || null,
         stock: productData.stock || 0,
         active: productData.active ?? true,
+        status: productData.status || 'active',
         brand: productData.brand || null,
-        category: productData.category || null,
+        categoryId: productData.category_id || null,
         wooCommerceId: productData.wooCommerceId || null,
+        wooCommerceParentId: productData.wooCommerceParentId || null,
+        productType: productData.productType || 'simple',
+        weight: productData.weight || null,
+        dimensions: productData.dimensions || {},
+        images: productData.images || [],
+        attributes: productData.attributes || {},
+        relatedProducts: productData.relatedProducts || [],
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
@@ -207,11 +228,20 @@ export class InventoryService implements Service {
           sku: productData.sku || existingProduct.sku,
           description: productData.description ?? existingProduct.description,
           price: productData.price,
+          priceDiscount: productData.priceDiscount ?? existingProduct.priceDiscount,
           stock: productData.stock ?? existingProduct.stock,
           active: productData.active ?? existingProduct.active,
+          status: productData.status ?? existingProduct.status,
           brand: productData.brand ?? existingProduct.brand,
-          category: productData.category ?? existingProduct.category,
+          categoryId: productData.category_id ?? existingProduct.categoryId,
           wooCommerceId: productData.wooCommerceId ?? existingProduct.wooCommerceId,
+          wooCommerceParentId: productData.wooCommerceParentId ?? existingProduct.wooCommerceParentId,
+          productType: productData.productType ?? existingProduct.productType,
+          weight: productData.weight ?? existingProduct.weight,
+          dimensions: productData.dimensions ?? existingProduct.dimensions,
+          images: productData.images ?? existingProduct.images,
+          attributes: productData.attributes ?? existingProduct.attributes,
+          relatedProducts: productData.relatedProducts ?? existingProduct.relatedProducts,
           updatedAt: new Date()
         })
         .where(eq(products.id, productId))

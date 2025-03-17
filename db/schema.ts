@@ -237,6 +237,13 @@ export const productCategories = pgTable("product_categories", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
+// Define product status enum values
+export const productStatusEnum = {
+  ACTIVE: 'active',
+  DRAFT: 'draft',
+  DISCONTINUED: 'discontinued',
+} as const;
+
 // Nueva tabla para productos
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
@@ -249,9 +256,13 @@ export const products = pgTable("products", {
   stock: integer("stock").default(0),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
   wooCommerceId: integer("woocommerce_id"), // ID del producto en WooCommerce para sincronización
+  wooCommerceParentId: integer("woocommerce_parent_id"), // ID del producto padre en WooCommerce (para variaciones)
   wooCommerceUrl: text("woocommerce_url"), // URL del producto en WooCommerce
   active: boolean("active").default(true),
-  productType: varchar("product_type", { length: 50 }).default('simple'), // Tipo de producto (simple, variable, etc.)
+  status: varchar("status", { length: 20 }).default(productStatusEnum.ACTIVE), // Estado del producto (Activo, Borrador, Descontinuado)
+  productType: varchar("product_type", { length: 50 }).default('simple'), // Tipo de producto (simple, variable, variation)
+  weight: decimal("weight", { precision: 10, scale: 2 }), // Peso del producto en kg
+  dimensions: jsonb("dimensions").default({}), // Dimensiones como objeto JSON (height, width, length)
   images: jsonb("images").default([]), // URLs de imágenes como array JSON
   attributes: jsonb("attributes").default({}), // Atributos como objeto JSON (color, talla, etc.)
   variants: jsonb("variants").default([]), // Variaciones del producto
