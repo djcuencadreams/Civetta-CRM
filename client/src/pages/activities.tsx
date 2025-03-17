@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { ActivityForm } from "../components/crm/ActivityForm";
-import { Activity } from "./types/activities";
+import { Activity } from "../lib/types/activities";
 
 export default function Activities() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());

@@ -26,7 +26,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Clock } from "lucide-react";
 
-import { activitySchema, ActivityFormData, Activity } from "../../pages/types/activities";
+import { activitySchema, ActivityFormData, Activity } from "../../lib/types/activities";
 
 interface ActivityFormProps {
   activity?: Activity;
