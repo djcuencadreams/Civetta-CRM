@@ -1,5 +1,6 @@
 import React from "react";
-import { Package, Tags } from "lucide-react";
+import { Package, Tags, DollarSign } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 import {
   Table,
@@ -10,6 +11,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 // Tipo de dato para los ítems de una orden
 interface OrderItem {
@@ -30,6 +33,8 @@ interface OrderItemsExpandedProps {
 }
 
 export function OrderItemsExpanded({ items = [] }: OrderItemsExpandedProps) {
+  const isMobile = useIsMobile();
+  
   if (!items || items.length === 0) {
     return (
       <div className="text-center p-4 text-muted-foreground text-sm">
@@ -62,6 +67,74 @@ export function OrderItemsExpanded({ items = [] }: OrderItemsExpandedProps) {
     );
   };
 
+  // Vista para móviles: tarjetas en lugar de tabla
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {items.map((item) => (
+          <Card key={item.id} className="overflow-hidden">
+            <CardContent className="p-3">
+              <div className="font-medium">{item.productName}</div>
+              
+              {renderAttributes(item.attributes)}
+              
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Precio:</span>
+                  <span className="float-right font-medium">
+                    {formatCurrency(item.unitPrice)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Cantidad:</span>
+                  <span className="float-right font-medium">
+                    {item.quantity}
+                  </span>
+                </div>
+                
+                {item.discount > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">Descuento:</span>
+                    <span className="float-right text-green-600">
+                      -{(item.discount * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                )}
+                
+                <div>
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="float-right font-medium">
+                    {formatCurrency(item.subtotal)}
+                  </span>
+                </div>
+              </div>
+              
+              {item.productId && (
+                <div className="text-xs text-muted-foreground mt-2 flex items-center">
+                  <Tags className="h-3 w-3 mr-1" />
+                  ID: {item.productId}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+        
+        <Separator className="my-2" />
+        
+        <div className="flex justify-between items-center">
+          <div className="flex items-center text-base font-semibold">
+            <DollarSign className="h-4 w-4 mr-1" />
+            Total:
+          </div>
+          <div className="font-bold">
+            {formatCurrency(items.reduce((sum, item) => sum + item.subtotal, 0))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista para escritorio: tabla tradicional
   return (
     <div className="overflow-x-auto">
       <Table className="border">

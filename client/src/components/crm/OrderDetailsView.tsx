@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ShippingInfoCard } from './ShippingInfoCard';
 
 type OrderDetailsProps = {
   order?: {
@@ -291,44 +292,20 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       </div>
 
       {/* Información de envío */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center">
-            <Truck className="w-5 h-5 mr-2" /> Información de Envío
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Método de envío:</span>
-                <span>{getShippingMethodText(order.shippingMethod)}</span>
-              </div>
-              {order.trackingNumber && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Número de seguimiento:</span>
-                  <span className="font-medium">{order.trackingNumber}</span>
-                </div>
-              )}
-              {(order.shippingCost || 0) > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Costo de envío:</span>
-                  <span>{formatCurrency(order.shippingCost || 0)}</span>
-                </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              {/* Aquí se puede agregar dirección de envío u otras informaciones relevantes en el futuro */}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Estado del pedido:</span>
-                <Badge variant={getStatusBadgeVariant(order.status)}>
-                  {getStatusText(order.status)}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <ShippingInfoCard 
+        shippingMethod={order.shippingMethod}
+        trackingNumber={order.trackingNumber}
+        shippingCost={order.shippingCost}
+        estimatedDeliveryDate={null} // Se podría agregar esta propiedad en el futuro
+        status={order.status}
+        shippingAddress={{
+          street: "Dirección del cliente", // Estos datos podrían obtenerse del cliente en una implementación futura
+          city: "Ciudad",
+          province: "Provincia",
+          country: "Ecuador",
+          postalCode: ""
+        }}
+      />
 
       {/* Productos del pedido */}
       <Card>
