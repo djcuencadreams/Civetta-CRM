@@ -103,7 +103,20 @@ export class LeadsService implements Service {
   async getLeadById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Verificar si el ID es válido antes de intentar convertirlo
+      if (!id || id === 'undefined' || id === 'null') {
+        res.status(400).json({ error: "Invalid lead ID provided" });
+        return;
+      }
+      
       const leadId = parseInt(id);
+      
+      // Verificar si el ID convertido es un número válido
+      if (isNaN(leadId)) {
+        res.status(400).json({ error: "Lead ID must be a valid number" });
+        return;
+      }
       
       const result = await db.query.leads.findFirst({
         where: eq(leads.id, leadId),
@@ -192,7 +205,20 @@ export class LeadsService implements Service {
   async updateLead(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Verificar si el ID es válido antes de intentar convertirlo
+      if (!id || id === 'undefined' || id === 'null') {
+        res.status(400).json({ error: "Invalid lead ID provided" });
+        return;
+      }
+      
       const leadId = parseInt(id);
+      
+      // Verificar si el ID convertido es un número válido
+      if (isNaN(leadId)) {
+        res.status(400).json({ error: "Lead ID must be a valid number" });
+        return;
+      }
       
       const {
         name, email, phone, status, source, notes,
@@ -312,7 +338,20 @@ export class LeadsService implements Service {
   async deleteLead(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Verificar si el ID es válido antes de intentar convertirlo
+      if (!id || id === 'undefined' || id === 'null') {
+        res.status(400).json({ error: "Invalid lead ID provided" });
+        return;
+      }
+      
       const leadId = parseInt(id);
+      
+      // Verificar si el ID convertido es un número válido
+      if (isNaN(leadId)) {
+        res.status(400).json({ error: "Lead ID must be a valid number" });
+        return;
+      }
 
       // Check if lead exists
       const existingLead = await db.query.leads.findFirst({
@@ -440,7 +479,20 @@ export class LeadsService implements Service {
   async convertLeadToCustomer(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      
+      // Verificar si el ID es válido antes de intentar convertirlo
+      if (!id || id === 'undefined' || id === 'null') {
+        res.status(400).json({ error: "Invalid lead ID provided" });
+        return;
+      }
+      
       const leadId = parseInt(id);
+      
+      // Verificar si el ID convertido es un número válido
+      if (isNaN(leadId)) {
+        res.status(400).json({ error: "Lead ID must be a valid number" });
+        return;
+      }
       
       const {
         name, email, phone, status, source, notes, 
