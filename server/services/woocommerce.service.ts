@@ -736,12 +736,25 @@ export async function syncCustomerToWoo(customerId: number, createIfNotExists: b
  * @param wooCustomerId ID del cliente en WooCommerce
  * @returns Resultado de la sincronización con información del cliente en el CRM
  */
+/**
+ * Sincroniza un cliente desde WooCommerce al CRM con detección avanzada de duplicados
+ * Verifica múltiples campos de identificación: cédula, RUC, email y teléfono
+ * 
+ * @param wooCustomerId ID del cliente en WooCommerce
+ * @returns Resultado de la sincronización con información del cliente en el CRM
+ */
 export async function syncCustomerFromWoo(wooCustomerId: number): Promise<{
   success: boolean;
   customerId?: number;
   message: string;
   isNew?: boolean;
   matchedBy?: string;
+  identifiers?: {
+    email?: string;
+    phone?: string;
+    idNumber?: string;
+    ruc?: string;
+  };
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce

@@ -12,6 +12,12 @@ export interface WooCommerceConfig {
   consumerKey: string;
   consumerSecret: string;
   enabled: boolean;
+  storeName?: string;
+  storeInfo?: {
+    version?: string;
+    productsCount?: number;
+    ordersCount?: number;
+  };
 }
 
 // Configuración predeterminada
@@ -19,7 +25,13 @@ let config: WooCommerceConfig = {
   url: '',
   consumerKey: '',
   consumerSecret: '',
-  enabled: false
+  enabled: false,
+  storeName: '',
+  storeInfo: {
+    version: '',
+    productsCount: 0,
+    ordersCount: 0
+  }
 };
 
 // Nombre de la tabla de configuración en la base de datos
@@ -65,7 +77,13 @@ export async function loadWooCommerceConfig(): Promise<WooCommerceConfig> {
         url: dbConfig.url || '',
         consumerKey: dbConfig.consumerKey || '',
         consumerSecret: dbConfig.consumerSecret || '',
-        enabled: !!dbConfig.enabled
+        enabled: !!dbConfig.enabled,
+        storeName: dbConfig.storeName || '',
+        storeInfo: {
+          version: dbConfig.storeInfo?.version || '',
+          productsCount: dbConfig.storeInfo?.productsCount || 0,
+          ordersCount: dbConfig.storeInfo?.ordersCount || 0
+        }
       };
       
       // Actualizar las variables de entorno para compatibilidad con código existente

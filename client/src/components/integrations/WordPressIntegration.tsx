@@ -41,10 +41,31 @@ export function WordPressIntegration() {
   const { toast } = useToast();
   const [credentials, setCredentials] = useState({
     siteUrl: "",
+    storeName: "",
     consumerKey: "",
     consumerSecret: ""
   });
   const [connected, setConnected] = useState(false);
+  // Estado para la información de conexión (forzando los tipos para consistencia)
+  const [connectionStatus, setConnectionStatus] = useState<{
+    connected: boolean;
+    storeName: string;
+    siteUrl: string;
+    storeInfo: {
+      productsCount: number;
+      ordersCount: number;
+      version: string;
+    }
+  }>({
+    connected: false,
+    storeName: "",
+    siteUrl: "",
+    storeInfo: {
+      productsCount: 0,
+      ordersCount: 0,
+      version: ""
+    }
+  });
   const [importStatus, setImportStatus] = useState({
     customers: { total: 0, imported: 0, inProgress: false },
     orders: { total: 0, imported: 0, inProgress: false },
@@ -67,6 +88,12 @@ export function WordPressIntegration() {
     url?: string;
     hasCredentials?: boolean;
     enabled?: boolean;
+    storeName?: string;
+    storeInfo?: {
+      version?: string;
+      productsCount?: number;
+      ordersCount?: number;
+    };
   }>({
     queryKey: ['/api/configuration/woocommerce']
   });
@@ -74,33 +101,81 @@ export function WordPressIntegration() {
   // Efecto para actualizar las credenciales cuando se carga la configuración
   useEffect(() => {
     if (configData) {
-      setCredentials({
-        siteUrl: configData.url || "",
-        consumerKey: credentials.consumerKey, // Mantener credenciales para no mostrarlas en UI
-        consumerSecret: credentials.consumerSecret // Mantener credenciales para no mostrarlas en UI
-      });
-      setConnected(!!configData.hasCredentials && !!configData.enabled);
+      // Actualizar siteUrl y storeName siempre, pero preservar credenciales si ya existen
+      // en el estado local (para no obligar a ingresarlos nuevamente)
+      setCredentials(prev => ({
+        siteUrl: configData.url || prev.siteUrl || "",
+        storeName: configData.storeName || prev.storeName || "",
+        // Solo actualizar credenciales si están vacías (primera carga)
+        consumerKey: prev.consumerKey || "",
+        consumerSecret: prev.consumerSecret || ""
+      }));
+      
+      // Actualizamos el estado de conexión si tenemos datos y está habilitado
+      if (configData.hasCredentials && configData.enabled) {
+        setConnected(true);
+        
+        // Actualizamos la información de la tienda si está disponible
+        setConnectionStatus({
+          connected: true,
+          storeName: configData.storeName || "Tienda WooCommerce",
+          siteUrl: configData.url || "",
+          storeInfo: {
+            productsCount: configData.storeInfo?.productsCount || 0,
+            ordersCount: configData.storeInfo?.ordersCount || 0,
+            version: configData.storeInfo?.version || ""
+          }
+        });
+      } else {
+        // Si hay datos pero no está habilitado o faltan credenciales, reseteamos
+        setConnected(false);
+      }
     }
   }, [configData]);
 
-  // Connection test mutation
+  // Connection test mutation - Solo verifica la conexión sin guardar nada
   const connectMutation = useMutation({
     mutationFn: async (data: typeof credentials) => {
       const res = await apiRequest("POST", "/api/configuration/woocommerce/test", {
         url: data.siteUrl,
+        storeName: data.storeName,
         consumerKey: data.consumerKey,
         consumerSecret: data.consumerSecret
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || error.error || "Error de conexión con WordPress");
+        // Intentar obtener los detalles del error
+        try {
+          const error = await res.json();
+          throw new Error(error.details || error.message || error.error || "Error de conexión con WordPress");
+        } catch (parseError) {
+          // Si no se puede leer como JSON, usar el texto del error
+          const errorText = await res.text();
+          throw new Error(errorText || `Error de conexión: código ${res.status}`);
+        }
       }
-      return res.json();
+      
+      try {
+        return await res.json();
+      } catch (parseError) {
+        throw new Error("La respuesta del servidor no es un JSON válido");
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Actualizar el estado con la información de la tienda
+      setConnectionStatus({
+        connected: true,
+        storeName: data.store?.name || "Tienda WooCommerce",
+        siteUrl: data.store?.url || credentials.siteUrl,
+        storeInfo: {
+          productsCount: data.store?.productsCount || 0,
+          ordersCount: data.store?.ordersCount || 0,
+          version: data.store?.version || ""
+        }
+      });
+      
       toast({ 
         title: "Conexión exitosa", 
-        description: "Se ha conectado correctamente a WordPress/WooCommerce"
+        description: `Se ha verificado correctamente la conexión a ${data.store?.name || "WordPress/WooCommerce"}. Haga clic en "Guardar configuración" para guardar estos ajustes.`
       });
       setConnected(true);
     },
@@ -111,6 +186,48 @@ export function WordPressIntegration() {
         variant: "destructive"
       });
       setConnected(false);
+    }
+  });
+  
+  // Save configuration mutation - Guarda permanentemente la configuración en la BD
+  const saveConfigMutation = useMutation({
+    mutationFn: async (data: typeof credentials) => {
+      const res = await apiRequest("POST", "/api/configuration/woocommerce", {
+        url: data.siteUrl,
+        storeName: data.storeName || connectionStatus.storeName,
+        consumerKey: data.consumerKey,
+        consumerSecret: data.consumerSecret,
+        enabled: true
+      });
+      if (!res.ok) {
+        try {
+          const error = await res.json();
+          throw new Error(error.details || error.message || error.error || "Error al guardar la configuración");
+        } catch (parseError) {
+          const errorText = await res.text();
+          throw new Error(errorText || `Error al guardar: código ${res.status}`);
+        }
+      }
+      
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Configuración guardada", 
+        description: `La configuración de WooCommerce ha sido guardada correctamente.`
+      });
+      
+      // Invalidar la consulta para actualizar los datos
+      window.dispatchEvent(new CustomEvent('invalidate-queries', {
+        detail: { queryKeys: [['/api/configuration/woocommerce']] }
+      }));
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error al guardar", 
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
 
@@ -314,6 +431,20 @@ export function WordPressIntegration() {
     
     connectMutation.mutate(credentials);
   };
+  
+  // Save configuration
+  const handleSaveConfiguration = () => {
+    if (!connected) {
+      toast({ 
+        title: "Error", 
+        description: "Por favor, pruebe la conexión antes de guardar la configuración",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    saveConfigMutation.mutate(credentials);
+  };
 
   // Import customers
   const handleImportCustomers = () => {
@@ -432,6 +563,20 @@ export function WordPressIntegration() {
               La URL completa de tu sitio WordPress
             </p>
           </div>
+
+          <div>
+            <Label htmlFor="store-name">Nombre descriptivo de la tienda (opcional)</Label>
+            <Input 
+              id="store-name"
+              name="storeName"
+              placeholder="Mi Tienda de Moda"
+              value={credentials.storeName}
+              onChange={handleInputChange}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Un nombre para identificar esta conexión en el CRM
+            </p>
+          </div>
           
           <div>
             <Label htmlFor="consumer-key">Clave de consumidor (Consumer Key)</Label>
@@ -460,34 +605,104 @@ export function WordPressIntegration() {
             />
           </div>
           
-          <Button 
-            onClick={handleTestConnection}
-            disabled={connectMutation.isPending}
-            className="w-full"
-          >
-            {connectMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Conectando...
-              </>
-            ) : connected ? (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Conectado
-              </>
-            ) : (
-              "Probar conexión"
-            )}
-          </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button 
+              onClick={handleTestConnection}
+              disabled={connectMutation.isPending}
+              className="w-full"
+              variant={connected ? "outline" : "default"}
+            >
+              {connectMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verificando...
+                </>
+              ) : connected ? (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Verificar conexión
+                </>
+              ) : (
+                "Probar conexión"
+              )}
+            </Button>
+            
+            <Button 
+              onClick={handleSaveConfiguration}
+              disabled={!connected || saveConfigMutation.isPending}
+              className="w-full"
+              variant={configData?.enabled && connected ? "outline" : "default"}
+            >
+              {saveConfigMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : configData?.enabled && connected ? (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Configuración guardada
+                </>
+              ) : (
+                "Guardar configuración"
+              )}
+            </Button>
+          </div>
 
-          {connected && (
-            <Alert className="bg-green-50 border-green-200 text-green-800">
-              <CheckCircle className="h-4 w-4" />
-              <AlertTitle>Conexión exitosa</AlertTitle>
-              <AlertDescription>
-                Se ha conectado correctamente a tu tienda WordPress/WooCommerce.
-              </AlertDescription>
-            </Alert>
+          {connected && !configData?.enabled && (
+            <div className="space-y-4">
+              <Alert className="bg-yellow-50 border-yellow-200 text-yellow-800">
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>Conexión verificada - No guardada</AlertTitle>
+                <AlertDescription>
+                  Se ha verificado la conexión pero aún no ha sido guardada. Haga clic en "Guardar configuración" para mantener estos ajustes.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+          
+          {connected && configData?.enabled && (
+            <div className="space-y-4">
+              <Alert className="bg-green-50 border-green-200 text-green-800">
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>Conexión activa y guardada</AlertTitle>
+                <AlertDescription>
+                  Se ha conectado correctamente a tu tienda WordPress/WooCommerce y la configuración está guardada.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="border rounded-md p-4 bg-gray-50">
+                <h4 className="font-medium text-sm mb-2">Información de la tienda conectada</h4>
+                <dl className="space-y-2 text-sm">
+                  <div className="grid grid-cols-3">
+                    <dt className="font-medium text-gray-500">Nombre:</dt>
+                    <dd className="col-span-2">{connectionStatus.storeName || credentials.storeName || "Tienda WooCommerce"}</dd>
+                  </div>
+                  <div className="grid grid-cols-3">
+                    <dt className="font-medium text-gray-500">URL:</dt>
+                    <dd className="col-span-2 truncate">{credentials.siteUrl}</dd>
+                  </div>
+                  {connectionStatus.storeInfo.version && (
+                    <div className="grid grid-cols-3">
+                      <dt className="font-medium text-gray-500">Versión:</dt>
+                      <dd className="col-span-2">WooCommerce {connectionStatus.storeInfo.version}</dd>
+                    </div>
+                  )}
+                  {connectionStatus.storeInfo.productsCount > 0 && (
+                    <div className="grid grid-cols-3">
+                      <dt className="font-medium text-gray-500">Productos:</dt>
+                      <dd className="col-span-2">{connectionStatus.storeInfo.productsCount}</dd>
+                    </div>
+                  )}
+                  {connectionStatus.storeInfo.ordersCount > 0 && (
+                    <div className="grid grid-cols-3">
+                      <dt className="font-medium text-gray-500">Pedidos:</dt>
+                      <dd className="col-span-2">{connectionStatus.storeInfo.ordersCount}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            </div>
           )}
 
           {connectMutation.isError && (
@@ -496,6 +711,26 @@ export function WordPressIntegration() {
               <AlertTitle>Error de conexión</AlertTitle>
               <AlertDescription>
                 {connectMutation.error.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {saveConfigMutation.isError && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertTitle>Error al guardar la configuración</AlertTitle>
+              <AlertDescription>
+                {saveConfigMutation.error.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {saveConfigMutation.isSuccess && (
+            <Alert className="bg-green-50 border-green-200 text-green-800">
+              <CheckCircle className="h-4 w-4" />
+              <AlertTitle>Configuración guardada</AlertTitle>
+              <AlertDescription>
+                La configuración de WooCommerce ha sido guardada correctamente y estará disponible en tu próximo inicio de sesión.
               </AlertDescription>
             </Alert>
           )}
