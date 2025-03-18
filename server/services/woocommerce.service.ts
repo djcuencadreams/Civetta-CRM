@@ -6,11 +6,14 @@ import * as schema from "../../db/schema";
 import type { Express, Request, Response } from "express";
 import type { Service } from "./service-registry";
 import { createHmac } from "crypto";
-
-// Variables de entorno para la conexión a WooCommerce
-const WOO_URL = process.env.WOOCOMMERCE_URL || '';
-const WOO_KEY = process.env.WOOCOMMERCE_CONSUMER_KEY || '';
-const WOO_SECRET = process.env.WOOCOMMERCE_CONSUMER_SECRET || '';
+import { 
+  loadWooCommerceConfig, 
+  saveWooCommerceConfig, 
+  getWooCommerceConfig, 
+  hasWooCommerceCredentials,
+  isWooCommerceEnabled,
+  WooCommerceConfig
+} from "../lib/woocommerce-config";
 
 /**
  * Genera cabeceras de autenticación OAuth para WooCommerce
@@ -39,12 +42,13 @@ async function wooCommerceRequest(
 ): Promise<any> {
   try {
     // Verificar que tenemos credenciales configuradas
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    const config = getWooCommerceConfig();
+    if (!hasWooCommerceCredentials()) {
       throw new Error('Faltan credenciales de WooCommerce');
     }
 
     // Preparar la URL
-    const url = `${WOO_URL}/wp-json/wc/v3${endpoint}`;
+    const url = `${config.url}/wp-json/wc/v3${endpoint}`;
     
     // Construir opciones de la petición
     const headers = getWooCommerceHeaders(method, url);
@@ -62,8 +66,8 @@ async function wooCommerceRequest(
 
     // Añadir credenciales a la URL para autenticación simple
     const authUrl = new URL(url);
-    authUrl.searchParams.append('consumer_key', WOO_KEY);
-    authUrl.searchParams.append('consumer_secret', WOO_SECRET);
+    authUrl.searchParams.append('consumer_key', config.consumerKey);
+    authUrl.searchParams.append('consumer_secret', config.consumerSecret);
 
     // Realizar la petición HTTP
     const response = await fetch(authUrl.toString(), options);
@@ -101,10 +105,10 @@ export async function getProductFromWoo(wooProductId: number): Promise<{
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
         readOnly: true
       };
     }
@@ -162,10 +166,10 @@ export async function getProductsFromWoo(
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
         readOnly: true
       };
     }
@@ -235,10 +239,10 @@ export async function syncProductToWoo(productId: number, createIfNotExists: boo
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
         readOnly: true
       };
     }
@@ -288,6 +292,9 @@ export async function syncProductToWoo(productId: number, createIfNotExists: boo
       
       // Si se solicita crear el producto, intentar crearlo en WooCommerce
       console.log(`Intentando crear producto '${product.name}' en WooCommerce...`);
+      
+      // Obtener configuración de WooCommerce
+      const config = getWooCommerceConfig();
       
       try {
         // Preparar datos para crear en WooCommerce
@@ -357,7 +364,7 @@ export async function syncProductToWoo(productId: number, createIfNotExists: boo
         await db.update(schema.products)
           .set({
             wooCommerceId: simulatedId, // ID simulado
-            wooCommerceUrl: `${WOO_URL}/product/simulado-${product.id}`,
+            wooCommerceUrl: `${config.url}/product/simulado-${product.id}`,
             updatedAt: new Date()
           })
           .where(eq(schema.products.id, productId));
@@ -499,10 +506,10 @@ export async function syncCustomerToWoo(customerId: number, createIfNotExists: b
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
         readOnly: true
       };
     }
@@ -738,10 +745,10 @@ export async function syncCustomerFromWoo(wooCustomerId: number): Promise<{
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
       };
     }
 
@@ -1066,10 +1073,10 @@ export async function createOrderInWoo(orderId: number): Promise<{
 }> {
   try {
     // Verificar que tengamos configuración de WooCommerce
-    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+    if (!hasWooCommerceCredentials()) {
       return {
         success: false,
-        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
         readOnly: true
       };
     }
@@ -1567,13 +1574,16 @@ export class WooCommerceService implements Service {
     app.get("/api/woocommerce/check-connection", async (_req: Request, res: Response) => {
       try {
         // Verificar que tengamos configuración de WooCommerce
-        if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+        if (!hasWooCommerceCredentials()) {
           return res.status(400).json({
             connected: false,
-            message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+            message: 'Falta configuración de WooCommerce. Configure URL, Consumer Key y Consumer Secret en la sección de configuración.',
             readOnly: true
           });
         }
+        
+        // Obtener la configuración de WooCommerce
+        const config = getWooCommerceConfig();
         
         // Hacer una petición simple a la API de WooCommerce para verificar la conexión
         const response = await wooCommerceRequest('GET', '/products?per_page=1');
@@ -1586,7 +1596,7 @@ export class WooCommerceService implements Service {
           store: {
             name: siteInfo.store_name || 'Tienda WooCommerce',
             description: siteInfo.store_description,
-            url: WOO_URL,
+            url: config.url,
             version: siteInfo.version,
             productsCount: siteInfo.products_count || 0,
             ordersCount: siteInfo.orders_count || 0

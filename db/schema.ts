@@ -3,6 +3,16 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import * as z from 'zod';
 
+// Tabla para almacenar configuraciones de servicios
+export const serviceConfigurations = pgTable("service_configurations", {
+  id: serial("id").primaryKey(),
+  service: varchar("service", { length: 50 }).notNull().unique(),
+  config: jsonb("config").notNull().default({}),
+  enabled: boolean("enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Define the brand enum values
 export const brandEnum = {
   SLEEPWEAR: 'sleepwear',

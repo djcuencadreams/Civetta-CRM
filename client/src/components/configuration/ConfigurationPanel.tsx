@@ -86,8 +86,21 @@ export function ConfigurationPanel() {
             </CardContent>
           </Card>
 
-          {/* Include WordPress integration component */}
-          <WordPressIntegration />
+          {/* WordPress/WooCommerce Integration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiWordpress className="h-5 w-5" />
+                WordPress / WooCommerce
+              </CardTitle>
+              <CardDescription>
+                Sincronización bidireccional de clientes, productos y pedidos entre el CRM y WooCommerce
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WordPressIntegration />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -161,18 +174,7 @@ export function ConfigurationPanel() {
           {/* Include SpreadsheetImport component */}
           <SimpleSpreadsheetImporter />
 
-          {/* WordPress integration import section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <SiWordpress className="h-5 w-5" />
-                Importar desde WordPress/WooCommerce
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WordPressIntegration />
-            </CardContent>
-          </Card>
+          {/* Eliminamos la sección duplicada de WordPress/WooCommerce para consolidar en una única ubicación en la pestaña de Integraciones */}
         </TabsContent>
 
         <TabsContent value="developer" className="space-y-6">

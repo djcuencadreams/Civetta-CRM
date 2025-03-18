@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
 import { registerEmailRoutes } from "./routes-email";
+import { registerConfigurationRoutes } from "./routes-configuration";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
@@ -76,6 +77,10 @@ app.use((req, res, next) => {
   // Register email routes
   registerEmailRoutes(app);
   log("Email routes registered");
+  
+  // Register configuration routes
+  registerConfigurationRoutes(app);
+  log("Configuration routes registered");
   
   // Register email event handlers
   registerEmailEventHandlers();
