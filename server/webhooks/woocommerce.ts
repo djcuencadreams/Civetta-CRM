@@ -4,6 +4,7 @@ import * as schema from '../../db/schema';  // Importamos el esquema original pa
 import * as newSchema from '../../db/schema-new';  // Importamos el nuevo esquema para las nuevas tablas
 import { eq, and, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
+import { syncCustomerFromWoo } from '../services/woocommerce.service';
 
 /**
  * Verifica la firma de un webhook de WooCommerce
@@ -174,7 +175,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
       `INSERT INTO orders (
         customer_id, order_number, total_amount, 
         status, payment_status, payment_method, 
-        source, woocommerce_id, notes, brand,
+        source, "wooCommerceId", notes, brand,
         shipping_address, billing_address,
         created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
@@ -207,7 +208,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
         
         if (item.product_id) {
           const productResult = await db.$client.query(
-            `SELECT id FROM products WHERE woocommerce_id = $1 LIMIT 1`,
+            `SELECT id FROM products WHERE "wooCommerceId" = $1 LIMIT 1`,
             [item.product_id]
           );
           
@@ -507,89 +508,192 @@ export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ su
       return { success: false, message: 'Datos de cliente inválidos' };
     }
     
-    // Extraer información relevante del cliente
-    const email = wooCustomer.email || null;
-    const firstName = wooCustomer.first_name || '';
-    const lastName = wooCustomer.last_name || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    const phone = wooCustomer.billing?.phone || null;
+    // Utilizamos la función mejorada de sincronización bidireccional
+    // que implementa detección avanzada de duplicados
+    const syncResult = await syncCustomerFromWoo(wooCustomer.id);
     
-    // Verificar cédula/DNI del cliente (puede estar en meta_data o en atributos específicos)
-    let cedula: string | null = null;
-    let ruc: string | null = null;
-    
-    // Buscar documentos de identidad en meta_data si existe
-    if (wooCustomer.meta_data && Array.isArray(wooCustomer.meta_data)) {
-      // Buscar campo de cédula
-      const cedulaField = wooCustomer.meta_data.find((meta: any) => 
-        meta.key === 'cedula' || 
-        meta.key === 'dni' || 
-        meta.key === 'identification' ||
-        meta.key === 'tax_id' ||
-        meta.key === 'documento_identidad'
+    if (!syncResult.success) {
+      // Si la sincronización falla, intentar procesar manualmente el cliente
+      // Este código solo se ejecutará si syncCustomerFromWoo falla por alguna razón
+      // Por ejemplo, si no puede obtener los datos completos desde la API de WooCommerce
+      
+      // Extraer información relevante del cliente desde los datos del webhook
+      const email = wooCustomer.email || null;
+      const firstName = wooCustomer.first_name || '';
+      const lastName = wooCustomer.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      const phone = wooCustomer.billing?.phone || null;
+      
+      // Verificar cédula/DNI del cliente desde meta_data
+      let cedula: string | null = null;
+      let ruc: string | null = null;
+      
+      // Buscar documentos de identidad en meta_data
+      if (wooCustomer.meta_data && Array.isArray(wooCustomer.meta_data)) {
+        // Buscar campo de cédula (varios posibles nombres)
+        const cedulaField = wooCustomer.meta_data.find((meta: any) => 
+          meta.key === 'cedula' || 
+          meta.key === 'dni' || 
+          meta.key === 'identification' ||
+          meta.key === 'tax_id' ||
+          meta.key === 'documento_identidad'
+        );
+        
+        if (cedulaField && cedulaField.value) {
+          cedula = String(cedulaField.value).trim();
+        }
+        
+        // Buscar campo de RUC (varios posibles nombres)
+        const rucField = wooCustomer.meta_data.find((meta: any) => 
+          meta.key === 'ruc' || 
+          meta.key === 'nit' || 
+          meta.key === 'registro_contribuyente' ||
+          meta.key === 'tax_identification' ||
+          meta.key === 'business_id'
+        );
+        
+        if (rucField && rucField.value) {
+          ruc = String(rucField.value).trim();
+        }
+      }
+      
+      // También podría estar en billing.tax_id o fields específicos
+      if (wooCustomer.billing && wooCustomer.billing.tax_id) {
+        const taxIdValue = String(wooCustomer.billing.tax_id).trim();
+        
+        // En Ecuador, RUC tiene 13 dígitos y cédula tiene 10 dígitos
+        if (taxIdValue.length === 13) {
+          ruc = taxIdValue;
+        } else if (taxIdValue.length === 10) {
+          cedula = taxIdValue;
+        } else {
+          // Si no cumple con las longitudes esperadas, guardarlo como cédula por defecto
+          cedula = taxIdValue;
+        }
+      }
+      
+      // Verificar si el cliente ya existe en el CRM usando múltiples criterios
+      
+      // 1. Buscar por ID de WooCommerce (match exacto)
+      const existingByWooId = await db.$client.query(
+        `SELECT * FROM customers WHERE "wooCommerceId" = $1 LIMIT 1`,
+        [wooCustomer.id]
       );
       
-      if (cedulaField && cedulaField.value) {
-        cedula = String(cedulaField.value).trim();
+      if (existingByWooId.rows.length > 0) {
+        const existingCustomer = existingByWooId.rows[0];
+        
+        await db.$client.query(
+          `UPDATE customers SET 
+            name = $1,
+            first_name = $2,
+            last_name = $3,
+            email = $4,
+            phone = $5,
+            street = $6,
+            city = $7,
+            province = $8,
+            delivery_instructions = $9,
+            address = $10,
+            id_number = $11,
+            ruc = $12,
+            updated_at = NOW()
+          WHERE id = $13`,
+          [
+            fullName,
+            firstName,
+            lastName,
+            email,
+            phone,
+            wooCustomer.billing?.address_1 || null,
+            wooCustomer.billing?.city || null,
+            wooCustomer.billing?.state || null,
+            wooCustomer.billing?.postcode || null,
+            wooCustomer.billing?.country || null,
+            cedula,
+            ruc,
+            existingCustomer.id
+          ]
+        );
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente #${wooCustomer.id} actualizado correctamente (método fallback)`
+        };
       }
       
-      // Buscar campo de RUC
-      const rucField = wooCustomer.meta_data.find((meta: any) => 
-        meta.key === 'ruc' || 
-        meta.key === 'nit' || 
-        meta.key === 'registro_contribuyente' ||
-        meta.key === 'tax_identification' ||
-        meta.key === 'business_id'
+      // Si no encontramos por ID de WooCommerce, verificamos por otros criterios
+      let existingCustomer = null;
+      
+      // Verificar por cédula, RUC, email y teléfono con una sola consulta
+      const checkResult = await db.$client.query(
+        `SELECT * FROM customers 
+         WHERE ($1 IS NOT NULL AND id_number = $1) 
+         OR ($2 IS NOT NULL AND ruc = $2) 
+         OR ($3 IS NOT NULL AND email = $3) 
+         OR ($4 IS NOT NULL AND phone = $4) 
+         LIMIT 1`,
+        [cedula, ruc, email, phone]
       );
       
-      if (rucField && rucField.value) {
-        ruc = String(rucField.value).trim();
+      if (checkResult.rows.length > 0) {
+        existingCustomer = checkResult.rows[0];
+        
+        await db.$client.query(
+          `UPDATE customers SET 
+            name = $1,
+            first_name = $2,
+            last_name = $3,
+            email = COALESCE($4, email),
+            phone = COALESCE($5, phone),
+            street = COALESCE($6, street),
+            city = COALESCE($7, city),
+            province = COALESCE($8, province),
+            delivery_instructions = COALESCE($9, delivery_instructions),
+            address = COALESCE($10, address),
+            id_number = COALESCE($11, id_number),
+            ruc = COALESCE($12, ruc),
+            wooCommerceId = $13,
+            updated_at = NOW()
+          WHERE id = $14`,
+          [
+            fullName,
+            firstName,
+            lastName,
+            email,
+            phone,
+            wooCustomer.billing?.address_1 || null,
+            wooCustomer.billing?.city || null,
+            wooCustomer.billing?.state || null,
+            wooCustomer.billing?.postcode || null,
+            wooCustomer.billing?.country || null,
+            cedula,
+            ruc,
+            wooCustomer.id,
+            existingCustomer.id
+          ]
+        );
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente existente vinculado con WooCommerce #${wooCustomer.id} (método fallback)`
+        };
       }
-    }
-    
-    // También podría estar en billing.tax_id o fields específicos según la configuración de WooCommerce
-    // En Ecuador, a veces el tax_id puede ser cédula o RUC dependiendo del tipo de cliente
-    if (wooCustomer.billing && wooCustomer.billing.tax_id) {
-      const taxIdValue = String(wooCustomer.billing.tax_id).trim();
       
-      // En Ecuador, RUC tiene 13 dígitos y cédula tiene 10 dígitos
-      if (taxIdValue.length === 13) {
-        ruc = taxIdValue;
-      } else if (taxIdValue.length === 10) {
-        cedula = taxIdValue;
-      } else {
-        // Si no cumple con las longitudes esperadas, guardarlo como cédula por defecto
-        cedula = taxIdValue;
-      }
-    }
-    
-    // Verificar si el cliente ya existe usando múltiples criterios
-    // Primero buscamos por ID de WooCommerce
-    const existingByWooId = await db.$client.query(
-      `SELECT * FROM customers WHERE "wooCommerceId" = $1 LIMIT 1`,
-      [wooCustomer.id]
-    );
-    
-    // Si encontramos por ID de WooCommerce, actualizamos los datos
-    if (existingByWooId.rows.length > 0) {
-      const existingCustomer = existingByWooId.rows[0];
+      // Si no existe, creamos un nuevo cliente
+      const brand = 'sleepwear'; // Por defecto sleepwear
+      const type = ruc ? 'business' : 'person'; // Inferir tipo según si tiene RUC
       
-      await db.$client.query(
-        `UPDATE customers SET 
-          name = $1,
-          first_name = $2,
-          last_name = $3,
-          email = $4,
-          phone = $5,
-          street = $6,
-          city = $7,
-          province = $8,
-          delivery_instructions = $9,
-          address = $10,
-          id_number = $11,
-          ruc = $12,
-          updated_at = NOW()
-        WHERE id = $13`,
+      const newCustomerResult = await db.$client.query(
+        `INSERT INTO customers (
+          name, first_name, last_name, email, phone, 
+          street, city, province, delivery_instructions, address,
+          id_number, ruc, source, brand, type, "wooCommerceId",
+          created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()) 
+        RETURNING id`,
         [
           fullName,
           firstName,
@@ -603,145 +707,25 @@ export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ su
           wooCustomer.billing?.country || null,
           cedula,
           ruc,
-          existingCustomer.id
+          'woocommerce',
+          brand,
+          type,
+          wooCustomer.id
         ]
       );
       
-      return {
-        success: true,
-        customerId: existingCustomer.id,
-        message: `Cliente #${wooCustomer.id} actualizado correctamente`
+      return { 
+        success: true, 
+        customerId: newCustomerResult.rows[0].id,
+        message: `Cliente #${wooCustomer.id} creado correctamente (método fallback)`
       };
     }
     
-    // Si no encontramos por ID de WooCommerce, verificamos por cédula, RUC, email y teléfono
-    let existingCustomer = null;
-    
-    // 1. Primero buscar por cédula (si está disponible)
-    if (cedula) {
-      const result = await db.$client.query(
-        `SELECT * FROM customers WHERE id_number = $1 OR tax_id = $1 LIMIT 1`,
-        [cedula]
-      );
-      
-      if (result.rows.length > 0) {
-        existingCustomer = result.rows[0];
-      }
-    }
-    
-    // 2. Buscar por RUC (si está disponible)
-    if (!existingCustomer && ruc) {
-      const result = await db.$client.query(
-        `SELECT * FROM customers WHERE ruc = $1 LIMIT 1`,
-        [ruc]
-      );
-      
-      if (result.rows.length > 0) {
-        existingCustomer = result.rows[0];
-      }
-    }
-    
-    // 3. Si no encontramos por documentos, buscar por email (si está disponible)
-    if (!existingCustomer && email) {
-      const result = await db.$client.query(
-        `SELECT * FROM customers WHERE email = $1 LIMIT 1`,
-        [email]
-      );
-      
-      if (result.rows.length > 0) {
-        existingCustomer = result.rows[0];
-      }
-    }
-    
-    // 4. Si aún no encontramos, buscar por teléfono (si está disponible)
-    if (!existingCustomer && phone) {
-      const result = await db.$client.query(
-        `SELECT * FROM customers WHERE phone = $1 LIMIT 1`,
-        [phone]
-      );
-      
-      if (result.rows.length > 0) {
-        existingCustomer = result.rows[0];
-      }
-    }
-    
-    // Si encontramos un cliente existente por cualquiera de los criterios, actualizamos y vinculamos
-    if (existingCustomer) {
-      await db.$client.query(
-        `UPDATE customers SET 
-          name = $1,
-          first_name = $2,
-          last_name = $3,
-          email = COALESCE($4, email),
-          phone = COALESCE($5, phone),
-          street = COALESCE($6, street),
-          city = COALESCE($7, city),
-          province = COALESCE($8, province),
-          delivery_instructions = COALESCE($9, delivery_instructions),
-          address = COALESCE($10, address),
-          id_number = COALESCE($11, id_number),
-          ruc = COALESCE($12, ruc),
-          wooCommerceId = $13,
-          updated_at = NOW()
-        WHERE id = $14`,
-        [
-          fullName,
-          firstName,
-          lastName,
-          email,
-          phone,
-          wooCustomer.billing?.address_1 || null,
-          wooCustomer.billing?.city || null,
-          wooCustomer.billing?.state || null,
-          wooCustomer.billing?.postcode || null,
-          wooCustomer.billing?.country || null,
-          cedula,
-          ruc,
-          wooCustomer.id,
-          existingCustomer.id
-        ]
-      );
-      
-      return {
-        success: true,
-        customerId: existingCustomer.id,
-        message: `Cliente existente vinculado con WooCommerce #${wooCustomer.id}`
-      };
-    }
-    
-    // Si no existe, creamos un nuevo cliente
-    const brand = wooCustomer.role === 'bride' ? 'bride' : 'sleepwear';
-    
-    const newCustomerResult = await db.$client.query(
-      `INSERT INTO customers (
-        name, first_name, last_name, email, phone, 
-        street, city, province, delivery_instructions, address,
-        id_number, ruc, source, brand, "wooCommerceId"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
-      RETURNING id`,
-      [
-        fullName,
-        firstName,
-        lastName,
-        email,
-        phone,
-        wooCustomer.billing?.address_1 || null,
-        wooCustomer.billing?.city || null,
-        wooCustomer.billing?.state || null,
-        wooCustomer.billing?.postcode || null,
-        wooCustomer.billing?.country || null,
-        cedula,
-        ruc,
-        'woocommerce',
-        brand,
-        wooCustomer.id
-      ]
-    );
-    
-    return { 
-      success: true, 
-      customerId: newCustomerResult.rows[0].id,
-      message: `Cliente #${wooCustomer.id} creado correctamente`
+    // Si la sincronización fue exitosa, devolver el resultado
+    return {
+      success: true,
+      customerId: syncResult.customerId,
+      message: syncResult.message
     };
     
   } catch (error) {

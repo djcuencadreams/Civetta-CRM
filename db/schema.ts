@@ -173,7 +173,7 @@ export const customers = pgTable("customers", {
   totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0"), // Valor histórico comprado
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
   lastPurchase: timestamp("last_purchase"), // Fecha de última compra
-  wooCommerceId: integer("woocommerce_id"), // ID del cliente en WooCommerce para sincronización
+  wooCommerceId: integer("wooCommerceId"), // ID del cliente en WooCommerce para sincronización
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -233,7 +233,7 @@ export const productCategories = pgTable("product_categories", {
   description: text("description"),
   slug: text("slug").notNull().unique(),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  wooCommerceCategoryId: integer("woocommerce_category_id"), // ID de la categoría en WooCommerce
+  wooCommerceCategoryId: integer("wooCommerceCategoryId"), // ID de la categoría en WooCommerce
   parentCategoryId: integer("parent_category_id"), // Se establecerá la relación en las relaciones
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -257,9 +257,9 @@ export const products = pgTable("products", {
   priceDiscount: decimal("price_discount", { precision: 10, scale: 2 }), // Precio de oferta
   stock: integer("stock").default(0),
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  wooCommerceId: integer("woocommerce_id"), // ID del producto en WooCommerce para sincronización
-  wooCommerceParentId: integer("woocommerce_parent_id"), // ID del producto padre en WooCommerce (para variaciones)
-  wooCommerceUrl: text("woocommerce_url"), // URL del producto en WooCommerce
+  wooCommerceId: integer("wooCommerceId"), // ID del producto en WooCommerce para sincronización
+  wooCommerceParentId: integer("wooCommerceParentId"), // ID del producto padre en WooCommerce (para variaciones)
+  wooCommerceUrl: text("wooCommerceUrl"), // URL del producto en WooCommerce
   active: boolean("active").default(true),
   status: varchar("status", { length: 20 }).default(productStatusEnum.ACTIVE), // Estado del producto (Activo, Borrador, Descontinuado)
   productType: varchar("product_type", { length: 50 }).default('simple'), // Tipo de producto (simple, variable, variation)
@@ -290,7 +290,7 @@ export const orders = pgTable("orders", {
   paymentDetails: jsonb("payment_details").default({}), // Detalles de pago (números de transacción, etc)
   paymentDate: timestamp("payment_date"), // Fecha de pago
   source: varchar("source", { length: 50 }).default(sourceEnum.WEBSITE),
-  wooCommerceId: integer("woocommerce_id"), // ID del pedido en WooCommerce para sincronización
+  wooCommerceId: integer("wooCommerceId"), // ID del pedido en WooCommerce para sincronización
   trackingNumber: text("tracking_number"), // Número de seguimiento de envío
   shippingMethod: varchar("shipping_method", { length: 50 }), // Método de envío seleccionado
   brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),

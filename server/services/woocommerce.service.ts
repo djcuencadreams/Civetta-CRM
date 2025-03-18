@@ -723,6 +723,335 @@ export async function syncCustomerToWoo(customerId: number, createIfNotExists: b
 }
 
 /**
+ * Sincroniza un cliente desde WooCommerce al CRM con detección avanzada de duplicados
+ * Verifica múltiples campos de identificación: cédula, RUC, email y teléfono
+ * 
+ * @param wooCustomerId ID del cliente en WooCommerce
+ * @returns Resultado de la sincronización con información del cliente en el CRM
+ */
+export async function syncCustomerFromWoo(wooCustomerId: number): Promise<{
+  success: boolean;
+  customerId?: number;
+  message: string;
+  isNew?: boolean;
+  matchedBy?: string;
+}> {
+  try {
+    // Verificar que tengamos configuración de WooCommerce
+    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+      return {
+        success: false,
+        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+      };
+    }
+
+    // Consultar datos del cliente en WooCommerce
+    const wooCustomerResponse = await wooCommerceRequest('GET', `/customers/${wooCustomerId}`);
+    
+    if (!wooCustomerResponse || !wooCustomerResponse.id) {
+      return {
+        success: false,
+        message: `No se encontró el cliente con ID ${wooCustomerId} en WooCommerce`,
+      };
+    }
+
+    const wooCustomer = wooCustomerResponse;
+    
+    // Extraer información relevante del cliente
+    const email = wooCustomer.email || null;
+    const firstName = wooCustomer.first_name || '';
+    const lastName = wooCustomer.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim() || wooCustomer.username || 'Cliente sin nombre';
+    const phone = wooCustomer.billing?.phone || null;
+    
+    // Verificar cédula/DNI y RUC del cliente desde meta_data
+    let cedula: string | null = null;
+    let ruc: string | null = null;
+    
+    // Buscar documentos de identidad en meta_data
+    if (wooCustomer.meta_data && Array.isArray(wooCustomer.meta_data)) {
+      // Buscar campo de cédula (varios posibles nombres)
+      const cedulaField = wooCustomer.meta_data.find((meta: any) => 
+        meta.key === 'cedula' || 
+        meta.key === 'dni' || 
+        meta.key === 'identification' ||
+        meta.key === 'tax_id' ||
+        meta.key === 'documento_identidad'
+      );
+      
+      if (cedulaField && cedulaField.value) {
+        cedula = String(cedulaField.value).trim();
+      }
+      
+      // Buscar campo de RUC (varios posibles nombres)
+      const rucField = wooCustomer.meta_data.find((meta: any) => 
+        meta.key === 'ruc' || 
+        meta.key === 'nit' || 
+        meta.key === 'registro_contribuyente' ||
+        meta.key === 'tax_identification' ||
+        meta.key === 'business_id'
+      );
+      
+      if (rucField && rucField.value) {
+        ruc = String(rucField.value).trim();
+      }
+    }
+    
+    // También podría estar en billing.tax_id o fields específicos según la configuración
+    if (wooCustomer.billing && wooCustomer.billing.tax_id) {
+      const taxIdValue = String(wooCustomer.billing.tax_id).trim();
+      
+      // En Ecuador, RUC tiene 13 dígitos y cédula tiene 10 dígitos
+      if (taxIdValue.length === 13) {
+        ruc = taxIdValue;
+      } else if (taxIdValue.length === 10) {
+        cedula = taxIdValue;
+      } else {
+        // Si no cumple con las longitudes esperadas, guardarlo como cédula por defecto
+        cedula = taxIdValue;
+      }
+    }
+
+    // Verificar si el cliente ya existe en el CRM usando múltiples criterios
+    
+    // 1. Buscar por ID de WooCommerce (match exacto)
+    let existingCustomer = await db
+      .select()
+      .from(schema.customers)
+      .where(eq(schema.customers.wooCommerceId, wooCustomerId))
+      .limit(1)
+      .then(rows => rows[0] || null);
+    
+    if (existingCustomer) {
+      // Actualizar los datos del cliente con la información más reciente de WooCommerce
+      await db.update(schema.customers)
+        .set({
+          name: fullName,
+          firstName: firstName,
+          lastName: lastName,
+          email: email || existingCustomer.email,
+          phone: phone || existingCustomer.phone,
+          street: wooCustomer.billing?.address_1 || existingCustomer.street,
+          city: wooCustomer.billing?.city || existingCustomer.city,
+          province: wooCustomer.billing?.state || existingCustomer.province,
+          deliveryInstructions: wooCustomer.billing?.postcode || existingCustomer.deliveryInstructions,
+          address: wooCustomer.billing?.country || existingCustomer.address,
+          idNumber: cedula || existingCustomer.idNumber,
+          ruc: ruc || existingCustomer.ruc,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.customers.id, existingCustomer.id));
+      
+      return {
+        success: true,
+        customerId: existingCustomer.id,
+        message: `Cliente de WooCommerce #${wooCustomerId} actualizado en el CRM (ID: ${existingCustomer.id})`,
+        isNew: false,
+        matchedBy: 'wooCommerceId'
+      };
+    }
+    
+    // 2. Buscar por cédula (si está disponible)
+    if (cedula) {
+      existingCustomer = await db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.idNumber, cedula))
+        .limit(1)
+        .then(rows => rows[0] || null);
+      
+      if (existingCustomer) {
+        // Actualizar los datos y vincular con WooCommerce
+        await db.update(schema.customers)
+          .set({
+            name: fullName,
+            firstName: firstName,
+            lastName: lastName,
+            email: email || existingCustomer.email,
+            phone: phone || existingCustomer.phone,
+            street: wooCustomer.billing?.address_1 || existingCustomer.street,
+            city: wooCustomer.billing?.city || existingCustomer.city,
+            province: wooCustomer.billing?.state || existingCustomer.province,
+            deliveryInstructions: wooCustomer.billing?.postcode || existingCustomer.deliveryInstructions,
+            address: wooCustomer.billing?.country || existingCustomer.address,
+            wooCommerceId: wooCustomerId, // Actualizamos el ID de WooCommerce
+            updatedAt: new Date()
+          })
+          .where(eq(schema.customers.id, existingCustomer.id));
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente existente en CRM vinculado a WooCommerce por cédula (CRM ID: ${existingCustomer.id}, Woo ID: ${wooCustomerId})`,
+          isNew: false,
+          matchedBy: 'cedula'
+        };
+      }
+    }
+    
+    // 3. Buscar por RUC (si está disponible)
+    if (ruc) {
+      existingCustomer = await db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.ruc, ruc))
+        .limit(1)
+        .then(rows => rows[0] || null);
+      
+      if (existingCustomer) {
+        // Actualizar los datos y vincular con WooCommerce
+        await db.update(schema.customers)
+          .set({
+            name: fullName,
+            firstName: firstName,
+            lastName: lastName,
+            email: email || existingCustomer.email,
+            phone: phone || existingCustomer.phone,
+            street: wooCustomer.billing?.address_1 || existingCustomer.street,
+            city: wooCustomer.billing?.city || existingCustomer.city,
+            province: wooCustomer.billing?.state || existingCustomer.province,
+            deliveryInstructions: wooCustomer.billing?.postcode || existingCustomer.deliveryInstructions,
+            address: wooCustomer.billing?.country || existingCustomer.address,
+            wooCommerceId: wooCustomerId, // Actualizamos el ID de WooCommerce
+            updatedAt: new Date()
+          })
+          .where(eq(schema.customers.id, existingCustomer.id));
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente existente en CRM vinculado a WooCommerce por RUC (CRM ID: ${existingCustomer.id}, Woo ID: ${wooCustomerId})`,
+          isNew: false,
+          matchedBy: 'ruc'
+        };
+      }
+    }
+    
+    // 4. Buscar por email (si está disponible)
+    if (email) {
+      existingCustomer = await db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.email, email))
+        .limit(1)
+        .then(rows => rows[0] || null);
+      
+      if (existingCustomer) {
+        // Actualizar los datos y vincular con WooCommerce
+        await db.update(schema.customers)
+          .set({
+            name: fullName,
+            firstName: firstName,
+            lastName: lastName,
+            phone: phone || existingCustomer.phone,
+            street: wooCustomer.billing?.address_1 || existingCustomer.street,
+            city: wooCustomer.billing?.city || existingCustomer.city,
+            province: wooCustomer.billing?.state || existingCustomer.province,
+            deliveryInstructions: wooCustomer.billing?.postcode || existingCustomer.deliveryInstructions,
+            address: wooCustomer.billing?.country || existingCustomer.address,
+            idNumber: cedula || existingCustomer.idNumber,
+            ruc: ruc || existingCustomer.ruc,
+            wooCommerceId: wooCustomerId, // Actualizamos el ID de WooCommerce
+            updatedAt: new Date()
+          })
+          .where(eq(schema.customers.id, existingCustomer.id));
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente existente en CRM vinculado a WooCommerce por email (CRM ID: ${existingCustomer.id}, Woo ID: ${wooCustomerId})`,
+          isNew: false,
+          matchedBy: 'email'
+        };
+      }
+    }
+    
+    // 5. Buscar por teléfono (si está disponible)
+    if (phone) {
+      existingCustomer = await db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.phone, phone))
+        .limit(1)
+        .then(rows => rows[0] || null);
+      
+      if (existingCustomer) {
+        // Actualizar los datos y vincular con WooCommerce
+        await db.update(schema.customers)
+          .set({
+            name: fullName,
+            firstName: firstName,
+            lastName: lastName,
+            email: email || existingCustomer.email,
+            street: wooCustomer.billing?.address_1 || existingCustomer.street,
+            city: wooCustomer.billing?.city || existingCustomer.city,
+            province: wooCustomer.billing?.state || existingCustomer.province,
+            deliveryInstructions: wooCustomer.billing?.postcode || existingCustomer.deliveryInstructions,
+            address: wooCustomer.billing?.country || existingCustomer.address,
+            idNumber: cedula || existingCustomer.idNumber,
+            ruc: ruc || existingCustomer.ruc,
+            wooCommerceId: wooCustomerId, // Actualizamos el ID de WooCommerce
+            updatedAt: new Date()
+          })
+          .where(eq(schema.customers.id, existingCustomer.id));
+        
+        return {
+          success: true,
+          customerId: existingCustomer.id,
+          message: `Cliente existente en CRM vinculado a WooCommerce por teléfono (CRM ID: ${existingCustomer.id}, Woo ID: ${wooCustomerId})`,
+          isNew: false,
+          matchedBy: 'phone'
+        };
+      }
+    }
+    
+    // 6. Si no encontramos al cliente por ningún método, creamos uno nuevo
+    const brand = 'sleepwear'; // Por defecto sleepwear, podría variar según categorías/tags WooCommerce
+    const type = ruc ? 'business' : 'person'; // Inferir tipo según si tiene RUC
+    
+    const [newCustomer] = await db.insert(schema.customers)
+      .values({
+        name: fullName,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone,
+        street: wooCustomer.billing?.address_1 || null,
+        city: wooCustomer.billing?.city || null,
+        province: wooCustomer.billing?.state || null,
+        deliveryInstructions: wooCustomer.billing?.postcode || null,
+        address: wooCustomer.billing?.country || null,
+        idNumber: cedula,
+        ruc: ruc,
+        source: 'woocommerce',
+        brand: brand,
+        type: type,
+        wooCommerceId: wooCustomerId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    // Notificar la creación del cliente
+    appEvents.emit(EventTypes.CUSTOMER_CREATED, newCustomer);
+    
+    return {
+      success: true,
+      customerId: newCustomer.id,
+      message: `Nuevo cliente creado en CRM desde WooCommerce (CRM ID: ${newCustomer.id}, Woo ID: ${wooCustomerId})`,
+      isNew: true
+    };
+    
+  } catch (error) {
+    console.error('Error sincronizando cliente desde WooCommerce:', error);
+    return {
+      success: false,
+      message: `Error sincronizando cliente desde WooCommerce: ${(error as Error).message}`
+    };
+  }
+}
+
+/**
  * Crea un pedido en WooCommerce a partir de un pedido del CRM
  * En MODO SOLO LECTURA: Simula la creación pero no ejecuta cambios en WooCommerce
  * 
@@ -1052,6 +1381,188 @@ export class WooCommerceService implements Service {
       }
     });
     
+    // Ruta para sincronizar un cliente desde WooCommerce
+    app.post("/api/woocommerce/sync-customer-from-woo/:id", async (req: Request, res: Response) => {
+      try {
+        const wooCustomerId = parseInt(req.params.id);
+        
+        if (isNaN(wooCustomerId)) {
+          return res.status(400).json({ error: "ID de cliente de WooCommerce inválido" });
+        }
+        
+        const result = await syncCustomerFromWoo(wooCustomerId);
+        
+        if (result.success) {
+          return res.json(result);
+        } else {
+          return res.status(400).json(result);
+        }
+      } catch (error) {
+        console.error("Error en sincronización de cliente desde WooCommerce:", error);
+        return res.status(500).json({ 
+          error: "Error interno del servidor", 
+          message: (error as Error).message 
+        });
+      }
+    });
+
+    // Ruta para verificar si un cliente existe en CRM y WooCommerce por diferentes criterios
+    app.get("/api/woocommerce/verify-customer", async (req: Request, res: Response) => {
+      try {
+        // Extraer parámetros de búsqueda
+        const { email, phone, idNumber, ruc } = req.query;
+        
+        if (!email && !phone && !idNumber && !ruc) {
+          return res.status(400).json({ 
+            error: "Se requiere al menos un criterio de búsqueda (email, phone, idNumber o ruc)" 
+          });
+        }
+        
+        // Verificar cliente en el CRM
+        let crmCustomer = null;
+        const criterios = [];
+        const valores = [];
+        
+        if (email) {
+          criterios.push('email = $' + (valores.length + 1));
+          valores.push(email);
+        }
+        
+        if (phone) {
+          criterios.push('phone = $' + (valores.length + 1));
+          valores.push(phone);
+        }
+        
+        if (idNumber) {
+          criterios.push('id_number = $' + (valores.length + 1));
+          valores.push(idNumber);
+        }
+        
+        if (ruc) {
+          criterios.push('ruc = $' + (valores.length + 1));
+          valores.push(ruc);
+        }
+        
+        const whereClause = criterios.length > 0 ? 'WHERE ' + criterios.join(' OR ') : '';
+        
+        const customerQuery = `
+          SELECT id, name, first_name, last_name, email, phone, id_number, ruc, "wooCommerceId"
+          FROM customers
+          ${whereClause}
+          LIMIT 1
+        `;
+        
+        const crmResult = await db.$client.query(customerQuery, valores);
+        
+        if (crmResult.rows.length > 0) {
+          crmCustomer = crmResult.rows[0];
+        }
+        
+        // Si el cliente tiene wooCommerceId, intentar verificar en WooCommerce
+        let wooCustomer = null;
+        let matchWithWoo = false;
+        
+        if (crmCustomer && crmCustomer.wooCommerceId) {
+          try {
+            const wooResponse = await wooCommerceRequest('GET', `/customers/${crmCustomer.wooCommerceId}`);
+            
+            if (wooResponse && wooResponse.id) {
+              wooCustomer = wooResponse;
+              matchWithWoo = true;
+            }
+          } catch (error) {
+            console.error(`Error verificando cliente en WooCommerce:`, error);
+          }
+        }
+        
+        // Si no encontramos por ID directo, buscar por criterios en WooCommerce
+        if (!matchWithWoo) {
+          let wooSearchParams = new URLSearchParams();
+          
+          if (email) {
+            wooSearchParams.append('email', email.toString());
+          }
+          
+          if (wooSearchParams.toString()) {
+            try {
+              const wooResponse = await wooCommerceRequest('GET', `/customers?${wooSearchParams.toString()}`);
+              
+              if (wooResponse && Array.isArray(wooResponse) && wooResponse.length > 0) {
+                // Si encontramos por email, verificamos si coincide algún otro criterio
+                wooCustomer = wooResponse[0];
+                
+                // Verificar coincidencia de teléfono si existe
+                if (phone && wooCustomer.billing && wooCustomer.billing.phone === phone) {
+                  matchWithWoo = true;
+                }
+                
+                // Verificar coincidencia de cédula o RUC si existen en meta_data
+                if (wooCustomer.meta_data && Array.isArray(wooCustomer.meta_data)) {
+                  if (idNumber) {
+                    const cedulaField = wooCustomer.meta_data.find((meta: any) => 
+                      (meta.key === 'cedula' || meta.key === 'dni' || meta.key === 'identification') && 
+                      meta.value === idNumber
+                    );
+                    
+                    if (cedulaField) {
+                      matchWithWoo = true;
+                    }
+                  }
+                  
+                  if (ruc) {
+                    const rucField = wooCustomer.meta_data.find((meta: any) => 
+                      (meta.key === 'ruc' || meta.key === 'nit') && 
+                      meta.value === ruc
+                    );
+                    
+                    if (rucField) {
+                      matchWithWoo = true;
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`Error buscando cliente en WooCommerce:`, error);
+            }
+          }
+        }
+        
+        // Preparar respuesta
+        const resultado = {
+          existsInCRM: !!crmCustomer,
+          existsInWooCommerce: !!wooCustomer,
+          matchBetweenSystems: matchWithWoo,
+          crmCustomer: crmCustomer ? {
+            id: crmCustomer.id,
+            name: crmCustomer.name,
+            email: crmCustomer.email,
+            phone: crmCustomer.phone,
+            idNumber: crmCustomer.id_number,
+            ruc: crmCustomer.ruc,
+            wooCommerceId: crmCustomer.wooCommerceId
+          } : null,
+          wooCommerceCustomer: wooCustomer ? {
+            id: wooCustomer.id,
+            username: wooCustomer.username,
+            name: `${wooCustomer.first_name || ''} ${wooCustomer.last_name || ''}`.trim(),
+            email: wooCustomer.email,
+            phone: wooCustomer.billing?.phone || null
+          } : null,
+          searchCriteria: {
+            email: email || null,
+            phone: phone || null,
+            idNumber: idNumber || null,
+            ruc: ruc || null
+          }
+        };
+        
+        res.json(resultado);
+      } catch (error) {
+        console.error("Error verificando cliente:", error);
+        res.status(500).json({ error: `Error verificando cliente: ${(error as Error).message}` });
+      }
+    });
+
     // Ruta para verificar la conexión con WooCommerce
     app.get("/api/woocommerce/check-connection", async (_req: Request, res: Response) => {
       try {

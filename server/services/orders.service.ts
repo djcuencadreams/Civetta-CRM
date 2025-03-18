@@ -1,5 +1,5 @@
 import { Express, Request, Response } from "express";
-import { dbNew } from "@db";
+import { db } from "@db";
 import { orders, orderItems, customers, products } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -100,7 +100,7 @@ export class OrdersService implements Service {
    */
   async getAllOrders(_req: Request, res: Response): Promise<void> {
     try {
-      const result = await dbNew.query.orders.findMany({
+      const result = await db.query.orders.findMany({
         orderBy: [desc(orders.createdAt)],
         with: {
           customer: true,
@@ -123,7 +123,7 @@ export class OrdersService implements Service {
       const { id } = req.params;
       
       // Usar SQL parametrizado directo para proteger contra SQL injection
-      const orderData = await dbNew.execute(sql`
+      const orderData = await db.execute(sql`
         SELECT o.* 
         FROM orders o
         WHERE o.id = ${id}
@@ -135,13 +135,13 @@ export class OrdersService implements Service {
       }
       
       // Obtener items del pedido
-      const items = await dbNew.execute(sql`
+      const items = await db.execute(sql`
         SELECT * FROM order_items
         WHERE order_id = ${id}
       `);
       
       // Obtener cliente
-      const customerData = await dbNew.execute(sql`
+      const customerData = await db.execute(sql`
         SELECT c.* 
         FROM customers c
         JOIN orders o ON c.id = o.customer_id
@@ -170,7 +170,7 @@ export class OrdersService implements Service {
       const { customerId, items, ...orderDetails } = orderData;
 
       // Check if customer exists
-      const customer = await dbNew.query.customers.findFirst({
+      const customer = await db.query.customers.findFirst({
         where: eq(customers.id, customerId)
       });
 
@@ -191,7 +191,7 @@ export class OrdersService implements Service {
           if (item.productId) {
             try {
               // Verificar si el producto existe usando Drizzle query builder
-              const product = await dbNew.query.products.findFirst({
+              const product = await db.query.products.findFirst({
                 where: eq(products.id, item.productId)
               });
               
@@ -214,7 +214,7 @@ export class OrdersService implements Service {
       }
 
       // Create the order
-      const [order] = await dbNew.insert(orders).values({
+      const [order] = await db.insert(orders).values({
         customerId,
         leadId: orderDetails.leadId || null,
         orderNumber: orderDetails.orderNumber || this.generateOrderNumber(),
@@ -242,11 +242,11 @@ export class OrdersService implements Service {
           createdAt: new Date()
         }));
 
-        await dbNew.insert(orderItems).values(orderItemsData);
+        await db.insert(orderItems).values(orderItemsData);
       }
 
       // Get the complete order with items
-      const completeOrder = await dbNew.query.orders.findFirst({
+      const completeOrder = await db.query.orders.findFirst({
         where: eq(orders.id, order.id),
         with: {
           customer: true,
@@ -275,7 +275,7 @@ export class OrdersService implements Service {
       const { customerId, items, ...orderDetails } = orderData;
 
       // Verificar si el pedido existe
-      const existingOrderResult = await dbNew.execute(sql`
+      const existingOrderResult = await db.execute(sql`
         SELECT * FROM orders WHERE id = ${id}
       `);
 
@@ -287,7 +287,7 @@ export class OrdersService implements Service {
       const existingOrder = existingOrderResult[0];
 
       // Verificar si el cliente existe
-      const customerResult = await dbNew.execute(sql`
+      const customerResult = await db.execute(sql`
         SELECT * FROM customers WHERE id = ${customerId}
       `);
 
@@ -310,7 +310,7 @@ export class OrdersService implements Service {
           if (item.productId) {
             try {
               // Verificar si el producto existe usando Drizzle query builder
-              const product = await dbNew.query.products.findFirst({
+              const product = await db.query.products.findFirst({
                 where: eq(products.id, item.productId)
               });
               
@@ -333,7 +333,7 @@ export class OrdersService implements Service {
       }
 
       // Actualizar el pedido con SQL parametrizado
-      await dbNew.execute(sql`
+      await db.execute(sql`
         UPDATE orders
         SET
           customer_id = ${customerId},
@@ -351,7 +351,7 @@ export class OrdersService implements Service {
       `);
 
       // Obtener el pedido actualizado
-      const updatedOrderResult = await dbNew.execute(sql`
+      const updatedOrderResult = await db.execute(sql`
         SELECT * FROM orders WHERE id = ${id}
       `);
       
@@ -360,13 +360,13 @@ export class OrdersService implements Service {
       // Manejar actualización de items si se proporcionan
       if (items && items.length > 0) {
         // Eliminar items existentes
-        await dbNew.execute(sql`
+        await db.execute(sql`
           DELETE FROM order_items WHERE order_id = ${id}
         `);
 
         // Crear nuevos items
         for (const item of items) {
-          await dbNew.execute(sql`
+          await db.execute(sql`
             INSERT INTO order_items (
               order_id, 
               product_id, 
@@ -392,12 +392,12 @@ export class OrdersService implements Service {
       }
 
       // Obtener los items del pedido actualizado
-      const updatedItemsResult = await dbNew.execute(sql`
+      const updatedItemsResult = await db.execute(sql`
         SELECT * FROM order_items WHERE order_id = ${id}
       `);
       
       // Obtener datos del cliente
-      const customerData = await dbNew.execute(sql`
+      const customerData = await db.execute(sql`
         SELECT * FROM customers WHERE id = ${customerId}
       `);
 
@@ -427,7 +427,7 @@ export class OrdersService implements Service {
       const orderId = parseInt(id);
 
       // Check if order exists
-      const existingOrder = await dbNew.query.orders.findFirst({
+      const existingOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -437,10 +437,10 @@ export class OrdersService implements Service {
       }
 
       // Delete order items first (maintain referential integrity)
-      await dbNew.delete(orderItems).where(eq(orderItems.orderId, orderId));
+      await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
       
       // Now delete the order
-      await dbNew.delete(orders).where(eq(orders.id, orderId));
+      await db.delete(orders).where(eq(orders.id, orderId));
 
       // Emit order deleted event
       appEvents.emit(EventTypes.ORDER_DELETED, existingOrder);
@@ -462,7 +462,7 @@ export class OrdersService implements Service {
       const { status, reason } = req.body;
 
       // Check if order exists
-      const existingOrder = await dbNew.query.orders.findFirst({
+      const existingOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -472,7 +472,7 @@ export class OrdersService implements Service {
       }
 
       // Update order status
-      const [updatedOrder] = await dbNew.update(orders)
+      const [updatedOrder] = await db.update(orders)
         .set({
           status,
           notes: reason 
@@ -508,7 +508,7 @@ export class OrdersService implements Service {
       const { paymentStatus, paymentMethod, reason } = req.body;
 
       // Check if order exists
-      const existingOrder = await dbNew.query.orders.findFirst({
+      const existingOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId)
       });
 
@@ -518,7 +518,7 @@ export class OrdersService implements Service {
       }
 
       // Update order payment status
-      const [updatedOrder] = await dbNew.update(orders)
+      const [updatedOrder] = await db.update(orders)
         .set({
           paymentStatus,
           paymentMethod: paymentMethod || existingOrder.paymentMethod,
