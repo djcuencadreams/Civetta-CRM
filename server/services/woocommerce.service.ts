@@ -483,6 +483,246 @@ export async function syncProductToWoo(productId: number, createIfNotExists: boo
 }
 
 /**
+ * Sincroniza un cliente del CRM a WooCommerce
+ * Si el cliente ya tiene un ID de WooCommerce, verifica o actualiza sus datos
+ * Si el cliente no tiene ID de WooCommerce, lo crea en WooCommerce
+ * 
+ * @param customerId ID del cliente en el CRM
+ * @param createIfNotExists Si es true y el cliente no existe en WooCommerce, lo crea
+ * @returns Resultado de la operación con el ID en WooCommerce si tiene éxito
+ */
+export async function syncCustomerToWoo(customerId: number, createIfNotExists: boolean = false): Promise<{ 
+  success: boolean;
+  wooCommerceId?: number;
+  message: string;
+  readOnly?: boolean;
+}> {
+  try {
+    // Verificar que tengamos configuración de WooCommerce
+    if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
+      return {
+        success: false,
+        message: 'Falta configuración de WooCommerce. Configure WOOCOMMERCE_URL, WOOCOMMERCE_CONSUMER_KEY y WOOCOMMERCE_CONSUMER_SECRET.',
+        readOnly: true
+      };
+    }
+
+    // Obtener datos del cliente desde nuestro CRM
+    let customer;
+    
+    // Obtener el cliente
+    if (customerId) {
+      customer = await db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.id, customerId))
+        .limit(1)
+        .then(rows => rows[0]);
+    }
+
+    if (!customer) {
+      return {
+        success: false,
+        message: `No se encontró el cliente con ID ${customerId}`,
+        readOnly: true
+      };
+    }
+
+    // Verificar si el cliente ya existe en WooCommerce (por wooCommerceId)
+    if (!customer.wooCommerceId) {
+      // Si no tiene ID de WooCommerce y no se solicita crear, retornar error
+      if (!createIfNotExists) {
+        return {
+          success: false,
+          message: `El cliente no tiene un ID de WooCommerce asociado. Active la opción 'createIfNotExists' para crearlo automáticamente.`,
+          readOnly: true
+        };
+      }
+      
+      // Si se solicita crear el cliente, intentar crearlo en WooCommerce
+      console.log(`Intentando crear cliente '${customer.name}' en WooCommerce...`);
+      
+      try {
+        // Preparar datos para crear en WooCommerce
+        const wooData: Record<string, any> = {
+          email: customer.email || '',
+          first_name: customer.firstName || '',
+          last_name: customer.lastName || '',
+          username: customer.email || `cliente_${customer.id}`,
+          billing: {
+            first_name: customer.firstName || '',
+            last_name: customer.lastName || '',
+            company: '',
+            address_1: customer.street || '',
+            address_2: '',
+            city: customer.city || '',
+            state: customer.province || '',
+            postcode: customer.deliveryInstructions || '',
+            country: customer.address || 'EC',
+            email: customer.email || '',
+            phone: customer.phone || ''
+          },
+          shipping: {
+            first_name: customer.firstName || '',
+            last_name: customer.lastName || '',
+            company: '',
+            address_1: customer.street || '',
+            address_2: '',
+            city: customer.city || '',
+            state: customer.province || '',
+            postcode: customer.deliveryInstructions || '',
+            country: customer.address || 'EC'
+          },
+          meta_data: []
+        };
+
+        // Añadir cédula como meta_data si está disponible
+        if (customer.idNumber) {
+          wooData.meta_data.push({
+            key: 'cedula',
+            value: customer.idNumber
+          });
+        }
+
+        // Añadir RUC como meta_data si está disponible
+        if (customer.ruc) {
+          wooData.meta_data.push({
+            key: 'ruc',
+            value: customer.ruc
+          });
+        }
+
+        // MODO SOLO LECTURA: En lugar de crear realmente, simulamos y registramos lo que se habría hecho
+        console.log(`MODO SOLO LECTURA: Simulando creación de cliente en WooCommerce`);
+        console.log('Datos que se habrían enviado:', JSON.stringify(wooData, null, 2));
+        
+        // Generar un ID simulado para ilustrar el proceso
+        const simulatedId = Math.floor(1000000 + Math.random() * 9000000);
+        
+        // Actualizar el cliente en nuestra base de datos con el ID simulado
+        await db.update(schema.customers)
+          .set({
+            wooCommerceId: simulatedId, // ID simulado
+            updatedAt: new Date()
+          })
+          .where(eq(schema.customers.id, customerId));
+        
+        return {
+          success: true,
+          wooCommerceId: simulatedId,
+          message: `MODO SOLO LECTURA: Cliente ${customer.name} simulado en WooCommerce con ID ${simulatedId}`,
+          readOnly: true
+        };
+      } catch (error) {
+        console.error(`Error creando cliente en WooCommerce:`, error);
+        return {
+          success: false,
+          message: `Error creando cliente en WooCommerce: ${(error as Error).message}`,
+          readOnly: true
+        };
+      }
+    }
+
+    // Si ya existe, actualizar el cliente en WooCommerce
+    // Preparar datos para actualizar en WooCommerce
+    const wooData: Record<string, any> = {
+      email: customer.email || '',
+      first_name: customer.firstName || '',
+      last_name: customer.lastName || '',
+      billing: {
+        first_name: customer.firstName || '',
+        last_name: customer.lastName || '',
+        company: '',
+        address_1: customer.street || '',
+        address_2: '',
+        city: customer.city || '',
+        state: customer.province || '',
+        postcode: customer.deliveryInstructions || '',
+        country: customer.address || 'EC',
+        email: customer.email || '',
+        phone: customer.phone || ''
+      },
+      shipping: {
+        first_name: customer.firstName || '',
+        last_name: customer.lastName || '',
+        company: '',
+        address_1: customer.street || '',
+        address_2: '',
+        city: customer.city || '',
+        state: customer.province || '',
+        postcode: customer.deliveryInstructions || '',
+        country: customer.address || 'EC'
+      },
+      meta_data: []
+    };
+
+    // Añadir cédula como meta_data si está disponible
+    if (customer.idNumber) {
+      wooData.meta_data.push({
+        key: 'cedula',
+        value: customer.idNumber
+      });
+    }
+
+    // Añadir RUC como meta_data si está disponible
+    if (customer.ruc) {
+      wooData.meta_data.push({
+        key: 'ruc',
+        value: customer.ruc
+      });
+    }
+
+    // MODO SOLO LECTURA: En lugar de actualizar, obtener datos actuales del cliente en WooCommerce
+    try {
+      // Verificar que el cliente existe en WooCommerce (solo lectura)
+      const wooCustomer = await wooCommerceRequest(
+        'GET',
+        `/customers/${customer.wooCommerceId}`
+      );
+
+      if (wooCustomer && wooCustomer.id) {
+        // En modo de lectura, solo actualizamos el ID de WooCommerce si es necesario
+        if (customer.wooCommerceId !== wooCustomer.id) {
+          await db.update(schema.customers)
+            .set({
+              wooCommerceId: wooCustomer.id,
+              updatedAt: new Date()
+            })
+            .where(eq(schema.customers.id, customerId));
+        }
+
+        return {
+          success: true,
+          wooCommerceId: wooCustomer.id,
+          message: `MODO SOLO LECTURA: Verificado cliente ${customer.name} en WooCommerce (ID: ${wooCustomer.id})`,
+          readOnly: true
+        };
+      }
+    } catch (error) {
+      console.error(`Error verificando cliente en WooCommerce (solo lectura):`, error);
+      return {
+        success: false,
+        message: `Error verificando cliente en WooCommerce: ${(error as Error).message}`,
+        readOnly: true
+      };
+    }
+
+    return {
+      success: false,
+      message: `Respuesta inesperada de WooCommerce al actualizar el cliente ${customer.name}`,
+      readOnly: true
+    };
+  } catch (error) {
+    console.error(`Error sincronizando cliente a WooCommerce (MODO SOLO LECTURA):`, error);
+    return {
+      success: false,
+      message: `Error sincronizando cliente (MODO SOLO LECTURA): ${(error as Error).message}`,
+      readOnly: true
+    };
+  }
+}
+
+/**
  * Crea un pedido en WooCommerce a partir de un pedido del CRM
  * En MODO SOLO LECTURA: Simula la creación pero no ejecuta cambios en WooCommerce
  * 
@@ -783,6 +1023,35 @@ export class WooCommerceService implements Service {
       }
     });
     
+    // Ruta para sincronizar un cliente a WooCommerce
+    app.post("/api/woocommerce/sync-customer/:id", async (req: Request, res: Response) => {
+      try {
+        const customerId = parseInt(req.params.id);
+        
+        if (isNaN(customerId)) {
+          return res.status(400).json({ error: "ID de cliente inválido" });
+        }
+        
+        // Extraer el parámetro createIfNotExists del body o query
+        const createIfNotExists = req.body.createIfNotExists === true || 
+                                req.query.createIfNotExists === 'true';
+        
+        const result = await syncCustomerToWoo(customerId, createIfNotExists);
+        
+        if (result.success) {
+          return res.json(result);
+        } else {
+          return res.status(400).json(result);
+        }
+      } catch (error) {
+        console.error("Error en sincronización de cliente:", error);
+        return res.status(500).json({ 
+          error: "Error interno del servidor", 
+          message: (error as Error).message 
+        });
+      }
+    });
+    
     // Ruta para verificar la conexión con WooCommerce
     app.get("/api/woocommerce/check-connection", async (_req: Request, res: Response) => {
       try {
@@ -879,6 +1148,64 @@ export class WooCommerceService implements Service {
           } catch (error) {
             console.error(`Error creando producto en WooCommerce para sincronizar stock:`, error);
           }
+        }
+      }
+    });
+    
+    // Escuchar eventos de actualización de clientes para sincronizar con WooCommerce
+    appEvents.on(EventTypes.CUSTOMER_UPDATED, async (data: any) => {
+      const customer = data.customer;
+      
+      if (customer && customer.id) {
+        // Si el cliente ya tiene WooCommerce ID, lo sincronizamos
+        if (customer.wooCommerceId) {
+          console.log(`Cliente actualizado. Sincronizando con WooCommerce: ${customer.name} (ID: ${customer.id})`);
+          try {
+            const result = await syncCustomerToWoo(customer.id);
+            console.log(`Resultado de sincronización:`, result);
+          } catch (error) {
+            console.error(`Error sincronizando cliente automáticamente:`, error);
+          }
+        } 
+        // Si no tiene ID, intentamos verificar si existe por cédula/RUC o crearlo en WooCommerce
+        else {
+          console.log(`Cliente sin ID de WooCommerce actualizado. Intentando crear en WooCommerce: ${customer.name} (ID: ${customer.id})`);
+          try {
+            const result = await syncCustomerToWoo(customer.id, true); // true = createIfNotExists
+            console.log(`Resultado de creación en WooCommerce:`, result);
+          } catch (error) {
+            console.error(`Error creando cliente en WooCommerce automáticamente:`, error);
+          }
+        }
+      }
+    });
+    
+    // Escuchar eventos de creación de clientes para sincronizar con WooCommerce
+    appEvents.on(EventTypes.CUSTOMER_CREATED, async (data: any) => {
+      const customer = data;
+      
+      if (customer && customer.id) {
+        console.log(`Nuevo cliente creado. Intentando crear en WooCommerce: ${customer.name} (ID: ${customer.id})`);
+        try {
+          const result = await syncCustomerToWoo(customer.id, true); // true = createIfNotExists
+          console.log(`Resultado de creación en WooCommerce:`, result);
+        } catch (error) {
+          console.error(`Error creando cliente en WooCommerce automáticamente:`, error);
+        }
+      }
+    });
+    
+    // Escuchar eventos cuando un lead se convierte en cliente
+    appEvents.on(EventTypes.LEAD_CONVERTED, async (data: any) => {
+      const customer = data.customer;
+      
+      if (customer && customer.id) {
+        console.log(`Lead convertido a cliente. Sincronizando con WooCommerce: ${customer.name} (ID: ${customer.id})`);
+        try {
+          const result = await syncCustomerToWoo(customer.id, true); // true = createIfNotExists
+          console.log(`Resultado de sincronización de lead convertido:`, result);
+        } catch (error) {
+          console.error(`Error sincronizando cliente convertido automáticamente:`, error);
         }
       }
     });

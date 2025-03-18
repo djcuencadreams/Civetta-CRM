@@ -95,7 +95,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
     
     // Verificar si el pedido ya existe usando SQL nativo
     const existingOrderResult = await db.$client.query(
-      `SELECT * FROM orders WHERE woocommerce_id = $1 LIMIT 1`,
+      `SELECT * FROM orders WHERE "wooCommerceId" = $1 LIMIT 1`,
       [wooOrder.id]
     );
     
@@ -108,7 +108,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
           status = $1, 
           payment_status = $2, 
           updated_at = NOW() 
-        WHERE woocommerce_id = $3`,
+        WHERE "wooCommerceId" = $3`,
         [
           mapWooStatus(wooOrder.status),
           wooOrder.payment_method_title ? 'paid' : 'pending',
@@ -124,46 +124,31 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
     }
     
     // Si el pedido no existe, crearlo
-    // Buscar o crear cliente
+    // Buscar o crear cliente usando lógica avanzada de verificación
     let customerId: number | null = null;
     
-    if (wooOrder.billing && wooOrder.billing.email) {
-      // Buscar cliente existente por email usando SQL nativo
-      const existingCustomerResult = await db.$client.query(
-        `SELECT * FROM customers WHERE email = $1 LIMIT 1`,
-        [wooOrder.billing.email]
-      );
+    if (wooOrder.billing) {
+      // Crear un objeto de cliente a partir de los datos de facturación del pedido
+      const wooCustomer = {
+        id: wooOrder.customer_id || null,
+        email: wooOrder.billing.email || null,
+        first_name: wooOrder.billing.first_name || '',
+        last_name: wooOrder.billing.last_name || '',
+        billing: wooOrder.billing,
+        meta_data: wooOrder.meta_data || []
+      };
       
-      if (existingCustomerResult.rows.length > 0) {
-        customerId = existingCustomerResult.rows[0].id;
+      // Utilizar la misma lógica de procesamiento de clientes para evitar duplicados
+      const customerResult = await processWooCommerceCustomer(wooCustomer);
+      
+      if (customerResult.success && customerResult.customerId) {
+        customerId = customerResult.customerId;
+        console.log(`Cliente identificado para el pedido: ${customerResult.message}`);
       } else {
-        // Crear nuevo cliente usando SQL nativo
-        const firstName = wooOrder.billing.first_name || '';
-        const lastName = wooOrder.billing.last_name || '';
-        const fullName = `${firstName} ${lastName}`.trim();
-        const brand = determineBrandFromOrder(wooOrder);
-        
-        const newCustomerResult = await db.$client.query(
-          `INSERT INTO customers (
-            name, first_name, last_name, email, phone, 
-            street, city, province, source, brand
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-          RETURNING id`,
-          [
-            fullName,
-            firstName,
-            lastName,
-            wooOrder.billing.email,
-            wooOrder.billing.phone || null,
-            wooOrder.billing.address_1 || null,
-            wooOrder.billing.city || null,
-            wooOrder.billing.state || null,
-            'woocommerce',
-            brand
-          ]
-        );
-        
-        customerId = newCustomerResult.rows[0].id;
+        return { 
+          success: false, 
+          message: `No se pudo crear el pedido: ${customerResult.message || 'error al procesar cliente'}`
+        };
       }
     } else {
       return { 
@@ -404,7 +389,7 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
     
     // Verificar si el producto ya existe en nuestro sistema usando SQL nativo
     const existingProductQuery = await db.$client.query(
-      `SELECT * FROM products WHERE woocommerce_id = $1 LIMIT 1`,
+      `SELECT * FROM products WHERE "wooCommerceId" = $1 LIMIT 1`,
       [wooProduct.id]
     );
     
@@ -424,9 +409,9 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       const sql = `
         INSERT INTO products (
           name, sku, description, category_id, 
-          price, stock, brand, woocommerce_id,
-          woocommerce_parent_id, product_type,
-          woocommerce_url, active, images, attributes
+          price, stock, brand, "wooCommerceId",
+          "wooCommerceParentId", product_type,
+          "wooCommerceUrl", active, images, attributes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
@@ -466,14 +451,14 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
             price = $5, 
             stock = $6, 
             brand = $7,
-            woocommerce_parent_id = $8,
+            "wooCommerceParentId" = $8,
             product_type = $9,
-            woocommerce_url = $10, 
+            "wooCommerceUrl" = $10, 
             active = $11, 
             images = $12, 
             attributes = $13,
             updated_at = NOW()
-        WHERE woocommerce_id = $14
+        WHERE "wooCommerceId" = $14
         RETURNING *
       `;
       
@@ -505,6 +490,265 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
     return { 
       success: false, 
       message: `Error procesando producto: ${(error as Error).message}`
+    };
+  }
+}
+
+/**
+ * Procesa un evento de cliente creado/actualizado de WooCommerce
+ * Verifica si el cliente ya existe por cédula, email o teléfono antes de crear un duplicado
+ * 
+ * @param wooCustomer Datos del cliente de WooCommerce
+ * @returns Objeto con el resultado del procesamiento
+ */
+export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ success: boolean, customerId?: number, message?: string }> {
+  try {
+    if (!wooCustomer || !wooCustomer.id) {
+      return { success: false, message: 'Datos de cliente inválidos' };
+    }
+    
+    // Extraer información relevante del cliente
+    const email = wooCustomer.email || null;
+    const firstName = wooCustomer.first_name || '';
+    const lastName = wooCustomer.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    const phone = wooCustomer.billing?.phone || null;
+    
+    // Verificar cédula/DNI del cliente (puede estar en meta_data o en atributos específicos)
+    let cedula: string | null = null;
+    let ruc: string | null = null;
+    
+    // Buscar documentos de identidad en meta_data si existe
+    if (wooCustomer.meta_data && Array.isArray(wooCustomer.meta_data)) {
+      // Buscar campo de cédula
+      const cedulaField = wooCustomer.meta_data.find((meta: any) => 
+        meta.key === 'cedula' || 
+        meta.key === 'dni' || 
+        meta.key === 'identification' ||
+        meta.key === 'tax_id' ||
+        meta.key === 'documento_identidad'
+      );
+      
+      if (cedulaField && cedulaField.value) {
+        cedula = String(cedulaField.value).trim();
+      }
+      
+      // Buscar campo de RUC
+      const rucField = wooCustomer.meta_data.find((meta: any) => 
+        meta.key === 'ruc' || 
+        meta.key === 'nit' || 
+        meta.key === 'registro_contribuyente' ||
+        meta.key === 'tax_identification' ||
+        meta.key === 'business_id'
+      );
+      
+      if (rucField && rucField.value) {
+        ruc = String(rucField.value).trim();
+      }
+    }
+    
+    // También podría estar en billing.tax_id o fields específicos según la configuración de WooCommerce
+    // En Ecuador, a veces el tax_id puede ser cédula o RUC dependiendo del tipo de cliente
+    if (wooCustomer.billing && wooCustomer.billing.tax_id) {
+      const taxIdValue = String(wooCustomer.billing.tax_id).trim();
+      
+      // En Ecuador, RUC tiene 13 dígitos y cédula tiene 10 dígitos
+      if (taxIdValue.length === 13) {
+        ruc = taxIdValue;
+      } else if (taxIdValue.length === 10) {
+        cedula = taxIdValue;
+      } else {
+        // Si no cumple con las longitudes esperadas, guardarlo como cédula por defecto
+        cedula = taxIdValue;
+      }
+    }
+    
+    // Verificar si el cliente ya existe usando múltiples criterios
+    // Primero buscamos por ID de WooCommerce
+    const existingByWooId = await db.$client.query(
+      `SELECT * FROM customers WHERE "wooCommerceId" = $1 LIMIT 1`,
+      [wooCustomer.id]
+    );
+    
+    // Si encontramos por ID de WooCommerce, actualizamos los datos
+    if (existingByWooId.rows.length > 0) {
+      const existingCustomer = existingByWooId.rows[0];
+      
+      await db.$client.query(
+        `UPDATE customers SET 
+          name = $1,
+          first_name = $2,
+          last_name = $3,
+          email = $4,
+          phone = $5,
+          street = $6,
+          city = $7,
+          province = $8,
+          delivery_instructions = $9,
+          address = $10,
+          id_number = $11,
+          ruc = $12,
+          updated_at = NOW()
+        WHERE id = $13`,
+        [
+          fullName,
+          firstName,
+          lastName,
+          email,
+          phone,
+          wooCustomer.billing?.address_1 || null,
+          wooCustomer.billing?.city || null,
+          wooCustomer.billing?.state || null,
+          wooCustomer.billing?.postcode || null,
+          wooCustomer.billing?.country || null,
+          cedula,
+          ruc,
+          existingCustomer.id
+        ]
+      );
+      
+      return {
+        success: true,
+        customerId: existingCustomer.id,
+        message: `Cliente #${wooCustomer.id} actualizado correctamente`
+      };
+    }
+    
+    // Si no encontramos por ID de WooCommerce, verificamos por cédula, RUC, email y teléfono
+    let existingCustomer = null;
+    
+    // 1. Primero buscar por cédula (si está disponible)
+    if (cedula) {
+      const result = await db.$client.query(
+        `SELECT * FROM customers WHERE id_number = $1 OR tax_id = $1 LIMIT 1`,
+        [cedula]
+      );
+      
+      if (result.rows.length > 0) {
+        existingCustomer = result.rows[0];
+      }
+    }
+    
+    // 2. Buscar por RUC (si está disponible)
+    if (!existingCustomer && ruc) {
+      const result = await db.$client.query(
+        `SELECT * FROM customers WHERE ruc = $1 LIMIT 1`,
+        [ruc]
+      );
+      
+      if (result.rows.length > 0) {
+        existingCustomer = result.rows[0];
+      }
+    }
+    
+    // 3. Si no encontramos por documentos, buscar por email (si está disponible)
+    if (!existingCustomer && email) {
+      const result = await db.$client.query(
+        `SELECT * FROM customers WHERE email = $1 LIMIT 1`,
+        [email]
+      );
+      
+      if (result.rows.length > 0) {
+        existingCustomer = result.rows[0];
+      }
+    }
+    
+    // 4. Si aún no encontramos, buscar por teléfono (si está disponible)
+    if (!existingCustomer && phone) {
+      const result = await db.$client.query(
+        `SELECT * FROM customers WHERE phone = $1 LIMIT 1`,
+        [phone]
+      );
+      
+      if (result.rows.length > 0) {
+        existingCustomer = result.rows[0];
+      }
+    }
+    
+    // Si encontramos un cliente existente por cualquiera de los criterios, actualizamos y vinculamos
+    if (existingCustomer) {
+      await db.$client.query(
+        `UPDATE customers SET 
+          name = $1,
+          first_name = $2,
+          last_name = $3,
+          email = COALESCE($4, email),
+          phone = COALESCE($5, phone),
+          street = COALESCE($6, street),
+          city = COALESCE($7, city),
+          province = COALESCE($8, province),
+          delivery_instructions = COALESCE($9, delivery_instructions),
+          address = COALESCE($10, address),
+          id_number = COALESCE($11, id_number),
+          ruc = COALESCE($12, ruc),
+          wooCommerceId = $13,
+          updated_at = NOW()
+        WHERE id = $14`,
+        [
+          fullName,
+          firstName,
+          lastName,
+          email,
+          phone,
+          wooCustomer.billing?.address_1 || null,
+          wooCustomer.billing?.city || null,
+          wooCustomer.billing?.state || null,
+          wooCustomer.billing?.postcode || null,
+          wooCustomer.billing?.country || null,
+          cedula,
+          ruc,
+          wooCustomer.id,
+          existingCustomer.id
+        ]
+      );
+      
+      return {
+        success: true,
+        customerId: existingCustomer.id,
+        message: `Cliente existente vinculado con WooCommerce #${wooCustomer.id}`
+      };
+    }
+    
+    // Si no existe, creamos un nuevo cliente
+    const brand = wooCustomer.role === 'bride' ? 'bride' : 'sleepwear';
+    
+    const newCustomerResult = await db.$client.query(
+      `INSERT INTO customers (
+        name, first_name, last_name, email, phone, 
+        street, city, province, delivery_instructions, address,
+        id_number, ruc, source, brand, "wooCommerceId"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
+      RETURNING id`,
+      [
+        fullName,
+        firstName,
+        lastName,
+        email,
+        phone,
+        wooCustomer.billing?.address_1 || null,
+        wooCustomer.billing?.city || null,
+        wooCustomer.billing?.state || null,
+        wooCustomer.billing?.postcode || null,
+        wooCustomer.billing?.country || null,
+        cedula,
+        ruc,
+        'woocommerce',
+        brand,
+        wooCustomer.id
+      ]
+    );
+    
+    return { 
+      success: true, 
+      customerId: newCustomerResult.rows[0].id,
+      message: `Cliente #${wooCustomer.id} creado correctamente`
+    };
+    
+  } catch (error) {
+    console.error('Error procesando cliente de WooCommerce:', error);
+    return { 
+      success: false, 
+      message: `Error procesando cliente: ${(error as Error).message}`
     };
   }
 }
@@ -569,6 +813,18 @@ export async function handleWooCommerceWebhook(req: Request, res: Response) {
           })
           .catch(error => {
             console.error('Error en procesamiento asíncrono de producto:', error);
+          });
+        break;
+      
+      case 'customer.created':
+      case 'customer.updated':
+        // Procesar creación/actualización de cliente asíncronamente
+        processWooCommerceCustomer(req.body)
+          .then((result: { success: boolean, customerId?: number, message?: string }) => {
+            console.log(`Procesamiento de cliente: ${result.message}`);
+          })
+          .catch((error: Error) => {
+            console.error('Error en procesamiento asíncrono de cliente:', error);
           });
         break;
         

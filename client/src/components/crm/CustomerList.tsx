@@ -38,7 +38,7 @@ export function CustomerList({
   }, [externalFilters]);
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers", brand, filters], // Add filters to queryKey
+    queryKey: ["/api/customers"], // Simplificamos la queryKey para evitar problemas con la URL
     queryFn: getQueryFn({ on401: "throw" }),
     select: (data) => {
       // Filter customers by name (non-empty) and brand if specified

@@ -154,6 +154,7 @@ export const customers = pgTable("customers", {
   lastName: text("last_name"),
   type: varchar("type", { length: 20 }).default(customerTypeEnum.PERSON), // Tipo de cliente (Persona o Empresa)
   idNumber: text("id_number"), // Cédula/Pasaporte for invoicing and shipping
+  ruc: text("ruc"), // RUC (Registro Único de Contribuyentes) para empresas
   email: text("email"),
   phone: text("phone"),
   phoneCountry: text("phone_country"),
@@ -172,6 +173,7 @@ export const customers = pgTable("customers", {
   totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0"), // Valor histórico comprado
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
   lastPurchase: timestamp("last_purchase"), // Fecha de última compra
+  wooCommerceId: integer("woocommerce_id"), // ID del cliente en WooCommerce para sincronización
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()

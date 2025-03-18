@@ -33,16 +33,9 @@ export const getQueryFn: <T>(options: {
     let url: string;
     
     if (typeof queryKey[0] === 'string') {
-      if (queryKey.length === 1) {
-        // Si solo hay un elemento en el queryKey, usarlo como URL completa
-        url = queryKey[0];
-      } else {
-        // Si hay más elementos, construir la URL combinando el endpoint base con los parámetros
-        const baseEndpoint = queryKey[0];
-        // Convertir cada parámetro a string y unirlos
-        const params = queryKey.slice(1).map(param => String(param)).join('/');
-        url = `${baseEndpoint}/${params}`;
-      }
+      // Usar únicamente el primer elemento como la URL completa
+      // esto previene la construcción incorrecta de URLs con múltiples parámetros
+      url = queryKey[0];
     } else {
       throw new Error('El primer elemento de queryKey debe ser una cadena');
     }
