@@ -3,12 +3,14 @@ import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
 import { registerEmailRoutes } from "./routes-email";
 import { registerConfigurationRoutes } from "./routes-configuration";
+import { registerShippingRoutes } from "./routes-shipping";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
 import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
+import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
 
 const logger = pino({ level: 'info' });
 const app = express();
@@ -85,6 +87,13 @@ app.use((req, res, next) => {
   // Register email event handlers
   registerEmailEventHandlers();
   log("Email event handlers registered");
+  
+  // Register shipping routes
+  registerShippingRoutes(app);
+  log("Shipping routes registered");
+  
+  // Ensure shipping label template directories exist
+  ensureShippingLabelTemplateDirectories();
   
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services

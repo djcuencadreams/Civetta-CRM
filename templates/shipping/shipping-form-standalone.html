@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Etiquetas de Envío - Civetta</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+        .form-container {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        .btn-primary:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .alert {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .alert-success {
+            background-color: #d1fae5;
+            color: #064e3b;
+            border: 1px solid #6ee7b7;
+        }
+        .alert-error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+        .alert-info {
+            background-color: #e0f2fe;
+            color: #075985;
+            border: 1px solid #7dd3fc;
+        }
+        .hidden {
+            display: none;
+        }
+        .input-with-button {
+            display: flex;
+        }
+        .input-with-button input {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .input-with-button button {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="form-container">
+        <div class="form-header">
+            <img src="https://www.civetta.com/wp-content/uploads/2023/03/civetta.png" 
+                 alt="Civetta Logo" class="h-16 mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-blue-600">Etiquetas de Envío</h1>
+            <p class="text-gray-600 mt-2">Complete el formulario para generar una etiqueta de envío para su pedido</p>
+        </div>
+
+        <div id="alert-success" class="alert alert-success hidden">
+            Etiqueta generada con éxito. La descarga comenzará automáticamente.
+        </div>
+        <div id="alert-error" class="alert alert-error hidden">
+            Error al generar la etiqueta. Por favor intente nuevamente.
+        </div>
+        <div id="alert-customer-found" class="alert alert-info hidden">
+            Cliente encontrado. Se han completado algunos campos automáticamente.
+        </div>
+
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <form id="shipping-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="firstName">Nombres *</label>
+                        <input type="text" id="firstName" name="firstName" required placeholder="Nombres">
+                        <div class="error-message" id="firstName-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Apellidos *</label>
+                        <input type="text" id="lastName" name="lastName" required placeholder="Apellidos">
+                        <div class="error-message" id="lastName-error"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="idNumber">Cédula o Pasaporte *</label>
+                        <div class="input-with-button">
+                            <input type="text" id="idNumber" name="idNumber" required placeholder="Número de identificación">
+                            <button type="button" id="check-id" class="btn-secondary px-3">Verificar</button>
+                        </div>
+                        <div class="error-message" id="idNumber-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Teléfono de contacto *</label>
+                        <div class="input-with-button">
+                            <input type="text" id="phone" name="phone" required placeholder="Teléfono">
+                            <button type="button" id="check-phone" class="btn-secondary px-3">Verificar</button>
+                        </div>
+                        <div class="error-message" id="phone-error"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Correo electrónico *</label>
+                    <div class="input-with-button">
+                        <input type="email" id="email" name="email" required placeholder="correo@ejemplo.com">
+                        <button type="button" id="check-email" class="btn-secondary px-3">Verificar</button>
+                    </div>
+                    <div class="error-message" id="email-error"></div>
+                </div>
+
+                <hr class="my-6 border-gray-200">
+
+                <div class="form-group">
+                    <label for="street">Dirección de Entrega *</label>
+                    <textarea id="street" name="street" rows="3" required 
+                        placeholder="Escriba aquí la calle principal, secundaria y número de casa, departamento u oficina. Agregue alguna referencia de ser necesario."></textarea>
+                    <div class="error-message" id="street-error"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="city">Ciudad *</label>
+                        <input type="text" id="city" name="city" required placeholder="Ciudad">
+                        <div class="error-message" id="city-error"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="province">Provincia *</label>
+                        <input type="text" id="province" name="province" required placeholder="Provincia">
+                        <div class="error-message" id="province-error"></div>
+                    </div>
+                </div>
+
+                <hr class="my-6 border-gray-200">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="companyName">Empresa</label>
+                        <input type="text" id="companyName" name="companyName" placeholder="Nombre de empresa (opcional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="orderNumber">Número de pedido</label>
+                        <input type="text" id="orderNumber" name="orderNumber" placeholder="Número de pedido (opcional)">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="deliveryInstructions">Comentarios o Instrucciones Especiales para la Entrega</label>
+                    <textarea id="deliveryInstructions" name="deliveryInstructions" rows="2" 
+                        placeholder="Instrucciones especiales para la entrega"></textarea>
+                </div>
+
+                <div class="form-group flex items-center mt-4">
+                    <input type="checkbox" id="saveToDatabase" name="saveToDatabase" class="w-auto mr-2" checked>
+                    <label for="saveToDatabase" class="mb-0">Guardar información para futuros envíos</label>
+                </div>
+
+                <div class="mt-6">
+                    <button type="submit" id="submit-button" class="btn-primary">
+                        Generar etiqueta de envío
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-gray-100 p-4 rounded-lg text-sm mt-8">
+            <h3 class="font-medium mb-2">Instrucciones:</h3>
+            <ul class="list-disc pl-5 space-y-1">
+                <li>Si ya es cliente, puede verificar su información ingresando su cédula, teléfono o email y haciendo clic en "Verificar"</li>
+                <li>Complete todos los campos marcados con asterisco (*)</li>
+                <li>Asegúrese de que la dirección sea completa y detallada</li>
+                <li>Incluya referencias para facilitar la entrega</li>
+                <li>La etiqueta se descargará automáticamente como archivo PDF</li>
+                <li>Imprima la etiqueta en tamaño A5 para mejores resultados</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('shipping-form');
+            const submitButton = document.getElementById('submit-button');
+            const alertSuccess = document.getElementById('alert-success');
+            const alertError = document.getElementById('alert-error');
+            const alertCustomerFound = document.getElementById('alert-customer-found');
+            
+            // Botones de verificación
+            const checkIdButton = document.getElementById('check-id');
+            const checkPhoneButton = document.getElementById('check-phone');
+            const checkEmailButton = document.getElementById('check-email');
+            
+            // API Base URL - Determinar la URL base adecuada
+            function getApiBaseUrl() {
+                // Si el script se está ejecutando desde el mismo dominio que el servidor, usar el origen actual
+                if (window.location.href.includes('civettacrm.replit.app') || 
+                    window.location.href.includes('localhost')) {
+                    return window.location.origin;
+                }
+                
+                // Si estamos en Civetta.com, usar la URL del servidor de Replit
+                if (window.location.href.includes('civetta.com')) {
+                    return 'https://civettacrm.replit.app';
+                }
+                
+                // Valor por defecto para otros casos
+                return 'https://civettacrm.replit.app';
+            }
+            
+            // Función para determinar la URL base para el formulario 
+            // Esta función es diferente a getApiBaseUrl() porque necesitamos manejar 
+            // diferentes rutas para el formulario en caso de que la principal no funcione
+            function getFormBaseUrl() {
+                const origin = getApiBaseUrl();
+                
+                // Orden de prioridad para intentar diferentes rutas
+                const formPaths = [
+                    '/shipping-form',    // Ruta principal
+                    '/forms/shipping',   // Ruta alternativa 1
+                    '/public/shipping-form' // Ruta alternativa 2
+                ];
+                
+                // Retornamos un objeto con acceso a la URL principal y alternativas
+                return {
+                    api: origin,
+                    formUrls: formPaths.map(path => `${origin}${path}`),
+                    currentPath: window.location.pathname,
+                    isStandalone: window.location.pathname.includes('shipping')
+                };
+            }
+            
+            // Obtener información de URL y API
+            const urlInfo = getFormBaseUrl();
+            
+            const API_BASE_URL = getApiBaseUrl();
+            console.log("Usando API Base URL:", API_BASE_URL);
+            
+            // Función para verificar cliente existente
+            async function checkExistingCustomer(identifier, type) {
+                if (!identifier || identifier.trim().length < 3) {
+                    alert('Por favor ingrese un valor válido para verificar');
+                    return;
+                }
+                
+                try {
+                    const button = type === 'idNumber' ? checkIdButton : 
+                                   type === 'phone' ? checkPhoneButton : checkEmailButton;
+                    
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.innerHTML = '<span class="loading-spinner">↻</span>';
+                    
+                    // Preparamos el cuerpo de la solicitud
+                    const requestBody = JSON.stringify({
+                        identifier: identifier.trim(),
+                        type: type
+                    });
+                    
+                    // Intentamos con la URL principal primero
+                    let response;
+                    let success = false;
+                    let data;
+                    let error;
+                    
+                    try {
+                        response = await fetch(`${API_BASE_URL}/api/shipping/check-customer`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: requestBody
+                        });
+                        
+                        if (response.ok) {
+                            success = true;
+                            data = await response.json();
+                        }
+                    } catch (e) {
+                        console.warn("Error con la URL principal para verificación, intentando alternativas:", e);
+                        error = e;
+                    }
+                    
+                    // Si falla, intentamos con rutas alternativas
+                    if (!success) {
+                        console.log("Intentando rutas alternativas para verificación de cliente...");
+                        const alternativeUrls = [
+                            `${API_BASE_URL}/api/shipping/check-customer`,
+                            `${API_BASE_URL}/forms/shipping/check-customer`,
+                            `${API_BASE_URL}/public/shipping-form/check-customer`
+                        ];
+                        
+                        for (const url of alternativeUrls) {
+                            if (success) break;
+                            
+                            try {
+                                response = await fetch(url, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: requestBody
+                                });
+                                
+                                if (response.ok) {
+                                    console.log("Éxito con URL alternativa para verificación:", url);
+                                    data = await response.json();
+                                    success = true;
+                                    break;
+                                }
+                            } catch (e) {
+                                console.warn(`Error con URL alternativa ${url} para verificación:`, e);
+                                error = e;
+                            }
+                        }
+                    }
+                    
+                    // Si todos los intentos fallan
+                    if (!success) {
+                        throw error || new Error('Error al verificar cliente');
+                    }
+                    
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    
+                    if (data.success && data.exists) {
+                        // Cliente encontrado, completar formulario
+                        document.getElementById('firstName').value = data.customer.firstName || '';
+                        document.getElementById('lastName').value = data.customer.lastName || '';
+                        document.getElementById('idNumber').value = data.customer.idNumber || '';
+                        document.getElementById('phone').value = data.customer.phone || '';
+                        document.getElementById('email').value = data.customer.email || '';
+                        document.getElementById('street').value = data.customer.street || '';
+                        document.getElementById('city').value = data.customer.city || '';
+                        document.getElementById('province').value = data.customer.province || '';
+                        
+                        // Mostrar alerta de cliente encontrado
+                        alertCustomerFound.classList.remove('hidden');
+                        setTimeout(() => {
+                            alertCustomerFound.classList.add('hidden');
+                        }, 5000);
+                    } else if (data.success) {
+                        // Cliente no encontrado
+                        alert('No se encontró ningún cliente con ese dato. Por favor complete el formulario manualmente.');
+                    } else {
+                        // Error en la verificación
+                        alert('Error al verificar: ' + (data.message || 'Intente nuevamente'));
+                    }
+                } catch (error) {
+                    console.error('Error verificando cliente:', error);
+                    alert('Error de conexión. Por favor intente nuevamente.');
+                    
+                    // Restaurar botón
+                    const button = type === 'idNumber' ? checkIdButton : 
+                                   type === 'phone' ? checkPhoneButton : checkEmailButton;
+                    button.disabled = false;
+                    button.textContent = type === 'idNumber' ? 'Verificar' : 
+                                         type === 'phone' ? 'Verificar' : 'Verificar';
+                }
+            }
+            
+            // Eventos para botones de verificación
+            checkIdButton.addEventListener('click', () => {
+                checkExistingCustomer(document.getElementById('idNumber').value, 'idNumber');
+            });
+            
+            checkPhoneButton.addEventListener('click', () => {
+                checkExistingCustomer(document.getElementById('phone').value, 'phone');
+            });
+            
+            checkEmailButton.addEventListener('click', () => {
+                checkExistingCustomer(document.getElementById('email').value, 'email');
+            });
+
+            // Evento para enviar el formulario
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Resetear mensajes de error
+                document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+                alertSuccess.classList.add('hidden');
+                alertError.classList.add('hidden');
+                alertCustomerFound.classList.add('hidden');
+
+                // Validación básica
+                let isValid = true;
+                const requiredFields = ['firstName', 'lastName', 'idNumber', 'phone', 'email', 'street', 'city', 'province'];
+                
+                requiredFields.forEach(field => {
+                    const input = document.getElementById(field);
+                    if (!input.value.trim()) {
+                        document.getElementById(`${field}-error`).textContent = 'Este campo es requerido';
+                        isValid = false;
+                    }
+                });
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (document.getElementById('email').value && !emailRegex.test(document.getElementById('email').value)) {
+                    document.getElementById('email-error').textContent = 'Email inválido';
+                    isValid = false;
+                }
+
+                if (!isValid) return;
+
+                // Cambiar botón a estado de carga
+                const originalButtonText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading-spinner">↻</span> Generando...';
+
+                // Preparar datos para enviar
+                const formData = new FormData(form);
+                const data = {
+                    name: `${formData.get('firstName')} ${formData.get('lastName')}`,
+                    firstName: formData.get('firstName'),
+                    lastName: formData.get('lastName'),
+                    phone: formData.get('phone'),
+                    email: formData.get('email'),
+                    street: formData.get('street'),
+                    city: formData.get('city'),
+                    province: formData.get('province'),
+                    idNumber: formData.get('idNumber'),
+                    companyName: formData.get('companyName') || 'Civetta',
+                    deliveryInstructions: formData.get('deliveryInstructions') || '',
+                    orderNumber: formData.get('orderNumber') || '',
+                    saveToDatabase: formData.get('saveToDatabase') ? true : false
+                };
+
+                try {
+                    // Enviar datos para generar etiqueta
+                    // Primero intentamos con la ruta principal
+                    let response;
+                    let success = false;
+                    let error;
+                    
+                    // Primero intentamos con la URL principal
+                    try {
+                        response = await fetch(`${API_BASE_URL}/api/shipping/generate-label`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        if (response.ok) {
+                            success = true;
+                        }
+                    } catch (e) {
+                        console.warn("Error con la URL principal, intentando alternativas:", e);
+                        error = e;
+                    }
+                    
+                    // Si falla, intentamos con rutas alternativas
+                    if (!success) {
+                        console.log("Intentando rutas alternativas para la API...");
+                        const alternativeUrls = [
+                            `${API_BASE_URL}/api/shipping/generate-label`,
+                            // Intentar con otras variantes de la ruta si la API está disponible en otros lugares
+                            `${API_BASE_URL}/forms/shipping/generate-label`,
+                            `${API_BASE_URL}/public/shipping-form/generate-label`
+                        ];
+                        
+                        for (const url of alternativeUrls) {
+                            if (success) break;
+                            
+                            try {
+                                response = await fetch(url, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(data)
+                                });
+                                
+                                if (response.ok) {
+                                    console.log("Éxito con URL alternativa:", url);
+                                    success = true;
+                                    break;
+                                }
+                            } catch (e) {
+                                console.warn(`Error con URL alternativa ${url}:`, e);
+                                error = e;
+                            }
+                        }
+                    }
+                    
+                    // Si después de todos los intentos sigue fallando
+                    if (!success) {
+                        throw error || new Error('Error al generar la etiqueta de envío');
+                    }
+
+                    // Obtener el blob del PDF
+                    const blob = await response.blob();
+                    
+                    // Crear URL para el blob
+                    const url = window.URL.createObjectURL(blob);
+                    
+                    // Crear un enlace para descargar el PDF
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `etiqueta-envio-${data.firstName}-${data.lastName}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Limpiar
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Mostrar mensaje de éxito
+                    alertSuccess.classList.remove('hidden');
+                    
+                    // Opcional: resetear el formulario
+                    form.reset();
+                } catch (error) {
+                    console.error('Error:', error);
+                    alertError.classList.remove('hidden');
+                    alertError.textContent = error.message || 'Error al generar la etiqueta. Por favor intente nuevamente.';
+                } finally {
+                    // Restaurar botón
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -19,6 +19,7 @@ import OpportunitiesNew from './pages/opportunities/new'
 import OpportunityDetail from './pages/opportunities/[id]'
 import Interactions from './pages/interactions'
 import Activities from './pages/activities'
+import ShippingForm from './pages/shipping-form'
 import NotFound from './pages/not-found'
 
 function App() {
@@ -72,6 +73,9 @@ function App() {
         </Route>
         <Route path="/activities">
           <Activities />
+        </Route>
+        <Route path="/shipping-form">
+          <ShippingForm />
         </Route>
         <Route>
           <NotFound />
