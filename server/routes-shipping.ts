@@ -393,6 +393,40 @@ export function registerShippingRoutes(app: Express) {
   // Otra alternativa para entornos de producción
   app.get('/public/shipping-form', cors(corsOptions), serveShippingForm);
   
+  // Versión optimizada para WordPress con estilos inline
+  app.get('/wordpress-embed', cors(corsOptions), (req: Request, res: Response) => {
+    try {
+      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed.html');
+      
+      if (fs.existsSync(formPath)) {
+        return res.sendFile(formPath);
+      } else {
+        log("No se encontró el archivo de formulario para WordPress en: " + formPath, "shipping-service");
+        return res.status(404).send('Formulario no encontrado');
+      }
+    } catch (error) {
+      console.error('Error al servir el formulario para WordPress:', error);
+      return res.status(500).send('Error interno del servidor');
+    }
+  });
+  
+  // Guía de implementación en WordPress
+  app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
+    try {
+      const guidePath = path.join(process.cwd(), 'templates/shipping/wordpress-integration-guide.html');
+      
+      if (fs.existsSync(guidePath)) {
+        return res.sendFile(guidePath);
+      } else {
+        log("No se encontró la guía de integración en: " + guidePath, "shipping-service");
+        return res.status(404).send('Guía no encontrada');
+      }
+    } catch (error) {
+      console.error('Error al servir la guía de integración:', error);
+      return res.status(500).send('Error interno del servidor');
+    }
+  });
+  
   // Servir el script de carga del formulario (para integración en Civetta.com)
   app.get('/shipping-form-loader.js', cors(corsOptions), (req: Request, res: Response) => {
     try {

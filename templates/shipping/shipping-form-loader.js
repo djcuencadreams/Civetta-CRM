@@ -8,9 +8,13 @@
  * 3. El script detectará automáticamente la ruta correcta y cargará el formulario
  */
 
+// Script de carga de formulario de envío Civetta
+// Versión WordPress: Compatible con editores de bloques
+var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
+
 (function() {
     // Configuración del cargador
-    const config = {
+    var config = {
         // Dominio principal del CRM
         crmDomain: 'https://clothing-sales-tracker-jaradanny.replit.app',
         

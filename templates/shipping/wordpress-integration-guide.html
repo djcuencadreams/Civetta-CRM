@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía de Integración del Formulario de Envío en WordPress</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #3b82f6;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #1f2937;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #374151;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background-color: #f3f4f6;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        pre {
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+        }
+        .method {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .method h3 {
+            margin-top: 0;
+        }
+        .advantages {
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 10px 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        .advantages h4 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        ul {
+            padding-left: 25px;
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background-color: #e5e7eb;
+            margin: 30px 0;
+        }
+        .troubleshooting {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 10px 15px;
+            border-radius: 0 5px 5px 0;
+            margin: 20px 0;
+        }
+        .troubleshooting h3 {
+            color: #b91c1c;
+            margin-top: 0;
+        }
+        .requirements {
+            background-color: #e0f2fe;
+            border-left: 4px solid #0ea5e9;
+            padding: 10px 15px;
+            border-radius: 0 5px 5px 0;
+            margin: 20px 0;
+        }
+        .requirements h3 {
+            color: #0369a1;
+            margin-top: 0;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-style: italic;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <h1>Guía de Integración del Formulario de Envío en WordPress</h1>
+    
+    <p>Esta guía proporciona tres métodos diferentes para integrar el formulario de etiquetas de envío de Civetta en un sitio WordPress. Cada método tiene sus ventajas según el nivel de acceso y personalización requerido.</p>
+
+    <div class="method">
+        <h2>Método 1: Versión Optimizada para WordPress (RECOMENDADO)</h2>
+        
+        <p>Esta es la solución más sencilla y confiable, diseñada específicamente para WordPress.</p>
+        
+        <h3>Pasos para implementar:</h3>
+        
+        <ol>
+            <li>En WordPress, crea una nueva página o edita una existente</li>
+            <li>Añade un bloque HTML personalizado</li>
+            <li>Pega el siguiente código:</li>
+        </ol>
+
+        <pre><code>&lt;iframe 
+  src="https://clothing-sales-tracker-jaradanny.replit.app/wordpress-embed" 
+  width="100%" 
+  height="1200px" 
+  style="border:none;overflow:hidden;" 
+  scrolling="no"
+  frameborder="0"&gt;
+&lt;/iframe&gt;</code></pre>
+
+        <div class="advantages">
+            <h4>Ventajas:</h4>
+            <ul>
+                <li>Funciona en cualquier tema de WordPress</li>
+                <li>Mantiene todos los estilos correctamente</li>
+                <li>Funcionalidad completa garantizada</li>
+                <li>No requiere conocimientos técnicos avanzados</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="method">
+        <h2>Método 2: Script Cargador (Implementación mediante JavaScript)</h2>
+        
+        <p>Este método utiliza un script personalizado que detecta automáticamente la mejor ruta para cargar el formulario.</p>
+        
+        <h3>Pasos para implementar:</h3>
+        
+        <ol>
+            <li>En WordPress, crea una nueva página o edita una existente</li>
+            <li>Añade los siguientes dos elementos:</li>
+        </ol>
+
+        <p>Primero, añade un bloque HTML con este contenido:</p>
+        <pre><code>&lt;div id="civetta-shipping-form"&gt;&lt;/div&gt;</code></pre>
+
+        <p>Luego, añade otro bloque HTML con el script:</p>
+        <pre><code>&lt;script src="https://clothing-sales-tracker-jaradanny.replit.app/shipping-form-loader.js"&gt;&lt;/script&gt;</code></pre>
+
+        <div class="advantages">
+            <h4>Ventajas:</h4>
+            <ul>
+                <li>Integración más nativa</li>
+                <li>Adaptabilidad al tema del sitio</li>
+                <li>Detección automática de la mejor ruta</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="method">
+        <h2>Método 3: Implementación Directa del Iframe</h2>
+        
+        <p>Este método es similar al primero pero permite más configuración manual.</p>
+        
+        <h3>Pasos para implementar:</h3>
+        
+        <ol>
+            <li>En WordPress, crea una nueva página o edita una existente</li>
+            <li>Añade un bloque HTML personalizado</li>
+            <li>Pega el siguiente código:</li>
+        </ol>
+
+        <pre><code>&lt;iframe 
+  src="https://clothing-sales-tracker-jaradanny.replit.app/forms/shipping" 
+  width="100%" 
+  height="1200px" 
+  style="border:none;overflow:hidden;" 
+  scrolling="no"
+  frameborder="0"&gt;
+&lt;/iframe&gt;</code></pre>
+
+        <div class="advantages">
+            <h4>Ventajas:</h4>
+            <ul>
+                <li>Control directo sobre la URL exacta</li>
+                <li>Fácil de implementar en cualquier sitio web</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="troubleshooting">
+        <h3>Solución de problemas comunes</h3>
+        
+        <h4>El formulario no se carga</h4>
+        <ul>
+            <li>Verifica que no tengas bloqueadores de scripts activos</li>
+            <li>Asegúrate de que el dominio del CRM esté accesible desde tu red</li>
+        </ul>
+        
+        <h4>El formulario se ve deformado o sin estilos</h4>
+        <ul>
+            <li>Utiliza el Método 1 (optimizado para WordPress)</li>
+            <li>Asegúrate de que no haya conflictos con CSS del tema</li>
+        </ul>
+        
+        <h4>Se cargan correctamente pero no se puede enviar el formulario</h4>
+        <ul>
+            <li>Verifica que el navegador permita cookies de terceros</li>
+            <li>Asegúrate de que no haya restricciones de CORS en tu servidor</li>
+        </ul>
+    </div>
+
+    <div class="requirements">
+        <h3>Requisitos técnicos</h3>
+        
+        <ul>
+            <li>WordPress 5.0 o superior</li>
+            <li>Permisos para añadir bloques HTML personalizados</li>
+            <li>Conexión a internet para cargar recursos del CRM</li>
+        </ul>
+    </div>
+
+    <hr>
+    
+    <div class="footer">
+        <p>Para soporte técnico adicional, por favor contacta al administrador del sistema.</p>
+    </div>
+</body>
+</html>
