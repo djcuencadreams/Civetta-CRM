@@ -264,18 +264,18 @@
             // API Base URL - Determinar la URL base adecuada
             function getApiBaseUrl() {
                 // Si el script se está ejecutando desde el mismo dominio que el servidor, usar el origen actual
-                if (window.location.href.includes('civettacrm.replit.app') || 
+                if (window.location.href.includes('clothing-sales-tracker-jaradanny.replit.app') || 
                     window.location.href.includes('localhost')) {
                     return window.location.origin;
                 }
                 
                 // Si estamos en Civetta.com, usar la URL del servidor de Replit
                 if (window.location.href.includes('civetta.com')) {
-                    return 'https://civettacrm.replit.app';
+                    return 'https://clothing-sales-tracker-jaradanny.replit.app';
                 }
                 
                 // Valor por defecto para otros casos
-                return 'https://civettacrm.replit.app';
+                return 'https://clothing-sales-tracker-jaradanny.replit.app';
             }
             
             // Función para determinar la URL base para el formulario 

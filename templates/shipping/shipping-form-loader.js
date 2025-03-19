@@ -12,7 +12,7 @@
     // Configuración del cargador
     const config = {
         // Dominio principal del CRM
-        crmDomain: 'https://civettacrm.replit.app',
+        crmDomain: 'https://clothing-sales-tracker-jaradanny.replit.app',
         
         // Rutas alternativas para el formulario
         formPaths: [
