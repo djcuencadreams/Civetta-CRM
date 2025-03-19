@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guía de Integración del Formulario de Envío en WordPress</title>
+    <title>Guía de Integración de Etiquetas de Envío para WordPress</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -12,110 +12,215 @@
             max-width: 900px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f9fafb;
+        }
+        h1, h2, h3 {
+            color: #2563eb;
         }
         h1 {
-            color: #3b82f6;
+            font-size: 28px;
             border-bottom: 2px solid #e5e7eb;
             padding-bottom: 10px;
+            margin-bottom: 30px;
         }
         h2 {
-            color: #1f2937;
+            font-size: 22px;
             margin-top: 30px;
+            margin-bottom: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
         }
         h3 {
-            color: #374151;
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 10px;
         }
         code {
-            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-family: Consolas, Monaco, monospace;
             background-color: #f3f4f6;
             padding: 2px 4px;
-            border-radius: 3px;
+            border-radius: 4px;
+            font-size: 0.9em;
         }
         pre {
-            background-color: #f3f4f6;
+            background-color: #1e293b;
+            color: #f8fafc;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+        .note {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .warning {
+            background-color: #fff7ed;
+            border-left: 4px solid #f97316;
+            padding: 12px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .success {
+            background-color: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 12px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        th, td {
             border: 1px solid #e5e7eb;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 20px auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
         }
         .method {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            margin-bottom: 40px;
             padding: 20px;
-            margin: 25px 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        .method h3 {
-            margin-top: 0;
+        .method-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
         }
-        .advantages {
-            background-color: #dbeafe;
-            border-left: 4px solid #3b82f6;
-            padding: 10px 15px;
-            border-radius: 0 5px 5px 0;
+        .method-number {
+            background-color: #3b82f6;
+            color: white;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
         }
-        .advantages h4 {
-            margin-top: 0;
-            color: #1e40af;
+        .copy-button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
         }
-        ul {
-            padding-left: 25px;
+        .copy-button:hover {
+            background-color: #1d4ed8;
         }
-        hr {
-            border: 0;
-            height: 1px;
-            background-color: #e5e7eb;
-            margin: 30px 0;
-        }
-        .troubleshooting {
-            background-color: #fee2e2;
-            border-left: 4px solid #ef4444;
-            padding: 10px 15px;
-            border-radius: 0 5px 5px 0;
+        .tab-container {
             margin: 20px 0;
         }
-        .troubleshooting h3 {
-            color: #b91c1c;
-            margin-top: 0;
+        .tab-buttons {
+            display: flex;
+            margin-bottom: -1px;
         }
-        .requirements {
-            background-color: #e0f2fe;
-            border-left: 4px solid #0ea5e9;
-            padding: 10px 15px;
-            border-radius: 0 5px 5px 0;
-            margin: 20px 0;
+        .tab-button {
+            padding: 10px 20px;
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            font-weight: 500;
+            margin-right: 5px;
         }
-        .requirements h3 {
-            color: #0369a1;
-            margin-top: 0;
+        .tab-button.active {
+            background-color: white;
+            border-bottom: 1px solid white;
         }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            font-style: italic;
-            color: #6b7280;
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 0 4px 4px 4px;
+            background-color: white;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .checklist {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .checklist li {
+            margin-bottom: 10px;
+            padding-left: 30px;
+            position: relative;
+        }
+        .checklist li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #22c55e;
+            font-weight: bold;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            pre {
+                font-size: 12px;
+            }
+            .method-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .method-number {
+                margin-bottom: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Guía de Integración del Formulario de Envío en WordPress</h1>
+    <h1>Guía de Integración - Etiquetas de Envío para WordPress</h1>
     
-    <p>Esta guía proporciona tres métodos diferentes para integrar el formulario de etiquetas de envío de Civetta en un sitio WordPress. Cada método tiene sus ventajas según el nivel de acceso y personalización requerido.</p>
-
+    <p>Esta guía te mostrará cómo agregar el formulario de etiquetas de envío a tu sitio WordPress. Hemos desarrollado tres opciones diferentes para que elijas la que mejor se adapte a tus necesidades.</p>
+    
+    <div class="note">
+        <strong>Nota:</strong> Todas las opciones de integración son seguras y han sido optimizadas para trabajar con WordPress. La versión más reciente incluye mejor soporte móvil y una experiencia de usuario mejorada.
+    </div>
+    
     <div class="method">
-        <h2>Método 1: Versión Optimizada para WordPress (RECOMENDADO)</h2>
+        <div class="method-header">
+            <div class="method-number">1</div>
+            <h2 style="margin:0;">Opción 1: Iframe Optimizado para WordPress (RECOMENDADA)</h2>
+        </div>
         
-        <p>Esta es la solución más sencilla y confiable, diseñada específicamente para WordPress.</p>
+        <p>Esta es la opción más fácil y confiable. Inserta el siguiente código HTML en una página o entrada de WordPress.</p>
         
-        <h3>Pasos para implementar:</h3>
+        <div class="note">
+            <strong>Ventajas:</strong> Instalación sencilla, alta compatibilidad, mejor diseño responsivo y estilo optimizado.
+        </div>
         
-        <ol>
-            <li>En WordPress, crea una nueva página o edita una existente</li>
-            <li>Añade un bloque HTML personalizado</li>
-            <li>Pega el siguiente código:</li>
-        </ol>
-
         <pre><code>&lt;iframe 
   src="https://clothing-sales-tracker-jaradanny.replit.app/wordpress-embed" 
   width="100%" 
@@ -124,59 +229,59 @@
   scrolling="no"
   frameborder="0"&gt;
 &lt;/iframe&gt;</code></pre>
-
-        <div class="advantages">
-            <h4>Ventajas:</h4>
-            <ul>
-                <li>Funciona en cualquier tema de WordPress</li>
-                <li>Mantiene todos los estilos correctamente</li>
-                <li>Funcionalidad completa garantizada</li>
-                <li>No requiere conocimientos técnicos avanzados</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="method">
-        <h2>Método 2: Script Cargador (Implementación mediante JavaScript)</h2>
         
-        <p>Este método utiliza un script personalizado que detecta automáticamente la mejor ruta para cargar el formulario.</p>
+        <button class="copy-button" onclick="copyToClipboard('iframe-code')">Copiar código</button>
         
         <h3>Pasos para implementar:</h3>
-        
         <ol>
             <li>En WordPress, crea una nueva página o edita una existente</li>
-            <li>Añade los siguientes dos elementos:</li>
+            <li>Haz clic en el botón para agregar un bloque personalizado y selecciona "HTML personalizado"</li>
+            <li>Pega el código del iframe en el bloque</li>
+            <li>Publica o actualiza la página</li>
         </ol>
-
-        <p>Primero, añade un bloque HTML con este contenido:</p>
+    </div>
+    
+    <div class="method">
+        <div class="method-header">
+            <div class="method-number">2</div>
+            <h2 style="margin:0;">Opción 2: Script Inteligente (Avanzado)</h2>
+        </div>
+        
+        <p>Esta opción usa un script JavaScript para cargar el formulario automáticamente. Requiere dos bloques HTML.</p>
+        
+        <div class="note">
+            <strong>Ventajas:</strong> Mayor flexibilidad y carga adaptativa del formulario.
+        </div>
+        
+        <h3>Paso 1: Agrega un contenedor para el formulario</h3>
         <pre><code>&lt;div id="civetta-shipping-form"&gt;&lt;/div&gt;</code></pre>
-
-        <p>Luego, añade otro bloque HTML con el script:</p>
-        <pre><code>&lt;script src="https://clothing-sales-tracker-jaradanny.replit.app/shipping-form-loader.js"&gt;&lt;/script&gt;</code></pre>
-
-        <div class="advantages">
-            <h4>Ventajas:</h4>
-            <ul>
-                <li>Integración más nativa</li>
-                <li>Adaptabilidad al tema del sitio</li>
-                <li>Detección automática de la mejor ruta</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="method">
-        <h2>Método 3: Implementación Directa del Iframe</h2>
+        <button class="copy-button" onclick="copyToClipboard('container-code')">Copiar código</button>
         
-        <p>Este método es similar al primero pero permite más configuración manual.</p>
+        <h3>Paso 2: Agrega el script de carga</h3>
+        <pre><code>&lt;script src="https://clothing-sales-tracker-jaradanny.replit.app/shipping-form-loader.js"&gt;&lt;/script&gt;</code></pre>
+        <button class="copy-button" onclick="copyToClipboard('script-code')">Copiar código</button>
         
         <h3>Pasos para implementar:</h3>
-        
         <ol>
             <li>En WordPress, crea una nueva página o edita una existente</li>
-            <li>Añade un bloque HTML personalizado</li>
-            <li>Pega el siguiente código:</li>
+            <li>Añade un primer bloque HTML y pega el código del contenedor</li>
+            <li>Añade un segundo bloque HTML (abajo del primero) y pega el código del script</li>
+            <li>Publica o actualiza la página</li>
         </ol>
-
+        
+        <div class="warning">
+            <strong>Solución de problemas:</strong> Si esta opción no funciona correctamente, asegúrate de que no tengas bloqueadores de scripts en tu navegador o plugins que puedan interferir con JavaScript en WordPress.
+        </div>
+    </div>
+    
+    <div class="method">
+        <div class="method-header">
+            <div class="method-number">3</div>
+            <h2 style="margin:0;">Opción 3: Iframe Directo</h2>
+        </div>
+        
+        <p>Esta opción usa un iframe directo a la URL del formulario.</p>
+        
         <pre><code>&lt;iframe 
   src="https://clothing-sales-tracker-jaradanny.replit.app/forms/shipping" 
   width="100%" 
@@ -185,52 +290,82 @@
   scrolling="no"
   frameborder="0"&gt;
 &lt;/iframe&gt;</code></pre>
-
-        <div class="advantages">
-            <h4>Ventajas:</h4>
-            <ul>
-                <li>Control directo sobre la URL exacta</li>
-                <li>Fácil de implementar en cualquier sitio web</li>
-            </ul>
-        </div>
+        
+        <button class="copy-button" onclick="copyToClipboard('direct-iframe-code')">Copiar código</button>
+        
+        <h3>Pasos para implementar:</h3>
+        <ol>
+            <li>En WordPress, crea una nueva página o edita una existente</li>
+            <li>Añade un bloque HTML personalizado</li>
+            <li>Pega el código del iframe en el bloque</li>
+            <li>Publica o actualiza la página</li>
+        </ol>
     </div>
-
-    <div class="troubleshooting">
-        <h3>Solución de problemas comunes</h3>
-        
-        <h4>El formulario no se carga</h4>
-        <ul>
-            <li>Verifica que no tengas bloqueadores de scripts activos</li>
-            <li>Asegúrate de que el dominio del CRM esté accesible desde tu red</li>
-        </ul>
-        
-        <h4>El formulario se ve deformado o sin estilos</h4>
-        <ul>
-            <li>Utiliza el Método 1 (optimizado para WordPress)</li>
-            <li>Asegúrate de que no haya conflictos con CSS del tema</li>
-        </ul>
-        
-        <h4>Se cargan correctamente pero no se puede enviar el formulario</h4>
-        <ul>
-            <li>Verifica que el navegador permita cookies de terceros</li>
-            <li>Asegúrate de que no haya restricciones de CORS en tu servidor</li>
-        </ul>
-    </div>
-
-    <div class="requirements">
-        <h3>Requisitos técnicos</h3>
-        
-        <ul>
-            <li>WordPress 5.0 o superior</li>
-            <li>Permisos para añadir bloques HTML personalizados</li>
-            <li>Conexión a internet para cargar recursos del CRM</li>
-        </ul>
-    </div>
-
-    <hr>
     
-    <div class="footer">
-        <p>Para soporte técnico adicional, por favor contacta al administrador del sistema.</p>
+    <h2>Solución de problemas comunes</h2>
+    
+    <h3>El formulario no se muestra correctamente en móviles</h3>
+    <ul>
+        <li>Asegúrate de estar usando la versión más reciente del código (la versión actual está optimizada para móviles)</li>
+        <li>Verifica que el tema de WordPress sea responsive y no tenga restricciones de ancho para iframes</li>
+        <li>Ajusta el valor de height en el iframe si partes del formulario no son visibles</li>
+    </ul>
+    
+    <h3>Elementos faltantes o problemas de estilo</h3>
+    <ul>
+        <li>Utiliza la Opción 1 (iframe optimizado para WordPress) que incluye todos los estilos necesarios</li>
+        <li>Asegúrate de que el tema de WordPress no esté sobreescribiendo los estilos del iframe</li>
+        <li>Verifica que no tengas plugins que modifiquen o bloqueen iframes</li>
+    </ul>
+    
+    <h3>El script (Opción 2) no funciona</h3>
+    <ul>
+        <li>Verifica que hayas añadido tanto el div con el ID correcto como el script</li>
+        <li>Asegúrate de que no haya bloqueadores de JavaScript activos</li>
+        <li>Comprueba que el orden sea correcto: primero el div, luego el script</li>
+        <li>Si persisten los problemas, utiliza la Opción 1 o la Opción 3</li>
+    </ul>
+    
+    <div class="success">
+        <strong>Soporte técnico:</strong> Si necesitas ayuda adicional, por favor contacta a nuestro equipo técnico para obtener asistencia personalizada.
     </div>
+    
+    <script>
+        function copyToClipboard(type) {
+            let text = '';
+            
+            switch(type) {
+                case 'iframe-code':
+                    text = '<iframe \n  src="https://clothing-sales-tracker-jaradanny.replit.app/wordpress-embed" \n  width="100%" \n  height="1200px" \n  style="border:none;overflow:hidden;" \n  scrolling="no"\n  frameborder="0">\n</iframe>';
+                    break;
+                case 'container-code':
+                    text = '<div id="civetta-shipping-form"></div>';
+                    break;
+                case 'script-code':
+                    text = '<script src="https://clothing-sales-tracker-jaradanny.replit.app/shipping-form-loader.js"><\/script>';
+                    break;
+                case 'direct-iframe-code':
+                    text = '<iframe \n  src="https://clothing-sales-tracker-jaradanny.replit.app/forms/shipping" \n  width="100%" \n  height="1200px" \n  style="border:none;overflow:hidden;" \n  scrolling="no"\n  frameborder="0">\n</iframe>';
+                    break;
+            }
+            
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '¡Copiado!';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 2000);
+        }
+    </script>
 </body>
 </html>

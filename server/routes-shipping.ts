@@ -367,8 +367,8 @@ export function registerShippingRoutes(app: Express) {
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      // Ruta al archivo HTML del formulario
-      const formPath = path.join(process.cwd(), 'templates/shipping/shipping-form-standalone.html');
+      // Usar la versión standalone sin menú, optimizada para móvil
+      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
       
       if (fs.existsSync(formPath)) {
         // Establecer encabezados para asegurar que se reconozca como HTML y se sirva correctamente
@@ -396,7 +396,7 @@ export function registerShippingRoutes(app: Express) {
   // Versión optimizada para WordPress con estilos inline
   app.get('/wordpress-embed', cors(corsOptions), (req: Request, res: Response) => {
     try {
-      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed.html');
+      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
       
       if (fs.existsSync(formPath)) {
         return res.sendFile(formPath);

@@ -10,17 +10,18 @@
 
 // Script de carga de formulario de envío Civetta
 // Versión WordPress: Compatible con editores de bloques
+// v2.0 - Optimizado para evitar problemas con manejo de script en WordPress
 var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
 
 (function() {
     // Configuración del cargador
     var config = {
-        // Dominio principal del CRM
+        // Dominio principal del CRM (no modificar esta línea)
         crmDomain: 'https://clothing-sales-tracker-jaradanny.replit.app',
         
         // Rutas alternativas para el formulario
         formPaths: [
-            '/shipping-form',
+            '/wordpress-embed',  // Nueva ruta optimizada para WordPress
             '/forms/shipping',
             '/public/shipping-form'
         ],
