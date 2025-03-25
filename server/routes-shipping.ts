@@ -458,18 +458,22 @@ export function registerShippingRoutes(app: Express) {
   });
 
   // Servir el script de carga del formulario (para integración en Civetta.com)
-  app.get('/shipping-form-loader.js', cors(corsOptions), (req: Request, res: Response) => {
+  app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
       const scriptPath = path.join(process.cwd(), 'templates/shipping/shipping-form-loader.js');
       
       if (fs.existsSync(scriptPath)) {
-        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
+        // Configurar encabezados CORS explícitamente (usamos tanto middleware como encabezados para máxima compatibilidad)
         res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept, X-Requested-With, Authorization');
+        res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas para evitar preflight frecuentes
         // Configurar cache para mejorar rendimiento
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+        res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos (reducido para pruebas)
+        
+        // Log para depuración
+        log("Sirviendo script loader con CORS optimizado desde: " + scriptPath, "shipping-service");
         
         return res.sendFile(scriptPath);
       } else {

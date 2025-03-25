@@ -16,7 +16,7 @@
 
 // Script de carga de formulario de envío Civetta
 // Versión WordPress: Compatible con editores de bloques, Elementor, Divi y otros
-// v3.1 - Optimizado para WordPress con caché, CORS y mejor compatibilidad
+// v3.2 - Optimizado para WordPress con mejor compatibilidad CORS
 var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
 
 (function() {

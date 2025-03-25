@@ -11,9 +11,18 @@ import { serviceRegistry, eventListenerService } from "./services";
 import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
 import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
+import cors from 'cors';
 
 const logger = pino({ level: 'info' });
 const app = express();
+
+// Habilitar CORS para todas las rutas
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
