@@ -364,15 +364,25 @@ export function registerShippingRoutes(app: Express) {
   /**
    * Servir el formulario HTML independiente para integrarlo en sitios externos
    * Se proporciona en múltiples rutas para mayor compatibilidad
+   * 
+   * IMPORTANTE: Esta función sirve el mismo archivo HTML en varias rutas
+   * para garantizar consistencia en la integración con WordPress
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      // Usar la versión standalone sin menú, optimizada para móvil
+      // Usar la versión optimizada para WordPress sin menú del CRM
       const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
       
       if (fs.existsSync(formPath)) {
-        // Establecer encabezados para asegurar que se reconozca como HTML y se sirva correctamente
+        // Configurar encabezados CORS para permitir el acceso desde WordPress
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // Configurar cache para mejorar rendimiento
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+        
+        // Enviar el archivo HTML
         return res.sendFile(formPath);
       } else {
         log("No se encontró el archivo del formulario en: " + formPath, "shipping-service");
@@ -394,21 +404,8 @@ export function registerShippingRoutes(app: Express) {
   app.get('/public/shipping-form', cors(corsOptions), serveShippingForm);
   
   // Versión optimizada para WordPress con estilos inline
-  app.get('/wordpress-embed', cors(corsOptions), (req: Request, res: Response) => {
-    try {
-      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
-      
-      if (fs.existsSync(formPath)) {
-        return res.sendFile(formPath);
-      } else {
-        log("No se encontró el archivo de formulario para WordPress en: " + formPath, "shipping-service");
-        return res.status(404).send('Formulario no encontrado');
-      }
-    } catch (error) {
-      console.error('Error al servir el formulario para WordPress:', error);
-      return res.status(500).send('Error interno del servidor');
-    }
-  });
+  // Esta ruta ahora sirve el mismo contenido con los mismos encabezados que las demás rutas
+  app.get('/wordpress-embed', cors(corsOptions), serveShippingForm);
   
   // Guía de implementación en WordPress
   app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
@@ -416,6 +413,14 @@ export function registerShippingRoutes(app: Express) {
       const guidePath = path.join(process.cwd(), 'templates/shipping/wordpress-integration-guide.html');
       
       if (fs.existsSync(guidePath)) {
+        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // Configurar cache para mejorar rendimiento
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+        
         return res.sendFile(guidePath);
       } else {
         log("No se encontró la guía de integración en: " + guidePath, "shipping-service");
@@ -427,13 +432,45 @@ export function registerShippingRoutes(app: Express) {
     }
   });
   
+  // Ejemplos avanzados de integración (para desarrolladores)
+  app.get('/wordpress-examples-advanced', cors(corsOptions), (req: Request, res: Response) => {
+    try {
+      const examplesPath = path.join(process.cwd(), 'templates/shipping/wordpress-example-advanced.html');
+      
+      if (fs.existsSync(examplesPath)) {
+        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // Configurar cache para mejorar rendimiento
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+        
+        return res.sendFile(examplesPath);
+      } else {
+        log("No se encontraron los ejemplos avanzados en: " + examplesPath, "shipping-service");
+        return res.status(404).send('Ejemplos avanzados no encontrados');
+      }
+    } catch (error) {
+      console.error('Error al servir los ejemplos avanzados:', error);
+      return res.status(500).send('Error interno del servidor');
+    }
+  });
+
   // Servir el script de carga del formulario (para integración en Civetta.com)
   app.get('/shipping-form-loader.js', cors(corsOptions), (req: Request, res: Response) => {
     try {
       const scriptPath = path.join(process.cwd(), 'templates/shipping/shipping-form-loader.js');
       
       if (fs.existsSync(scriptPath)) {
+        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
         res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // Configurar cache para mejorar rendimiento
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+        
         return res.sendFile(scriptPath);
       } else {
         log("No se encontró el archivo del script en: " + scriptPath, "shipping-service");

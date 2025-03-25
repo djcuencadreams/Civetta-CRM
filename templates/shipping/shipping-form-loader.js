@@ -6,11 +6,17 @@
  * 1. Incluir este script en la página de Civetta.com donde se quiere mostrar el formulario
  * 2. Añadir un elemento div con id="civetta-shipping-form"
  * 3. El script detectará automáticamente la ruta correcta y cargará el formulario
+ * 
+ * Recomendaciones de instalación en WordPress:
+ * - Usar el bloque HTML personalizado para insertar este script y el div contenedor
+ * - Si usa Elementor, insertar como HTML personalizado o widget de HTML
+ * - Para Divi Builder, usar módulo de código o HTML personalizado
+ * - Si hay problemas con la carga, pruebe añadir este script al final de la página
  */
 
 // Script de carga de formulario de envío Civetta
-// Versión WordPress: Compatible con editores de bloques
-// v2.0 - Optimizado para evitar problemas con manejo de script en WordPress
+// Versión WordPress: Compatible con editores de bloques, Elementor, Divi y otros
+// v3.1 - Optimizado para WordPress con caché, CORS y mejor compatibilidad
 var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
 
 (function() {
@@ -19,11 +25,12 @@ var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
         // Dominio principal del CRM (no modificar esta línea)
         crmDomain: 'https://clothing-sales-tracker-jaradanny.replit.app',
         
-        // Rutas alternativas para el formulario
+        // Múltiples rutas para mejorar compatibilidad con diferentes configuraciones de WordPress
         formPaths: [
-            '/wordpress-embed',  // Nueva ruta optimizada para WordPress
-            '/forms/shipping',
-            '/public/shipping-form'
+            '/wordpress-embed',       // Ruta principal optimizada para WordPress
+            '/shipping-form',         // Ruta alternativa 1
+            '/forms/shipping',        // Ruta alternativa 2
+            '/public/shipping-form'   // Ruta alternativa 3
         ],
         
         // ID del contenedor donde se cargará el formulario
@@ -69,19 +76,29 @@ var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
             const path = config.formPaths[currentPathIndex];
             const url = `${config.crmDomain}${path}`;
             
-            // Verificar que la URL está disponible
-            fetch(url, { method: 'HEAD' })
+            // Verificar que la URL está disponible usando GET en lugar de HEAD 
+            // HEAD puede causar problemas con ciertos servidores WordPress
+            // Si estamos en un navegador antiguo que no soporta fetch, usamos un enfoque alternativo
+            if (typeof fetch === 'undefined') {
+                // Enfoque compatible con navegadores antiguos
+                loadIframe(url);
+                return;
+            }
+
+            fetch(url, { 
+                method: 'GET',
+                // Asegurar que ignoramos restricciones CORS al verificar disponibilidad
+                mode: 'no-cors',
+                // Añadir caché para mejorar rendimiento
+                cache: 'default'
+            })
                 .then(response => {
-                    if (response.ok) {
-                        // La URL funciona, cargar el iframe
-                        loadIframe(url);
-                    } else {
-                        // Esta URL no funciona, intentar la siguiente
-                        currentPathIndex++;
-                        tryNextPath();
-                    }
+                    // Con mode: 'no-cors', response.ok siempre está en undefined
+                    // En este caso, asumimos que la respuesta es válida y cargamos el iframe
+                    loadIframe(url);
                 })
                 .catch(_error => {
+                    console.error('Error al cargar la URL:', url, _error);
                     // Error de red, intentar la siguiente URL
                     currentPathIndex++;
                     tryNextPath();
@@ -90,33 +107,63 @@ var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
         
         // Función para cargar el iframe cuando encontramos una URL funcional
         function loadIframe(url) {
+            // Crear iframe con configuración optimizada para WordPress
             const iframe = document.createElement('iframe');
             iframe.src = url;
             iframe.style.width = '100%';
-            iframe.style.height = '800px'; // Altura predeterminada, ajustar según necesidad
+            iframe.style.height = '1200px'; // Altura mayor para asegurar visibilidad en móvil
             iframe.style.border = 'none';
             iframe.style.overflow = 'hidden';
             iframe.setAttribute('frameborder', '0');
             iframe.setAttribute('scrolling', 'no');
             
+            // Añadir atributo title para accesibilidad
+            iframe.setAttribute('title', 'Formulario de etiquetas de envío Civetta');
+            
+            // Añadir atributo sandbox para mejorar seguridad pero permitir formularios
+            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin');
+            
             // Limpiar el contenedor y añadir el iframe
             container.innerHTML = '';
             container.appendChild(iframe);
             
-            // Ajustar la altura del iframe automáticamente (requiere que ambos dominios permitan comunicación)
-            iframe.onload = function() {
+            // Mejorar la gestión de errores
+            iframe.onerror = function() {
+                container.innerHTML = `<div style="text-align:center;padding:20px;color:#b91c1c;background-color:#fee2e2;border:1px solid #fca5a5;border-radius:4px;">
+                    <p>Error al cargar el formulario. Por favor recargue la página o intente más tarde.</p>
+                    <button onclick="window.location.reload()" style="margin-top:10px;padding:8px 15px;background-color:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;">
+                        Reintentar
+                    </button>
+                </div>`;
+            };
+            
+            // Función para verificar si el iframe cargó correctamente
+            function checkIframeLoaded() {
                 try {
-                    // Intentar ajustar la altura automáticamente
-                    iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
-                    
-                    // Ajustar altura cuando cambia el tamaño de la ventana
-                    window.addEventListener('resize', function() {
-                        iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
-                    });
+                    // Verificar si el contenido ha cargado correctamente
+                    if (iframe.contentWindow.document.body) {
+                        var formHeight = Math.max(
+                            iframe.contentWindow.document.body.scrollHeight,
+                            iframe.contentWindow.document.documentElement.scrollHeight
+                        );
+                        
+                        // Si se detecta un formulario real (no una página de error), ajustar altura
+                        if (formHeight > 300) {
+                            iframe.style.height = (formHeight + 50) + 'px';
+                        }
+                    }
                 } catch (e) {
-                    // Si hay restricciones de CORS, usar una altura fija
-                    console.warn('No se pudo ajustar la altura automáticamente:', e);
+                    // Error de seguridad cross-origin, mantener la altura original
+                    console.log('No se pudo determinar altura del iframe automáticamente (restricción de seguridad)');
                 }
+            }
+            
+            // Verificar carga cuando el iframe termine de cargar
+            iframe.onload = function() {
+                checkIframeLoaded();
+                
+                // Re-verificar después de un momento para asegurar que todo haya cargado
+                setTimeout(checkIframeLoaded, 1000);
             };
         }
         

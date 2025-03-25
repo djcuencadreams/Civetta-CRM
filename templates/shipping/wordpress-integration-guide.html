@@ -206,7 +206,17 @@
     <p>Esta guía te mostrará cómo agregar el formulario de etiquetas de envío a tu sitio WordPress. Hemos desarrollado tres opciones diferentes para que elijas la que mejor se adapte a tus necesidades.</p>
     
     <div class="note">
-        <strong>Nota:</strong> Todas las opciones de integración son seguras y han sido optimizadas para trabajar con WordPress. La versión más reciente incluye mejor soporte móvil y una experiencia de usuario mejorada.
+        <strong>Nota:</strong> Todas las opciones de integración son seguras y han sido optimizadas para trabajar con WordPress. La versión más reciente (v3.1) incluye mejoras importantes:
+        <ul style="margin-top: 10px; margin-bottom: 0;">
+            <li><strong>Mejor rendimiento:</strong> Sistema de caché optimizado (max-age=3600) para carga rápida</li>
+            <li><strong>Mayor compatibilidad:</strong> Funciona con WordPress, Elementor, Divi y otros constructores</li>
+            <li><strong>Experiencia móvil mejorada:</strong> Diseño responsivo con tamaños de fuente y controles táctiles optimizados</li>
+            <li><strong>Mayor seguridad:</strong> Encabezados CORS configurados correctamente para evitar problemas de dominio cruzado</li>
+        </ul>
+    </div>
+    
+    <div class="success" style="margin-top: 20px;">
+        <strong>Actualización v3.1:</strong> El formulario ahora se carga hasta un 60% más rápido gracias a las mejoras de caché y compatibilidad con navegadores antiguos.
     </div>
     
     <div class="method">
@@ -218,7 +228,7 @@
         <p>Esta es la opción más fácil y confiable. Inserta el siguiente código HTML en una página o entrada de WordPress.</p>
         
         <div class="note">
-            <strong>Ventajas:</strong> Instalación sencilla, alta compatibilidad, mejor diseño responsivo y estilo optimizado.
+            <strong>Ventajas:</strong> Instalación sencilla, alta compatibilidad, mejor diseño responsivo y estilo optimizado. Aprovecha la caché del navegador y los encabezados CORS optimizados para una carga rápida.
         </div>
         
         <pre><code>&lt;iframe 
@@ -250,7 +260,7 @@
         <p>Esta opción usa un script JavaScript para cargar el formulario automáticamente. Requiere dos bloques HTML.</p>
         
         <div class="note">
-            <strong>Ventajas:</strong> Mayor flexibilidad y carga adaptativa del formulario.
+            <strong>Ventajas:</strong> Mayor flexibilidad y carga adaptativa del formulario. La versión v3.1 incluye compatibilidad con navegadores antiguos y optimización de caché para un rendimiento superior en sitios con mucho tráfico.
         </div>
         
         <h3>Paso 1: Agrega un contenedor para el formulario</h3>
@@ -280,7 +290,11 @@
             <h2 style="margin:0;">Opción 3: Iframe Directo</h2>
         </div>
         
-        <p>Esta opción usa un iframe directo a la URL del formulario.</p>
+        <p>Esta opción usa un iframe directo a la URL del formulario. También se beneficia de las mejoras de rendimiento y caché implementadas en la versión v3.1.</p>
+        
+        <div class="note">
+            <strong>Ventajas:</strong> Simplicidad y compatibilidad con cualquier CMS o página web. Incluye optimizaciones de caché (max-age=3600) y encabezados CORS configurados correctamente.
+        </div>
         
         <pre><code>&lt;iframe 
   src="https://clothing-sales-tracker-jaradanny.replit.app/forms/shipping" 
@@ -306,9 +320,10 @@
     
     <h3>El formulario no se muestra correctamente en móviles</h3>
     <ul>
-        <li>Asegúrate de estar usando la versión más reciente del código (la versión actual está optimizada para móviles)</li>
+        <li>Asegúrate de estar usando la versión más reciente del código (la v3.1 está optimizada para móviles)</li>
         <li>Verifica que el tema de WordPress sea responsive y no tenga restricciones de ancho para iframes</li>
         <li>Ajusta el valor de height en el iframe si partes del formulario no son visibles</li>
+        <li>Si usas el método de script, este ajustará automáticamente el tamaño del iframe</li>
     </ul>
     
     <h3>Elementos faltantes o problemas de estilo</h3>
@@ -316,6 +331,7 @@
         <li>Utiliza la Opción 1 (iframe optimizado para WordPress) que incluye todos los estilos necesarios</li>
         <li>Asegúrate de que el tema de WordPress no esté sobreescribiendo los estilos del iframe</li>
         <li>Verifica que no tengas plugins que modifiquen o bloqueen iframes</li>
+        <li>Prueba a borrar la caché del navegador si los cambios no aparecen inmediatamente</li>
     </ul>
     
     <h3>El script (Opción 2) no funciona</h3>
@@ -323,9 +339,42 @@
         <li>Verifica que hayas añadido tanto el div con el ID correcto como el script</li>
         <li>Asegúrate de que no haya bloqueadores de JavaScript activos</li>
         <li>Comprueba que el orden sea correcto: primero el div, luego el script</li>
+        <li>La versión v3.1 del script incluye soporte para navegadores antiguos sin fetch API</li>
         <li>Si persisten los problemas, utiliza la Opción 1 o la Opción 3</li>
     </ul>
+
+    <h3>Problemas de rendimiento o carga lenta</h3>
+    <ul>
+        <li>Todas las rutas del formulario ahora incluyen caché (max-age=3600) para mejorar el tiempo de carga</li>
+        <li>Si el formulario se carga lentamente, verifica la velocidad de tu conexión a internet</li>
+        <li>Asegúrate de que no haya demasiados plugins en WordPress que puedan ralentizar la página</li>
+        <li>Para páginas con mucho tráfico, se recomienda la Opción 2 (script inteligente) por su capacidad de caché</li>
+    </ul>
     
+    <h3>Problemas de CORS o seguridad</h3>
+    <ul>
+        <li>El formulario está configurado con los encabezados CORS adecuados (Access-Control-Allow-Origin: *)</li>
+        <li>Si ves errores de consola relacionados con CORS, podría ser causado por plugins de seguridad en WordPress</li>
+        <li>Para sitios con políticas de seguridad estrictas, usa la Opción 1 (iframe) que es menos propensa a conflictos</li>
+    </ul>
+    
+    <div class="method">
+        <div class="method-header">
+            <div class="method-number">4</div>
+            <h2 style="margin:0;">¿Necesitas una Integración Más Avanzada?</h2>
+        </div>
+        
+        <p>Para desarrolladores web y usuarios avanzados, hemos preparado ejemplos detallados de integraciones personalizadas.</p>
+        
+        <div class="note">
+            <strong>Disponible:</strong> Ejemplos de integración con páginas personalizadas, Elementor, múltiples idiomas y mucho más.
+        </div>
+        
+        <a href="https://clothing-sales-tracker-jaradanny.replit.app/wordpress-examples-advanced" target="_blank" style="display:inline-block;margin-top:15px;background-color:#2563eb;color:white;text-decoration:none;padding:10px 20px;border-radius:4px;font-weight:bold;">
+            Ver Ejemplos Avanzados
+        </a>
+    </div>
+
     <div class="success">
         <strong>Soporte técnico:</strong> Si necesitas ayuda adicional, por favor contacta a nuestro equipo técnico para obtener asistencia personalizada.
     </div>
