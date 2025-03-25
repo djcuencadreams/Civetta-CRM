@@ -1,11 +1,7 @@
-/**
- * Rutas para el manejo de etiquetas de envío y datos de clientes
- */
-
 import { Request, Response, Express } from "express";
 import { z } from "zod";
 import { db } from "../db";
-import { customers } from "../db/schema";
+import { customers, orders, orderStatusEnum, paymentStatusEnum, sourceEnum } from "../db/schema";
 import { eq, or, like } from "drizzle-orm";
 import { generateShippingLabelPdf } from "./lib/shipping-label.service";
 import { log } from "./vite";
@@ -222,6 +218,386 @@ export function registerShippingRoutes(app: Express) {
    * Genera una etiqueta de envío y opcionalmente guarda el cliente en la base de datos
    * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
    */
+  /**
+   * Guarda los datos del formulario de envío en el CRM sin generar PDF inmediatamente
+   * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
+   */
+  app.post('/api/shipping/submit-data', 
+    cors(corsOptions),
+    validateBody(shippingFormSchema), 
+    async (req: Request, res: Response) => {
+      try {
+        const formData: ShippingFormData = req.body;
+        
+        // Si tenemos firstName y lastName, construir el nombre completo
+        if (formData.firstName && formData.lastName) {
+          formData.name = `${formData.firstName} ${formData.lastName}`;
+        }
+        
+        let customerId: number | undefined;
+        let orderId: number | undefined;
+        let shippingInfo: Record<string, any> = {};
+        
+        // Guardar la información del cliente
+        try {
+          // Verificar si el cliente ya existe por teléfono, email o número de identificación
+          let existingCustomer = null;
+          
+          if (formData.idNumber) {
+            console.log(`Buscando cliente por idNumber: "${formData.idNumber}"`);
+            existingCustomer = await db.query.customers.findFirst({
+              where: eq(customers.idNumber, formData.idNumber)
+            });
+          }
+          
+          if (!existingCustomer && formData.email) {
+            console.log(`Buscando cliente por email: "${formData.email}"`);
+            existingCustomer = await db.query.customers.findFirst({
+              where: eq(customers.email, formData.email)
+            });
+          }
+          
+          if (!existingCustomer && formData.phone) {
+            console.log(`Buscando cliente por teléfono: "${formData.phone}"`);
+            
+            const phoneQueries = createPhoneQueries(formData.phone);
+            console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
+            
+            existingCustomer = await db.query.customers.findFirst({
+              where: or(...phoneQueries)
+            });
+          }
+          
+          console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
+          
+          if (existingCustomer) {
+            // Actualizar cliente existente
+            const updated = await db
+              .update(customers)
+              .set({
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email || existingCustomer.email,
+                address: formData.street,
+                city: formData.city,
+                province: formData.province,
+                idNumber: formData.idNumber || existingCustomer.idNumber,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, existingCustomer.id))
+              .returning({ id: customers.id });
+              
+            customerId = updated[0]?.id;
+            
+            // Emitir evento de actualización del cliente
+            appEvents.emit(EventTypes.CUSTOMER_UPDATED, { 
+              id: customerId,
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.street
+            });
+          } else {
+            // Crear nuevo cliente
+            const inserted = await db
+              .insert(customers)
+              .values({
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email || null,
+                address: formData.street,
+                city: formData.city,
+                province: formData.province,
+                idNumber: formData.idNumber || null,
+                source: 'shipping_form',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning({ id: customers.id });
+              
+            customerId = inserted[0]?.id;
+            
+            // Emitir evento de creación del cliente
+            appEvents.emit(EventTypes.CUSTOMER_CREATED, { 
+              id: customerId,
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.street
+            });
+          }
+          
+          // Una vez que tenemos el cliente, crear una orden pendiente
+          if (customerId) {
+            // Crear la información de dirección de envío
+            shippingInfo = {
+              fullName: formData.name,
+              phone: formData.phone,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              idNumber: formData.idNumber || '',
+              instructions: formData.deliveryInstructions || ''
+            };
+            
+            // Generar un número de orden
+            const orderPrefix = 'SHIP-';
+            const orderNumber = orderPrefix + Date.now().toString().slice(-6);
+            
+            // Crear la orden pendiente
+            const insertedOrder = await db
+              .insert(orders)
+              .values({
+                customerId: customerId,
+                orderNumber: orderNumber,
+                totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
+                subtotal: "0.00",
+                status: orderStatusEnum.NEW,
+                paymentStatus: paymentStatusEnum.PENDING,
+                source: sourceEnum.WEBSITE,
+                shippingAddress: shippingInfo,
+                notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning({ id: orders.id });
+              
+            orderId = insertedOrder[0]?.id;
+            
+            if (orderId) {
+              // Emitir evento de creación de orden
+              appEvents.emit(EventTypes.ORDER_CREATED, { 
+                id: orderId,
+                orderNumber: orderNumber,
+                customerId: customerId,
+                status: orderStatusEnum.NEW
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error al procesar la información del cliente o crear la orden:', error);
+          // Informar del error pero no detener el proceso
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Error al procesar la información. Por favor, intente nuevamente.',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+        
+        // Devolver una respuesta exitosa
+        return res.status(200).json({
+          success: true,
+          message: 'Información recibida correctamente. El equipo de Civetta preparará su pedido y generará la etiqueta de envío.',
+          customerId: customerId,
+          orderId: orderId
+        });
+      } catch (error) {
+        console.error('Error al procesar datos de envío:', error);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al procesar la información de envío',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+  );
+  
+  /**
+   * Endpoint para guardar los datos de envío sin generar PDF
+   * y crear una orden pendiente en el sistema
+   */
+  app.post('/api/shipping/save-data',
+    cors(corsOptions),
+    validateBody(shippingFormSchema),
+    async (req: Request, res: Response) => {
+      try {
+        const formData: ShippingFormData = req.body;
+        
+        // Si tenemos firstName y lastName, construir el nombre completo
+        if (formData.firstName && formData.lastName) {
+          formData.name = `${formData.firstName} ${formData.lastName}`;
+        }
+        
+        let customerId: number | undefined;
+        let orderId: number | undefined;
+        let orderNumber: string = '';
+        let shippingInfo: Record<string, any> = {};
+        
+        // Guardar la información del cliente
+        try {
+          // Verificar si el cliente ya existe por teléfono, email o número de identificación
+          let existingCustomer = null;
+          
+          if (formData.idNumber) {
+            console.log(`Buscando cliente por idNumber: "${formData.idNumber}"`);
+            existingCustomer = await db.query.customers.findFirst({
+              where: eq(customers.idNumber, formData.idNumber)
+            });
+          }
+          
+          if (!existingCustomer && formData.email) {
+            console.log(`Buscando cliente por email: "${formData.email}"`);
+            existingCustomer = await db.query.customers.findFirst({
+              where: eq(customers.email, formData.email)
+            });
+          }
+          
+          if (!existingCustomer && formData.phone) {
+            console.log(`Buscando cliente por teléfono: "${formData.phone}"`);
+            
+            const phoneQueries = createPhoneQueries(formData.phone);
+            console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
+            
+            existingCustomer = await db.query.customers.findFirst({
+              where: or(...phoneQueries)
+            });
+          }
+          
+          console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
+          
+          if (existingCustomer) {
+            // Actualizar cliente existente
+            const updated = await db
+              .update(customers)
+              .set({
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email || existingCustomer.email,
+                address: formData.street,
+                city: formData.city,
+                province: formData.province,
+                idNumber: formData.idNumber || existingCustomer.idNumber,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, existingCustomer.id))
+              .returning({ id: customers.id });
+              
+            customerId = updated[0]?.id;
+            
+            // Emitir evento de actualización del cliente
+            appEvents.emit(EventTypes.CUSTOMER_UPDATED, { 
+              id: customerId,
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.street
+            });
+          } else {
+            // Crear nuevo cliente
+            const inserted = await db
+              .insert(customers)
+              .values({
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email || null,
+                address: formData.street,
+                city: formData.city,
+                province: formData.province,
+                idNumber: formData.idNumber || null,
+                source: 'shipping_form',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning({ id: customers.id });
+              
+            customerId = inserted[0]?.id;
+            
+            // Emitir evento de creación del cliente
+            appEvents.emit(EventTypes.CUSTOMER_CREATED, { 
+              id: customerId,
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.street
+            });
+          }
+          
+          // Una vez que tenemos el cliente, crear una orden pendiente
+          if (customerId) {
+            // Crear la información de dirección de envío
+            shippingInfo = {
+              fullName: formData.name,
+              phone: formData.phone,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              idNumber: formData.idNumber || '',
+              instructions: formData.deliveryInstructions || ''
+            };
+            
+            // Generar un número de orden
+            const orderPrefix = 'SHIP-';
+            orderNumber = orderPrefix + Date.now().toString().slice(-6);
+            
+            // Crear la orden pendiente
+            const insertedOrder = await db
+              .insert(orders)
+              .values({
+                customerId: customerId,
+                orderNumber: orderNumber,
+                totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
+                subtotal: "0.00",
+                status: orderStatusEnum.NEW,
+                paymentStatus: paymentStatusEnum.PENDING,
+                source: sourceEnum.WEBSITE,
+                shippingAddress: shippingInfo,
+                notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning({ id: orders.id });
+              
+            orderId = insertedOrder[0]?.id;
+            
+            if (orderId) {
+              // Emitir evento de creación de orden
+              appEvents.emit(EventTypes.ORDER_CREATED, { 
+                id: orderId,
+                orderNumber: orderNumber,
+                customerId: customerId,
+                status: orderStatusEnum.NEW
+              });
+            }
+          }
+          
+          // Devolver una respuesta exitosa con los datos de la orden creada
+          return res.status(200).json({
+            success: true,
+            message: 'Información recibida correctamente. El equipo de Civetta preparará su pedido.',
+            customer: {
+              id: customerId,
+              name: formData.name
+            },
+            order: {
+              id: orderId,
+              orderNumber: orderNumber,
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING
+            },
+            clearForm: true
+          });
+        } catch (error) {
+          console.error('Error al procesar la información del cliente o crear la orden:', error);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Error al procesar la información. Por favor, intente nuevamente.',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } catch (error) {
+        console.error('Error al procesar datos de envío:', error);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al procesar la información de envío',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+  );
+
+  /**
+   * Endpoint original que genera el PDF inmediatamente (se mantiene para compatibilidad)
+   */
   app.post('/api/shipping/generate-label', 
     cors(corsOptions),
     validateBody(shippingFormSchema), 
@@ -339,8 +715,8 @@ export function registerShippingRoutes(app: Express) {
           city: formData.city,
           province: formData.province,
           idNumber: formData.idNumber || undefined,
-          deliveryInstructions: formData.deliveryInstructions || undefined,
-          orderNumber: formData.orderNumber || undefined,
+          deliveryInstructions: formData.deliveryInstructions ? formData.deliveryInstructions : undefined,
+          orderNumber: formData.orderNumber ? formData.orderNumber : undefined,
           companyName: formData.companyName || 'CIVETTA'
         });
         
@@ -491,6 +867,76 @@ export function registerShippingRoutes(app: Express) {
     }
   });
 
+  /**
+   * Endpoint para que el personal genere etiquetas de envío para órdenes existentes
+   * Este endpoint no tiene CORS habilitado ya que es solo para uso interno del CRM
+   */
+  app.get('/api/shipping/generate-label-internal/:orderId', async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      
+      if (isNaN(orderId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'ID de orden inválido' 
+        });
+      }
+      
+      // Obtener datos de la orden y el cliente asociado
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true
+        }
+      });
+      
+      if (!order) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Orden no encontrada' 
+        });
+      }
+      
+      // Verificar que la orden tenga un cliente asociado
+      if (!order.customer) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'La orden no tiene un cliente asociado' 
+        });
+      }
+      
+      // Obtener la información de envío
+      const shippingAddress = order.shippingAddress as Record<string, any> || {};
+      
+      // Generar la etiqueta de envío
+      const pdfBuffer = await generateShippingLabelPdf({
+        name: shippingAddress.fullName || order.customer.name,
+        phone: shippingAddress.phone || order.customer.phone || '',
+        street: shippingAddress.street || order.customer.address || '',
+        city: shippingAddress.city || order.customer.city || '',
+        province: shippingAddress.province || order.customer.province || '',
+        idNumber: shippingAddress.idNumber || (order.customer.idNumber || undefined),
+        deliveryInstructions: shippingAddress.instructions || undefined,
+        orderNumber: order.orderNumber ? String(order.orderNumber) : undefined,
+        companyName: 'CIVETTA'
+      });
+      
+      // Enviar PDF como descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="etiqueta-envio-${order.orderNumber || 'sin-numero'}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      return res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error al generar etiqueta de envío:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Error al generar etiqueta de envío',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // Servir el script de carga del formulario (para integración en Civetta.com)
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {

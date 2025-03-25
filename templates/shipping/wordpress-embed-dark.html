@@ -333,18 +333,18 @@
     <div class="form-container">
         <!-- Encabezado -->
         <div class="form-header">
-            <h1>Etiquetas de Envío</h1>
-            <div class="subtitle">Genere etiquetas de envío para sus productos de Civetta</div>
+            <h1>Formulario de Envío</h1>
+            <div class="subtitle">Registre sus datos de envío para sus productos de Civetta</div>
         </div>
         
         <!-- Contenido del formulario -->
         <div class="form-content">
             <!-- Alertas -->
             <div id="alert-success" class="alert alert-success hidden">
-                Etiqueta generada con éxito. La descarga comenzará automáticamente.
+                Datos de envío guardados con éxito. Nos pondremos en contacto pronto.
             </div>
             <div id="alert-error" class="alert alert-error hidden">
-                Error al generar la etiqueta. Por favor intente nuevamente.
+                Error al guardar los datos de envío. Por favor intente nuevamente.
             </div>
             <div id="alert-customer-found" class="alert alert-info hidden">
                 Cliente encontrado. Se han completado algunos campos automáticamente.
@@ -370,7 +370,7 @@
             </div>
             
             <h2>Formulario de Dirección de Envío</h2>
-            <div class="subtitle">Complete el formulario para generar una etiqueta de envío para su pedido</div>
+            <div class="subtitle">Complete el formulario para registrar la información de envío para su pedido</div>
             
             <!-- Formulario de envío -->
             <form id="shipping-form">
@@ -454,7 +454,7 @@
 
                 <div style="margin-top: 30px;">
                     <button type="submit" id="submit-button" class="btn-primary">
-                        Generar etiqueta de envío
+                        Enviar datos de envío
                     </button>
                 </div>
             </form>
@@ -465,8 +465,8 @@
                 <ul>
                     <li>Si ya es cliente, puede verificar su información ingresando su cédula, teléfono o email y haciendo clic en "Verificar"</li>
                     <li>Complete todos los campos marcados con asterisco (*)</li>
-                    <li>La etiqueta se descargará automáticamente como archivo PDF</li>
-                    <li>Imprima la etiqueta en tamaño A5 para mejores resultados</li>
+                    <li>Sus datos serán registrados en nuestro sistema y crearán una orden pendiente</li>
+                    <li>Nuestro personal procesará su pedido y nos pondremos en contacto para coordinar su envío</li>
                 </ul>
             </div>
         </div>
@@ -612,7 +612,7 @@
                 // Mostrar spinner en el botón
                 const originalText = submitButton.textContent;
                 submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="loading-spinner">↻</span> Generando...';
+                submitButton.innerHTML = '<span class="loading-spinner">↻</span> Enviando...';
                 
                 // Ocultar alertas previas
                 alertSuccess.classList.add('hidden');
@@ -636,8 +636,8 @@
                         saveToDatabase: document.getElementById('saveToDatabase').checked
                     };
                     
-                    // Enviar los datos al servidor
-                    const response = await fetch(`${API_BASE_URL}/api/shipping/generate-label`, {
+                    // Enviar los datos al servidor para guardarlos (sin generar PDF)
+                    const response = await fetch(`${API_BASE_URL}/api/shipping/save-data`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -652,49 +652,39 @@
                         throw new Error('Error en la solicitud');
                     }
                     
-                    // Si el Content-Type es application/pdf, es una descarga
-                    const contentType = response.headers.get('Content-Type');
+                    // Procesar la respuesta JSON
+                    const data = await response.json();
                     
-                    if (contentType && contentType.includes('application/pdf')) {
-                        // Es un PDF, descargarlo
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
+                    if (data.success) {
+                        // Obtener el número de orden y mensaje de éxito
+                        const orderNumber = data.order?.orderNumber || 'pendiente';
+                        const message = data.message || 'Datos de envío guardados correctamente';
                         
-                        // Crear un enlace para la descarga
-                        const a = document.createElement('a');
-                        a.style.display = 'none';
-                        a.href = url;
-                        
-                        // Construir nombre de archivo
-                        const fileName = `etiqueta-envio-${formData.name.replace(/\s+/g, '_')}.pdf`;
-                        a.download = fileName;
-                        
-                        // Añadir al DOM, hacer clic y remover
-                        document.body.appendChild(a);
-                        a.click();
-                        
-                        // Limpiar
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                        
-                        // Mostrar mensaje de éxito
+                        // Personalizar el mensaje de éxito con el número de orden
+                        alertSuccess.innerHTML = `${message}. <br/><strong>Número de orden: ${orderNumber}</strong>. <br/>Nos pondremos en contacto con usted pronto.`;
                         alertSuccess.classList.remove('hidden');
                         alertSuccess.scrollIntoView({ behavior: 'smooth' });
                         
-                        // Limpiar campos no esenciales del formulario después de éxito
-                        document.getElementById('orderNumber').value = '';
-                        document.getElementById('deliveryInstructions').value = '';
+                        // Limpiar el formulario si fue exitoso
+                        if (data.clearForm) {
+                            // Limpiar todos los campos del formulario
+                            form.reset();
+                        } else {
+                            // Solo limpiar campos no esenciales
+                            document.getElementById('orderNumber').value = '';
+                            document.getElementById('deliveryInstructions').value = '';
+                        }
                     } else {
-                        // Si no es un PDF, probablemente es un error
-                        throw new Error('El servidor no envió un archivo PDF');
+                        // Si hay un error en la respuesta
+                        throw new Error(data.message || 'Error al guardar los datos de envío');
                     }
                 } catch (error) {
-                    console.error('Error generando etiqueta:', error);
+                    console.error('Error guardando datos de envío:', error);
                     submitButton.disabled = false;
                     submitButton.textContent = originalText;
                     
                     // Mostrar mensaje de error
-                    alertError.textContent = 'Error al generar la etiqueta. Por favor intente nuevamente.';
+                    alertError.textContent = 'Error al guardar los datos de envío. Por favor intente nuevamente.';
                     alertError.classList.remove('hidden');
                     alertError.scrollIntoView({ behavior: 'smooth' });
                 }
