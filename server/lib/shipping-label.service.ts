@@ -39,145 +39,184 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   try {
     log('Generando etiqueta de envío con jsPDF', 'shipping-service');
     
-    // Crear un nuevo documento PDF tamaño A4
-    // A4 es 210x297mm, orientación portrait para usar media hoja como etiqueta
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+    // Validamos que tengamos al menos los datos mínimos necesarios
+    if (!data.name) {
+      log('ERROR: Nombre del destinatario es requerido para generar etiqueta', 'shipping-service');
+      throw new Error('El nombre del destinatario es obligatorio para generar la etiqueta');
+    }
     
-    // Configurar fuentes
-    doc.setFont('helvetica', 'normal');
+    // Completar datos faltantes con valores predeterminados
+    const safeData = {
+      ...data,
+      phone: data.phone || 'No disponible',
+      street: data.street || 'No especificada',
+      city: data.city || 'No especificada',
+      province: data.province || 'No especificada',
+      idNumber: data.idNumber || 'No disponible',
+      deliveryInstructions: data.deliveryInstructions || '',
+      orderNumber: data.orderNumber || 'N/A',
+      companyName: data.companyName || 'Civetta'
+    };
     
-    // Definir dimensiones
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 10;
+    log('Datos de etiqueta validados:', safeData, 'shipping-service');
     
     try {
-      // Intentar cargar el logo
-      const logoPath = path.join(process.cwd(), 'media', 'logoCivetta01.png');
-      if (fs.existsSync(logoPath)) {
-        // Cargar el logo como base64
-        const logoData = fs.readFileSync(logoPath);
-        const logoBase64 = 'data:image/png;base64,' + logoData.toString('base64');
+      // Crear un nuevo documento PDF tamaño A4
+      // A4 es 210x297mm, orientación portrait para usar media hoja como etiqueta
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      // Configurar fuentes
+      doc.setFont('helvetica', 'normal');
+      
+      // Definir dimensiones
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      
+      // Añadir título principal para identificar claramente que es una etiqueta
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ETIQUETA DE ENVÍO', pageWidth / 2, margin, { align: 'center' });
+      
+      try {
+        // Intentar cargar el logo
+        const logoPath = path.join(process.cwd(), 'media', 'logoCivetta01.png');
+        log(`Buscando logo en: ${logoPath}`, 'shipping-service');
         
-        // Insertar logo (centrado, con tamaño ajustado)
-        const logoHeight = 15; // altura fija en mm
-        doc.addImage(logoBase64, 'PNG', pageWidth / 2 - 20, margin + 5, 40, logoHeight, undefined, 'FAST');
-      } else {
-        // Si no se encuentra el logo, usar texto
+        if (fs.existsSync(logoPath)) {
+          log(`Logo encontrado en ${logoPath}`, 'shipping-service');
+          // Cargar el logo como base64
+          const logoData = fs.readFileSync(logoPath);
+          const logoBase64 = 'data:image/png;base64,' + logoData.toString('base64');
+          
+          // Insertar logo (centrado, con tamaño ajustado)
+          const logoHeight = 15; // altura fija en mm
+          doc.addImage(logoBase64, 'PNG', pageWidth / 2 - 20, margin + 5, 40, logoHeight, undefined, 'FAST');
+        } else {
+          // Si no se encuentra el logo, usar texto
+          log(`Logo no encontrado, usando texto alternativo`, 'shipping-service');
+          doc.setFontSize(28);
+          doc.setTextColor(232, 62, 140); // Color rosa similar al logo
+          doc.setFont('helvetica', 'italic');
+          doc.text('Civetta', pageWidth / 2, margin + 15, { align: 'center' });
+          doc.setTextColor(0, 0, 0); // Volver al color negro
+        }
+      } catch (logoError) {
+        // Si hay error al cargar el logo, usar texto
+        log(`Error loading logo: ${logoError}`, 'shipping-service');
         doc.setFontSize(28);
         doc.setTextColor(232, 62, 140); // Color rosa similar al logo
         doc.setFont('helvetica', 'italic');
         doc.text('Civetta', pageWidth / 2, margin + 15, { align: 'center' });
         doc.setTextColor(0, 0, 0); // Volver al color negro
       }
-    } catch (logoError) {
-      // Si hay error al cargar el logo, usar texto
-      log(`Error loading logo: ${logoError}`, 'shipping-service');
-      doc.setFontSize(28);
-      doc.setTextColor(232, 62, 140); // Color rosa similar al logo
-      doc.setFont('helvetica', 'italic');
-      doc.text('Civetta', pageWidth / 2, margin + 15, { align: 'center' });
-      doc.setTextColor(0, 0, 0); // Volver al color negro
-    }
-    
-    // Comenzar el contenido debajo del logo
-    let yPos = margin + 30;
-    
-    // Datos del destinatario (usando un diseño similar a la segunda imagen)
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nombre:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.name, margin + 40, yPos);
-    
-    yPos += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Cédula:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.idNumber || 'No proporcionada', margin + 40, yPos);
-    
-    yPos += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Dirección:', margin, yPos);
-    
-    // Partir la dirección en múltiples líneas si es larga
-    const maxWidth = pageWidth - margin * 2 - 40;
-    const streetLines = doc.splitTextToSize(data.street, maxWidth);
-    doc.setFont('helvetica', 'normal');
-    doc.text(streetLines, margin + 40, yPos);
-    
-    // Ajustar posición vertical según número de líneas de dirección
-    yPos += 5 * streetLines.length;
-    
-    yPos += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Ciudad:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.city, margin + 40, yPos);
-    
-    yPos += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Provincia:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.province, margin + 40, yPos);
-    
-    yPos += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Teléfono:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.phone, margin + 40, yPos);
-    
-    // Instrucciones de entrega si existen
-    if (data.deliveryInstructions) {
-      yPos += 15;
+      
+      // Comenzar el contenido debajo del logo
+      let yPos = margin + 30;
+      
+      // Datos del destinatario (usando un diseño similar a la segunda imagen)
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('Instrucciones:', margin, yPos);
-      
-      const instructionsLines = doc.splitTextToSize(data.deliveryInstructions, maxWidth);
+      doc.text('Nombre:', margin, yPos);
       doc.setFont('helvetica', 'normal');
-      doc.text(instructionsLines, margin + 40, yPos);
+      doc.text(safeData.name, margin + 40, yPos);
       
-      // Ajustar posición vertical según número de líneas de instrucciones
-      yPos += 5 * instructionsLines.length;
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cédula:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(safeData.idNumber, margin + 40, yPos);
+      
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Dirección:', margin, yPos);
+      
+      // Partir la dirección en múltiples líneas si es larga
+      const maxWidth = pageWidth - margin * 2 - 40;
+      const streetLines = doc.splitTextToSize(safeData.street, maxWidth);
+      doc.setFont('helvetica', 'normal');
+      doc.text(streetLines, margin + 40, yPos);
+      
+      // Ajustar posición vertical según número de líneas de dirección
+      yPos += 5 * streetLines.length;
+      
+      yPos += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Ciudad:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(safeData.city, margin + 40, yPos);
+      
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Provincia:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(safeData.province, margin + 40, yPos);
+      
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Teléfono:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(safeData.phone, margin + 40, yPos);
+      
+      // Instrucciones de entrega si existen
+      if (safeData.deliveryInstructions) {
+        yPos += 15;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Instrucciones:', margin, yPos);
+        
+        const instructionsLines = doc.splitTextToSize(safeData.deliveryInstructions, maxWidth);
+        doc.setFont('helvetica', 'normal');
+        doc.text(instructionsLines, margin + 40, yPos);
+        
+        // Ajustar posición vertical según número de líneas de instrucciones
+        yPos += 5 * instructionsLines.length;
+      }
+      
+      // Añadir fecha actual y número de orden en la parte inferior
+      yPos = pageHeight / 2 - 20; // Cerca de la mitad de la página
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      const fechaActual = new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      
+      doc.text(`Fecha: ${fechaActual}`, margin, yPos);
+      
+      if (safeData.orderNumber) {
+        doc.text(`Orden #: ${safeData.orderNumber}`, pageWidth - margin - 50, yPos);
+      }
+      
+      // Dibujar línea punteada en la mitad de la página (para doblar)
+      doc.setLineDashPattern([3, 3], 0);
+      doc.setDrawColor(150, 150, 150);
+      doc.line(0, pageHeight / 2, pageWidth, pageHeight / 2);
+      
+      // Añadir un borde a la parte superior de la página (área de la etiqueta)
+      doc.setLineDashPattern([0, 0], 0); // Línea sólida
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight / 2 - margin);
+      
+      // Convertir a Buffer
+      const pdfBytes = doc.output('arraybuffer');
+      const buffer = Buffer.from(pdfBytes);
+      
+      log(`PDF generado correctamente, tamaño: ${buffer.length} bytes`, 'shipping-service');
+      
+      return buffer;
+    } catch (pdfError) {
+      log(`Error generando PDF con jsPDF: ${pdfError}`, 'shipping-service');
+      throw new Error(`Error generando PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`);
     }
-    
-    // Añadir fecha actual y número de orden en la parte inferior
-    yPos = pageHeight / 2 - 20; // Cerca de la mitad de la página
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'italic');
-    const fechaActual = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    
-    doc.text(`Fecha: ${fechaActual}`, margin, yPos);
-    
-    if (data.orderNumber) {
-      doc.text(`Orden #: ${data.orderNumber}`, pageWidth - margin - 50, yPos);
-    }
-    
-    // Dibujar línea punteada en la mitad de la página (para doblar)
-    doc.setLineDashPattern([3, 3], 0);
-    doc.setDrawColor(150, 150, 150);
-    doc.line(0, pageHeight / 2, pageWidth, pageHeight / 2);
-    
-    // Añadir un borde a la parte superior de la página (área de la etiqueta)
-    doc.setLineDashPattern([0, 0], 0); // Línea sólida
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight / 2 - margin);
-    
-    // Convertir a Buffer
-    const pdfBytes = doc.output('arraybuffer');
-    return Buffer.from(pdfBytes);
   } catch (error) {
-    log(`Error generating shipping label PDF: ${error}`, 'shipping-service');
+    log(`Error principal en generateShippingLabelPdf: ${error}`, 'shipping-service');
     throw error;
   }
 }

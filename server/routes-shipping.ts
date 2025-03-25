@@ -1,16 +1,23 @@
-import { Request, Response, Express } from "express";
-import { z } from "zod";
-import { db } from "../db";
-import { customers, orders, orderStatusEnum, paymentStatusEnum, sourceEnum } from "../db/schema";
-import { eq, or, like } from "drizzle-orm";
-import { generateShippingLabelPdf } from "./lib/shipping-label.service";
-import { log } from "./vite";
-import { validateBody } from "./validation";
-import { handleDatabaseError } from "./validation";
-import { appEvents, EventTypes } from "./lib/event-emitter";
-import cors from "cors";
-import * as fs from "fs";
-import * as path from "path";
+/**
+ * Rutas para el manejo de etiquetas de envío
+ * Este módulo gestiona:
+ * 1. Verificación de clientes existentes por cédula, email o teléfono
+ * 2. Guardar formularios de envío con o sin generación de PDF
+ * 3. Integración con sitios externos vía CORS
+ */
+
+import { Express, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { db } from '../db';
+import { customers, orders, orderStatusEnum, paymentStatusEnum, sourceEnum } from '../db/schema';
+import { eq, or, and, like, ilike } from 'drizzle-orm';
+import cors from 'cors';
+import { appEvents, EventTypes } from './lib/event-emitter';
+import { generateShippingLabelPdf } from './lib/shipping-label.service';
+import { validateBody } from './validation';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * Función para generar consultas de búsqueda por teléfono
@@ -21,58 +28,41 @@ import * as path from "path";
  */
 function createPhoneQueries(phoneNumber: string) {
   const queries = [];
+  const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
   
-  // 1. El teléfono completo tal como se proporcionó
+  // Búsqueda exacta
   queries.push(eq(customers.phone, phoneNumber));
   
-  // 2. Con prefijo "+" si no lo tiene
-  if (!phoneNumber.startsWith('+')) {
-    queries.push(eq(customers.phone, `+${phoneNumber}`));
-    // 3. Con prefijo común de Ecuador si no tiene ningún prefijo
-    queries.push(eq(customers.phone, `+593${phoneNumber}`));
-  }
-  
-  // 4. Sin prefijo "+" si lo tiene
-  if (phoneNumber.startsWith('+')) {
-    queries.push(eq(customers.phone, phoneNumber.substring(1)));
-  }
-  
-  // 5. Solo los dígitos finales (últimos 9 dígitos)
-  if (phoneNumber.length >= 9) {
-    const last9Digits = phoneNumber.slice(-9);
-    queries.push(like(customers.phone, `%${last9Digits}`));
+  // Búsqueda con comodín al inicio para encontrar coincidencias parciales
+  // Ejemplo: Si el teléfono es "0991234567", buscar "*1234567"
+  if (cleanPhone.length > 6) {
+    const lastDigits = cleanPhone.slice(-7);
+    queries.push(like(customers.phone, `%${lastDigits}`));
   }
   
   return queries;
 }
 
-// Esquema para validar el formulario de envío
+// Validación del formulario de envío
 export const shippingFormSchema = z.object({
-  name: z.string().min(2, { message: "El nombre es requerido" }),
-  phone: z.string().min(5, { message: "El teléfono es requerido" }),
-  email: z.string().email({ message: "Correo electrónico inválido" }).optional().nullable(),
-  street: z.string().min(5, { message: "La dirección es requerida" }),
-  city: z.string().min(2, { message: "La ciudad es requerida" }),
-  province: z.string().min(2, { message: "La provincia es requerida" }),
-  idNumber: z.string().optional().nullable(),
-  companyName: z.string().optional().nullable(),
-  deliveryInstructions: z.string().optional().nullable(),
-  orderNumber: z.string().optional().nullable(),
-  saveToDatabase: z.boolean().optional().default(false),
-  // Campos para el formulario web con nombres separados
-  firstName: z.string().optional(),
-  lastName: z.string().optional()
+  name: z.string().min(2, "El nombre es obligatorio"),
+  phone: z.string().min(7, "El teléfono es obligatorio"),
+  street: z.string().min(3, "La dirección es obligatoria"),
+  city: z.string().min(2, "La ciudad es obligatoria"),
+  province: z.string().min(2, "La provincia es obligatoria"),
+  companyName: z.string().optional(),
+  idNumber: z.string().optional(),
+  deliveryInstructions: z.string().optional(),
+  email: z.string().email("Email inválido").optional().nullish(),
+  saveCustomer: z.boolean().optional().default(true)
 });
 
-// Esquema para verificar clientes existentes
+// Validación para la búsqueda de clientes
 export const customerCheckSchema = z.object({
-  identifier: z.string().min(3, { message: "El identificador debe tener al menos 3 caracteres" }),
-  type: z.enum(["idNumber", "email", "phone"], { 
-    errorMap: () => ({ message: "Tipo de identificador inválido, debe ser idNumber, email o phone" })
-  })
+  query: z.string().min(4, "Ingrese al menos 4 caracteres para buscar"),
+  type: z.enum(["identification", "email", "phone"])
 });
 
-// Tipo para los datos del formulario de envío
 type ShippingFormData = z.infer<typeof shippingFormSchema>;
 type CustomerCheckData = z.infer<typeof customerCheckSchema>;
 
@@ -81,139 +71,67 @@ type CustomerCheckData = z.infer<typeof customerCheckSchema>;
  * @param app Aplicación Express
  */
 export function registerShippingRoutes(app: Express) {
-  log("Shipping routes registered", "shipping-service");
-
-  // Configuración de CORS para permitir solicitudes desde otros dominios
-  // Lista de dominios permitidos, incluyendo el dominio principal de Civetta
-  const allowedOrigins = [
-    'https://civetta.com',        // Sitio principal
-    'https://www.civetta.com',    // Con www
-    'https://civettacrm.replit.app',  // App en Replit
-    'https://civettacrm.repl.co',     // App en Replit (dominio alternativo)
-    'http://localhost:3000',      // Desarrollo local
-    'http://localhost:5173'       // Vite dev server
-  ];
-
-  // En desarrollo, permitir cualquier origen
+  // Configuración CORS para permitir acceso desde sitios WordPress
   const corsOptions = {
-    origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      // Permitir solicitudes sin origen (como curl o Postman)
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      
-      // En desarrollo, permitir cualquier origen
-      if (process.env.NODE_ENV === 'development') {
-        callback(null, true);
-        return;
-      }
-      
-      // En producción, verificar contra la lista de orígenes permitidos
-      if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.replit.app')) {
-        callback(null, true);
-      } else {
-        console.log(`Origen bloqueado por CORS: ${origin}`);
-        callback(new Error('Origen no permitido por política CORS'));
-      }
-    },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    origin: '*', // Permitir cualquier origen para facilitar la integración
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   };
-
+  
   /**
    * Endpoint para verificar si un cliente existe por cédula, email o teléfono
    */
   app.post('/api/shipping/check-customer', 
     cors(corsOptions),
-    validateBody(customerCheckSchema), 
+    validateBody(customerCheckSchema),
     async (req: Request, res: Response) => {
       try {
-        const { identifier, type } = req.body as CustomerCheckData;
+        const { query, type } = req.body;
+        let whereClause;
         
-        // Determinar qué campo usar para la búsqueda
-        let query;
+        // Construir la consulta según el tipo de búsqueda
         switch (type) {
-          case 'idNumber':
-            query = eq(customers.idNumber, identifier);
+          case 'identification':
+            whereClause = or(
+              eq(customers.idNumber, query),
+              eq(customers.taxId, query)
+            );
             break;
           case 'email':
-            // Verificar si identifier es null o undefined
-            if (!identifier) {
-              return res.status(400).json({ success: false, message: 'Correo electrónico no válido' });
-            }
-            query = eq(customers.email, identifier);
+            whereClause = eq(customers.email, query);
             break;
           case 'phone':
-            console.log("Teléfono a buscar:", identifier);
-            const phoneQueries = createPhoneQueries(identifier);
-            console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
-            
-            query = or(...phoneQueries);
+            whereClause = or(...createPhoneQueries(query));
             break;
           default:
-            return res.status(400).json({ success: false, message: 'Tipo de identificador no válido' });
+            return res.status(400).json({ error: 'Tipo de búsqueda no válido' });
         }
         
-        // Loggear la búsqueda para depuración
-        console.log(`Buscando cliente por ${type}: "${identifier}"`);
-        
-        // Buscar el cliente
-        const existingCustomer = await db.query.customers.findFirst({
-          where: query
+        // Buscar cliente
+        const customer = await db.query.customers.findFirst({
+          where: whereClause
         });
         
-        // Loggear el resultado
-        console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
-        
-        if (existingCustomer) {
-          // Extraer nombre y apellido de manera más robusta
-          const nameParts = existingCustomer.name.split(' ');
-          // Si hay campos first_name y last_name, usarlos primero
-          let firstName = existingCustomer.firstName || '';
-          let lastName = existingCustomer.lastName || '';
-          
-          // Si no hay campos separados, extraer del nombre completo
-          if (!firstName && nameParts.length > 0) {
-            firstName = nameParts[0];
-            lastName = nameParts.slice(1).join(' ');
-          }
-          
-          console.log('Extrayendo nombre del cliente:', { 
-            fullName: existingCustomer.name,
-            firstName,
-            lastName
-          });
-          
-          // Devolver los datos del cliente sin información sensible
-          return res.json({
-            success: true,
-            exists: true,
+        if (customer) {
+          res.json({
+            found: true,
             customer: {
-              firstName,
-              lastName,
-              phone: existingCustomer.phone || '',
-              email: existingCustomer.email || '',
-              street: existingCustomer.address || existingCustomer.street || '',
-              city: existingCustomer.city || '',
-              province: existingCustomer.province || '',
-              idNumber: existingCustomer.idNumber || ''
+              id: customer.id,
+              name: customer.name,
+              email: customer.email,
+              phone: customer.phone,
+              idNumber: customer.idNumber
             }
           });
         } else {
-          return res.json({ success: true, exists: false });
+          res.json({ found: false });
         }
       } catch (error) {
-        console.error('Error verificando cliente:', error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error al verificar el cliente',
-          error: error instanceof Error ? error.message : String(error)
-        });
+        console.error('Error al verificar cliente:', error);
+        res.status(500).json({ error: 'Error al verificar cliente' });
       }
-    }
-  );
-
+    });
+  
   /**
    * Genera una etiqueta de envío y opcionalmente guarda el cliente en la base de datos
    * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
@@ -222,521 +140,428 @@ export function registerShippingRoutes(app: Express) {
    * Guarda los datos del formulario de envío en el CRM sin generar PDF inmediatamente
    * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
    */
-  app.post('/api/shipping/submit-data', 
-    cors(corsOptions),
-    validateBody(shippingFormSchema), 
-    async (req: Request, res: Response) => {
-      try {
-        const formData: ShippingFormData = req.body;
-        
-        // Si tenemos firstName y lastName, construir el nombre completo
-        if (formData.firstName && formData.lastName) {
-          formData.name = `${formData.firstName} ${formData.lastName}`;
-        }
-        
-        let customerId: number | undefined;
-        let orderId: number | undefined;
-        let shippingInfo: Record<string, any> = {};
-        
-        // Guardar la información del cliente
-        try {
-          // Verificar si el cliente ya existe por teléfono, email o número de identificación
-          let existingCustomer = null;
-          
-          if (formData.idNumber) {
-            console.log(`Buscando cliente por idNumber: "${formData.idNumber}"`);
-            existingCustomer = await db.query.customers.findFirst({
-              where: eq(customers.idNumber, formData.idNumber)
-            });
-          }
-          
-          if (!existingCustomer && formData.email) {
-            console.log(`Buscando cliente por email: "${formData.email}"`);
-            existingCustomer = await db.query.customers.findFirst({
-              where: eq(customers.email, formData.email)
-            });
-          }
-          
-          if (!existingCustomer && formData.phone) {
-            console.log(`Buscando cliente por teléfono: "${formData.phone}"`);
-            
-            const phoneQueries = createPhoneQueries(formData.phone);
-            console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
-            
-            existingCustomer = await db.query.customers.findFirst({
-              where: or(...phoneQueries)
-            });
-          }
-          
-          console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
-          
-          if (existingCustomer) {
-            // Actualizar cliente existente
-            const updated = await db
-              .update(customers)
-              .set({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || existingCustomer.email,
-                address: formData.street,
-                city: formData.city,
-                province: formData.province,
-                idNumber: formData.idNumber || existingCustomer.idNumber,
-                updatedAt: new Date()
-              })
-              .where(eq(customers.id, existingCustomer.id))
-              .returning({ id: customers.id });
-              
-            customerId = updated[0]?.id;
-            
-            // Emitir evento de actualización del cliente
-            appEvents.emit(EventTypes.CUSTOMER_UPDATED, { 
-              id: customerId,
-              name: formData.name,
-              phone: formData.phone,
-              email: formData.email,
-              address: formData.street
-            });
-          } else {
-            // Crear nuevo cliente
-            const inserted = await db
-              .insert(customers)
-              .values({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || null,
-                address: formData.street,
-                city: formData.city,
-                province: formData.province,
-                idNumber: formData.idNumber || null,
-                source: 'shipping_form',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning({ id: customers.id });
-              
-            customerId = inserted[0]?.id;
-            
-            // Emitir evento de creación del cliente
-            appEvents.emit(EventTypes.CUSTOMER_CREATED, { 
-              id: customerId,
-              name: formData.name,
-              phone: formData.phone,
-              email: formData.email,
-              address: formData.street
-            });
-          }
-          
-          // Una vez que tenemos el cliente, crear una orden pendiente
-          if (customerId) {
-            // Crear la información de dirección de envío
-            shippingInfo = {
-              fullName: formData.name,
-              phone: formData.phone,
-              street: formData.street,
-              city: formData.city,
-              province: formData.province,
-              idNumber: formData.idNumber || '',
-              instructions: formData.deliveryInstructions || ''
-            };
-            
-            // Generar un número de orden
-            const orderPrefix = 'SHIP-';
-            const orderNumber = orderPrefix + Date.now().toString().slice(-6);
-            
-            // Crear la orden pendiente
-            const insertedOrder = await db
-              .insert(orders)
-              .values({
-                customerId: customerId,
-                orderNumber: orderNumber,
-                totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
-                subtotal: "0.00",
-                status: orderStatusEnum.NEW,
-                paymentStatus: paymentStatusEnum.PENDING,
-                source: sourceEnum.WEBSITE,
-                shippingAddress: shippingInfo,
-                notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning({ id: orders.id });
-              
-            orderId = insertedOrder[0]?.id;
-            
-            if (orderId) {
-              // Emitir evento de creación de orden
-              appEvents.emit(EventTypes.ORDER_CREATED, { 
-                id: orderId,
-                orderNumber: orderNumber,
-                customerId: customerId,
-                status: orderStatusEnum.NEW
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error al procesar la información del cliente o crear la orden:', error);
-          // Informar del error pero no detener el proceso
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Error al procesar la información. Por favor, intente nuevamente.',
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-        
-        // Devolver una respuesta exitosa
-        return res.status(200).json({
-          success: true,
-          message: 'Información recibida correctamente. El equipo de Civetta preparará su pedido y generará la etiqueta de envío.',
-          customerId: customerId,
-          orderId: orderId
-        });
-      } catch (error) {
-        console.error('Error al procesar datos de envío:', error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error al procesar la información de envío',
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-  );
-  
-  /**
-   * Endpoint para guardar los datos de envío sin generar PDF
-   * y crear una orden pendiente en el sistema
-   */
   app.post('/api/shipping/save-data',
     cors(corsOptions),
     validateBody(shippingFormSchema),
     async (req: Request, res: Response) => {
       try {
         const formData: ShippingFormData = req.body;
-        
-        // Si tenemos firstName y lastName, construir el nombre completo
-        if (formData.firstName && formData.lastName) {
-          formData.name = `${formData.firstName} ${formData.lastName}`;
-        }
-        
         let customerId: number | undefined;
         let orderId: number | undefined;
-        let orderNumber: string = '';
-        let shippingInfo: Record<string, any> = {};
         
-        // Guardar la información del cliente
-        try {
-          // Verificar si el cliente ya existe por teléfono, email o número de identificación
-          let existingCustomer = null;
+        // Verificar si el cliente ya existe (por teléfono o cédula)
+        let customer = null;
+        if (formData.idNumber) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.idNumber, formData.idNumber)
+          });
+        }
+        
+        if (!customer && formData.phone) {
+          customer = await db.query.customers.findFirst({
+            where: or(...createPhoneQueries(formData.phone))
+          });
+        }
+        
+        if (!customer && formData.email) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.email, formData.email)
+          });
+        }
+        
+        // Si el cliente existe, usarlo; si no, crear uno nuevo
+        if (customer) {
+          customerId = customer.id;
           
-          if (formData.idNumber) {
-            console.log(`Buscando cliente por idNumber: "${formData.idNumber}"`);
-            existingCustomer = await db.query.customers.findFirst({
-              where: eq(customers.idNumber, formData.idNumber)
-            });
-          }
-          
-          if (!existingCustomer && formData.email) {
-            console.log(`Buscando cliente por email: "${formData.email}"`);
-            existingCustomer = await db.query.customers.findFirst({
-              where: eq(customers.email, formData.email)
-            });
-          }
-          
-          if (!existingCustomer && formData.phone) {
-            console.log(`Buscando cliente por teléfono: "${formData.phone}"`);
-            
-            const phoneQueries = createPhoneQueries(formData.phone);
-            console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
-            
-            existingCustomer = await db.query.customers.findFirst({
-              where: or(...phoneQueries)
-            });
-          }
-          
-          console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
-          
-          if (existingCustomer) {
-            // Actualizar cliente existente
-            const updated = await db
+          // Actualizar sus datos si es necesario
+          if (formData.saveCustomer !== false) {
+            await db
               .update(customers)
               .set({
                 name: formData.name,
                 phone: formData.phone,
-                email: formData.email || existingCustomer.email,
-                address: formData.street,
-                city: formData.city,
-                province: formData.province,
-                idNumber: formData.idNumber || existingCustomer.idNumber,
+                email: formData.email || customer.email,
+                street: formData.street || customer.street,
+                city: formData.city || customer.city,
+                province: formData.province || customer.province,
                 updatedAt: new Date()
               })
-              .where(eq(customers.id, existingCustomer.id))
-              .returning({ id: customers.id });
-              
-            customerId = updated[0]?.id;
-            
-            // Emitir evento de actualización del cliente
-            appEvents.emit(EventTypes.CUSTOMER_UPDATED, { 
-              id: customerId,
-              name: formData.name,
-              phone: formData.phone,
-              email: formData.email,
-              address: formData.street
-            });
-          } else {
-            // Crear nuevo cliente
-            const inserted = await db
-              .insert(customers)
-              .values({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || null,
-                address: formData.street,
-                city: formData.city,
-                province: formData.province,
-                idNumber: formData.idNumber || null,
-                source: 'shipping_form',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning({ id: customers.id });
-              
-            customerId = inserted[0]?.id;
-            
-            // Emitir evento de creación del cliente
-            appEvents.emit(EventTypes.CUSTOMER_CREATED, { 
-              id: customerId,
-              name: formData.name,
-              phone: formData.phone,
-              email: formData.email,
-              address: formData.street
-            });
+              .where(eq(customers.id, customer.id));
           }
-          
-          // Una vez que tenemos el cliente, crear una orden pendiente
-          if (customerId) {
-            // Crear la información de dirección de envío
-            shippingInfo = {
-              fullName: formData.name,
+        } else if (formData.saveCustomer !== false) {
+          // Crear nuevo cliente
+          const insertedCustomer = await db
+            .insert(customers)
+            .values({
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email || null,
+              idNumber: formData.idNumber || null,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: customers.id });
+            
+          customerId = insertedCustomer[0]?.id;
+        }
+        
+        // Si tenemos un cliente, crear una orden pendiente
+        if (customerId) {
+          // Crear objeto con los datos de envío
+          const shippingInfo = {
+              name: formData.name,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
               province: formData.province,
-              idNumber: formData.idNumber || '',
               instructions: formData.deliveryInstructions || ''
-            };
-            
-            // Generar un número de orden
-            const orderPrefix = 'SHIP-';
-            orderNumber = orderPrefix + Date.now().toString().slice(-6);
-            
-            // Crear la orden pendiente
-            const insertedOrder = await db
-              .insert(orders)
-              .values({
-                customerId: customerId,
-                orderNumber: orderNumber,
-                totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
-                subtotal: "0.00",
-                status: orderStatusEnum.NEW,
-                paymentStatus: paymentStatusEnum.PENDING,
-                source: sourceEnum.WEBSITE,
-                shippingAddress: shippingInfo,
-                notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning({ id: orders.id });
-              
-            orderId = insertedOrder[0]?.id;
-            
-            if (orderId) {
-              // Emitir evento de creación de orden
-              appEvents.emit(EventTypes.ORDER_CREATED, { 
-                id: orderId,
-                orderNumber: orderNumber,
-                customerId: customerId,
-                status: orderStatusEnum.NEW
-              });
-            }
-          }
+          };
           
-          // Devolver una respuesta exitosa con los datos de la orden creada
-          return res.status(200).json({
-            success: true,
-            message: 'Información recibida correctamente. El equipo de Civetta preparará su pedido.',
-            customer: {
-              id: customerId,
-              name: formData.name
-            },
-            order: {
-              id: orderId,
+          // Generar un número de orden
+          const orderPrefix = 'SHIP-';
+          const orderNumber = orderPrefix + Date.now().toString().slice(-6);
+          
+          // Crear la orden pendiente
+          const insertedOrder = await db
+            .insert(orders)
+            .values({
+              customerId: customerId,
               orderNumber: orderNumber,
+              totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
+              subtotal: "0.00",
               status: orderStatusEnum.NEW,
-              paymentStatus: paymentStatusEnum.PENDING
-            },
-            clearForm: true
-          });
-        } catch (error) {
-          console.error('Error al procesar la información del cliente o crear la orden:', error);
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Error al procesar la información. Por favor, intente nuevamente.',
-            error: error instanceof Error ? error.message : String(error)
-          });
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE,
+              isFromWebForm: true,
+              shippingAddress: shippingInfo,
+              notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: orders.id });
+            
+          orderId = insertedOrder[0]?.id;
+          
+          if (orderId) {
+            // Emitir evento de creación de orden
+            appEvents.emit(EventTypes.ORDER_CREATED, { 
+              id: orderId,
+              customerId,
+              orderNumber,
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE
+            });
+          }
         }
+        
+        return res.json({
+          success: true,
+          message: "Datos guardados correctamente",
+          customerId,
+          orderId
+        });
       } catch (error) {
-        console.error('Error al procesar datos de envío:', error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error al procesar la información de envío',
-          error: error instanceof Error ? error.message : String(error)
+        console.error('Error al guardar datos de envío:', error);
+        res.status(500).json({ 
+          error: 'Error al guardar los datos de envío',
+          details: error instanceof Error ? error.message : 'Error desconocido'
         });
       }
-    }
-  );
-
+    });
+    
   /**
-   * Endpoint original que genera el PDF inmediatamente (se mantiene para compatibilidad)
+   * Endpoint para guardar los datos de envío sin generar PDF
+   * y crear una orden pendiente en el sistema
    */
-  app.post('/api/shipping/generate-label', 
+  app.post('/api/shipping/submit-data',
     cors(corsOptions),
-    validateBody(shippingFormSchema), 
+    validateBody(shippingFormSchema),
     async (req: Request, res: Response) => {
       try {
         const formData: ShippingFormData = req.body;
+        let customerId: number | undefined;
+        let orderId: number | undefined;
         
-        // Si tenemos firstName y lastName, construir el nombre completo
-        if (formData.firstName && formData.lastName) {
-          formData.name = `${formData.firstName} ${formData.lastName}`;
+        // Verificar si el cliente ya existe (por teléfono, cédula o email)
+        let customer = null;
+        if (formData.idNumber) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.idNumber, formData.idNumber)
+          });
         }
         
-        // Si se solicita guardar en base de datos, crear o actualizar cliente
-        let customerId: number | undefined;
+        if (!customer && formData.phone) {
+          customer = await db.query.customers.findFirst({
+            where: or(...createPhoneQueries(formData.phone))
+          });
+        }
         
-        if (formData.saveToDatabase) {
-          try {
-            // Verificar si el cliente ya existe por teléfono, email o número de identificación
-            let existingCustomer = null;
-            
-            if (formData.idNumber) {
-              console.log(`Buscando cliente por idNumber: "${formData.idNumber}"`);
-              existingCustomer = await db.query.customers.findFirst({
-                where: eq(customers.idNumber, formData.idNumber)
-              });
-            }
-            
-            if (!existingCustomer && formData.email) {
-              console.log(`Buscando cliente por email: "${formData.email}"`);
-              existingCustomer = await db.query.customers.findFirst({
-                where: eq(customers.email, formData.email)
-              });
-            }
-            
-            if (!existingCustomer && formData.phone) {
-              console.log(`Buscando cliente por teléfono: "${formData.phone}"`);
-              
-              const phoneQueries = createPhoneQueries(formData.phone);
-              console.log("Variantes de búsqueda:", phoneQueries.map(q => String(q)));
-              
-              existingCustomer = await db.query.customers.findFirst({
-                where: or(...phoneQueries)
-              });
-            }
-            
-            console.log("Resultado búsqueda:", existingCustomer ? "Cliente encontrado" : "Cliente no encontrado");
-            
-            if (existingCustomer) {
-              // Actualizar cliente existente
-              const updated = await db
-                .update(customers)
-                .set({
-                  name: formData.name,
-                  phone: formData.phone,
-                  email: formData.email || existingCustomer.email,
-                  address: formData.street,
-                  city: formData.city,
-                  province: formData.province,
-                  idNumber: formData.idNumber || existingCustomer.idNumber,
-                  updatedAt: new Date()
-                })
-                .where(eq(customers.id, existingCustomer.id))
-                .returning({ id: customers.id });
-                
-              customerId = updated[0]?.id;
-              
-              // Emitir evento de actualización del cliente
-              appEvents.emit(EventTypes.CUSTOMER_UPDATED, { 
-                id: customerId,
+        if (!customer && formData.email) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.email, formData.email)
+          });
+        }
+        
+        // Si el cliente existe, usarlo; si no, crear uno nuevo
+        if (customer) {
+          customerId = customer.id;
+          
+          // Actualizar sus datos si es necesario
+          if (formData.saveCustomer !== false) {
+            await db
+              .update(customers)
+              .set({
                 name: formData.name,
                 phone: formData.phone,
-                email: formData.email,
-                address: formData.street
-              });
-            } else {
-              // Crear nuevo cliente
-              const inserted = await db
-                .insert(customers)
-                .values({
-                  name: formData.name,
-                  phone: formData.phone,
-                  email: formData.email || null,
-                  address: formData.street,
-                  city: formData.city,
-                  province: formData.province,
-                  idNumber: formData.idNumber || null,
-                  source: 'shipping_form',
-                  createdAt: new Date(),
-                  updatedAt: new Date()
-                })
-                .returning({ id: customers.id });
-                
-              customerId = inserted[0]?.id;
-              
-              // Emitir evento de creación del cliente
-              appEvents.emit(EventTypes.CUSTOMER_CREATED, { 
-                id: customerId,
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email,
-                address: formData.street
-              });
-            }
-          } catch (error) {
-            console.error('Error al guardar cliente:', error);
-            // Continuar para generar la etiqueta aunque falle el guardado
+                email: formData.email || customer.email,
+                street: formData.street || customer.street,
+                city: formData.city || customer.city,
+                province: formData.province || customer.province,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, customer.id));
+          }
+        } else if (formData.saveCustomer !== false) {
+          // Crear nuevo cliente
+          const insertedCustomer = await db
+            .insert(customers)
+            .values({
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email || null,
+              idNumber: formData.idNumber || null,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: customers.id });
+            
+          customerId = insertedCustomer[0]?.id;
+        }
+        
+        // Si tenemos un cliente, crear una orden pendiente
+        if (customerId) {
+          // Crear objeto con los datos de envío
+          const shippingInfo = {
+              name: formData.name,
+              phone: formData.phone,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              instructions: formData.deliveryInstructions || ''
+          };
+          
+          // Generar un número de orden
+          const orderPrefix = 'SHIP-';
+          const orderNumber = orderPrefix + Date.now().toString().slice(-6);
+          
+          // Crear la orden pendiente
+          const insertedOrder = await db
+            .insert(orders)
+            .values({
+              customerId: customerId,
+              orderNumber: orderNumber,
+              totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
+              subtotal: "0.00",
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE,
+              isFromWebForm: true,
+              shippingAddress: shippingInfo,
+              notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: orders.id });
+            
+          orderId = insertedOrder[0]?.id;
+          
+          if (orderId) {
+            // Emitir evento de creación de orden
+            appEvents.emit(EventTypes.ORDER_CREATED, { 
+              id: orderId,
+              customerId,
+              orderNumber,
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE
+            });
           }
         }
         
-        // Generar la etiqueta de envío en PDF
-        const pdfBuffer = await generateShippingLabelPdf({
+        return res.json({
+          success: true,
+          message: "Datos guardados correctamente y orden creada",
+          customerId,
+          orderId
+        });
+      } catch (error) {
+        console.error('Error al procesar formulario de envío:', error);
+        res.status(500).json({ 
+          error: 'Error al procesar el formulario de envío',
+          details: error instanceof Error ? error.message : 'Error desconocido'
+        });
+      }
+    });
+    
+  /**
+   * Endpoint original que genera el PDF inmediatamente (se mantiene para compatibilidad)
+   */
+  app.post('/api/shipping/generate-label',
+    cors(corsOptions),
+    validateBody(shippingFormSchema),
+    async (req: Request, res: Response) => {
+      try {
+        const formData: ShippingFormData = req.body;
+        let customerId: number | undefined;
+        let orderId: number | undefined;
+        
+        // Verificar si el cliente ya existe
+        let customer = null;
+        if (formData.idNumber) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.idNumber, formData.idNumber)
+          });
+        }
+        
+        if (!customer && formData.phone) {
+          customer = await db.query.customers.findFirst({
+            where: or(...createPhoneQueries(formData.phone))
+          });
+        }
+        
+        if (!customer && formData.email) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.email, formData.email)
+          });
+        }
+        
+        // Si el cliente existe, usarlo; si no, crear uno nuevo
+        if (customer) {
+          customerId = customer.id;
+          
+          // Actualizar los datos del cliente si es necesario
+          if (formData.saveCustomer !== false) {
+            await db
+              .update(customers)
+              .set({
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email || customer.email,
+                street: formData.street || customer.street,
+                city: formData.city || customer.city,
+                province: formData.province || customer.province,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, customer.id));
+          }
+        } else if (formData.saveCustomer !== false) {
+          // Crear nuevo cliente
+          const insertedCustomer = await db
+            .insert(customers)
+            .values({
+              name: formData.name,
+              phone: formData.phone,
+              email: formData.email || null,
+              idNumber: formData.idNumber || null,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: customers.id });
+            
+          customerId = insertedCustomer[0]?.id;
+        }
+        
+        // Preparar datos para el PDF
+        const pdfData = {
           name: formData.name,
-          phone: formData.phone,
+          phone: formData.phone || 'N/A',
           street: formData.street,
           city: formData.city,
           province: formData.province,
-          idNumber: formData.idNumber || undefined,
-          deliveryInstructions: formData.deliveryInstructions ? formData.deliveryInstructions : undefined,
-          orderNumber: formData.orderNumber ? formData.orderNumber : undefined,
-          companyName: formData.companyName || 'CIVETTA'
-        });
+          idNumber: formData.idNumber || 'N/A',
+          deliveryInstructions: formData.deliveryInstructions || 'N/A',
+          companyName: formData.companyName || ''
+        };
         
-        // Enviar PDF como descarga
+        // Generar el PDF
+        const pdfBuffer = await generateShippingLabelPdf(pdfData);
+        
+        // Si tenemos un cliente, crear una orden pendiente
+        if (customerId) {
+          // Crear objeto con los datos de envío
+          const shippingInfo = {
+              name: formData.name,
+              phone: formData.phone,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              instructions: formData.deliveryInstructions || ''
+          };
+          
+          // Generar un número de orden
+          const orderPrefix = 'SHIP-';
+          const orderNumber = orderPrefix + Date.now().toString().slice(-6);
+          
+          // Crear la orden pendiente
+          const insertedOrder = await db
+            .insert(orders)
+            .values({
+              customerId: customerId,
+              orderNumber: orderNumber,
+              totalAmount: "0.00", // Se deberá actualizar cuando se complete la orden
+              subtotal: "0.00",
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE,
+              isFromWebForm: true,
+              shippingAddress: shippingInfo,
+              notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning({ id: orders.id });
+            
+          orderId = insertedOrder[0]?.id;
+          
+          if (orderId) {
+            // Emitir evento de creación de orden
+            appEvents.emit(EventTypes.ORDER_CREATED, { 
+              id: orderId,
+              customerId,
+              orderNumber,
+              status: orderStatusEnum.NEW,
+              paymentStatus: paymentStatusEnum.PENDING,
+              source: sourceEnum.WEBSITE,
+              shippingInfo
+            });
+          }
+        }
+        
+        // Configurar cabeceras para enviar el PDF
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="etiqueta-envio-${formData.name.replace(/\s+/g, '_')}.pdf"`);
-        res.setHeader('Content-Length', pdfBuffer.length);
+        res.setHeader('Content-Disposition', 'attachment; filename=etiqueta-envio.pdf');
         
-        return res.send(pdfBuffer);
+        // Enviar el PDF como respuesta
+        res.send(pdfBuffer);
       } catch (error) {
         console.error('Error al generar etiqueta de envío:', error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error al generar etiqueta de envío',
-          error: error instanceof Error ? error.message : String(error)
+        res.status(500).json({ 
+          error: 'Error al generar la etiqueta de envío',
+          details: error instanceof Error ? error.message : 'Error desconocido'
         });
       }
-    }
-  );
-
+    });
+  
   /**
    * Servir el formulario HTML independiente para integrarlo en sitios externos
    * Se proporciona en múltiples rutas para mayor compatibilidad
@@ -746,127 +571,43 @@ export function registerShippingRoutes(app: Express) {
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      // Usar la versión moderna con funcionalidad completa igual al CRM
-      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-modern.html');
-      
-      // Tener alternativas como backup en caso de que el archivo principal no exista
-      if (!fs.existsSync(formPath)) {
-        // Intentar con la versión oscura como primera alternativa
-        const darkPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-dark.html');
-        if (fs.existsSync(darkPath)) {
-          log("Usando versión alternativa oscura del formulario", "shipping-service");
-          
-          // Configurar encabezados
-          res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
-          
-          return res.sendFile(darkPath);
-        }
-        
-        // Intentar con la versión standalone como última alternativa
-        const backupPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
-        if (fs.existsSync(backupPath)) {
-          log("Usando versión básica del formulario como última alternativa", "shipping-service");
-          
-          // Configurar encabezados
-          res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
-          
-          return res.sendFile(backupPath);
-        } else {
-          log("No se encontró ninguna versión del formulario", "shipping-service");
-          return res.status(404).send('Formulario no encontrado');
-        }
-      }
-      
-      // Configurar encabezados CORS para permitir el acceso desde WordPress
-      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      // Configurar cache para mejorar rendimiento (reducido para pruebas)
-      res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
-      
-      // Log para depuración
-      log("Sirviendo formulario moderno con funcionalidad completa desde: " + formPath, "shipping-service");
-      
-      // Enviar el archivo HTML
-      return res.sendFile(formPath);
+      const formPath = path.join(__dirname, '../templates/shipping/wordpress-embed-modern.html');
+      res.setHeader('Content-Type', 'text/html');
+      res.sendFile(formPath);
     } catch (error) {
-      console.error('Error sirviendo formulario:', error);
-      return res.status(500).send('Error al cargar el formulario');
+      console.error('Error al servir formulario de envío:', error);
+      res.status(500).send('Error al cargar el formulario de envío');
     }
   };
   
-  // Registrar la ruta principal
+  // Rutas para el formulario de envío
   app.get('/shipping-form', cors(corsOptions), serveShippingForm);
+  app.get('/shipping', cors(corsOptions), serveShippingForm);
+  app.get('/etiqueta', cors(corsOptions), serveShippingForm);
+  app.get('/etiqueta-de-envio', cors(corsOptions), serveShippingForm);
   
-  // Ruta alternativa que no entrará en conflicto con las rutas de Vite
-  app.get('/forms/shipping', cors(corsOptions), serveShippingForm);
-  
-  // Otra alternativa para entornos de producción
-  app.get('/public/shipping-form', cors(corsOptions), serveShippingForm);
-  
-  // Versión optimizada para WordPress con estilos inline
-  // Esta ruta ahora sirve el mismo contenido con los mismos encabezados que las demás rutas
-  app.get('/wordpress-embed', cors(corsOptions), serveShippingForm);
-  
-  // Guía de implementación en WordPress
   app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
     try {
-      const guidePath = path.join(process.cwd(), 'templates/shipping/wordpress-integration-guide.html');
-      
-      if (fs.existsSync(guidePath)) {
-        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        // Configurar cache para mejorar rendimiento
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
-        
-        return res.sendFile(guidePath);
-      } else {
-        log("No se encontró la guía de integración en: " + guidePath, "shipping-service");
-        return res.status(404).send('Guía no encontrada');
-      }
+      const guidePath = path.join(__dirname, '../templates/shipping/wordpress-integration-guide.html');
+      res.setHeader('Content-Type', 'text/html');
+      res.sendFile(guidePath);
     } catch (error) {
-      console.error('Error al servir la guía de integración:', error);
-      return res.status(500).send('Error interno del servidor');
+      console.error('Error al servir guía de WordPress:', error);
+      res.status(500).send('Error al cargar la guía de integración');
     }
   });
   
-  // Ejemplos avanzados de integración (para desarrolladores)
   app.get('/wordpress-examples-advanced', cors(corsOptions), (req: Request, res: Response) => {
     try {
-      const examplesPath = path.join(process.cwd(), 'templates/shipping/wordpress-example-advanced.html');
-      
-      if (fs.existsSync(examplesPath)) {
-        // Configurar encabezados CORS para permitir el acceso desde cualquier dominio
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        // Configurar cache para mejorar rendimiento
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
-        
-        return res.sendFile(examplesPath);
-      } else {
-        log("No se encontraron los ejemplos avanzados en: " + examplesPath, "shipping-service");
-        return res.status(404).send('Ejemplos avanzados no encontrados');
-      }
+      const examplesPath = path.join(__dirname, '../templates/shipping/wordpress-advanced-examples.html');
+      res.setHeader('Content-Type', 'text/html');
+      res.sendFile(examplesPath);
     } catch (error) {
-      console.error('Error al servir los ejemplos avanzados:', error);
-      return res.status(500).send('Error interno del servidor');
+      console.error('Error al servir ejemplos avanzados:', error);
+      res.status(500).send('Error al cargar los ejemplos avanzados');
     }
   });
-
+  
   /**
    * Endpoint para que el personal genere etiquetas de envío para órdenes existentes
    * Este endpoint no tiene CORS habilitado ya que es solo para uso interno del CRM
@@ -874,15 +615,14 @@ export function registerShippingRoutes(app: Express) {
   app.get('/api/shipping/generate-label-internal/:orderId', async (req: Request, res: Response) => {
     try {
       const orderId = parseInt(req.params.orderId);
-      
       if (isNaN(orderId)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'ID de orden inválido' 
-        });
+        console.error('[ETIQUETA] Error: ID de orden inválido:', req.params.orderId);
+        return res.status(400).json({ error: 'ID de orden inválido' });
       }
       
-      // Obtener datos de la orden y el cliente asociado
+      console.log('[ETIQUETA] Solicitando etiqueta para orden ID:', orderId);
+      
+      // Obtener la orden con datos del cliente
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
@@ -891,78 +631,145 @@ export function registerShippingRoutes(app: Express) {
       });
       
       if (!order) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Orden no encontrada' 
-        });
+        console.error('[ETIQUETA] Error: Orden no encontrada con ID:', orderId);
+        return res.status(404).json({ error: 'Orden no encontrada' });
       }
       
-      // Verificar que la orden tenga un cliente asociado
-      if (!order.customer) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'La orden no tiene un cliente asociado' 
-        });
-      }
-      
-      // Obtener la información de envío
-      const shippingAddress = order.shippingAddress as Record<string, any> || {};
-      
-      // Generar la etiqueta de envío
-      const pdfBuffer = await generateShippingLabelPdf({
-        name: shippingAddress.fullName || order.customer.name,
-        phone: shippingAddress.phone || order.customer.phone || '',
-        street: shippingAddress.street || order.customer.address || '',
-        city: shippingAddress.city || order.customer.city || '',
-        province: shippingAddress.province || order.customer.province || '',
-        idNumber: shippingAddress.idNumber || (order.customer.idNumber || undefined),
-        deliveryInstructions: shippingAddress.instructions || undefined,
-        orderNumber: order.orderNumber ? String(order.orderNumber) : undefined,
-        companyName: 'CIVETTA'
+      console.log('[ETIQUETA] Orden encontrada:', { 
+        id: order.id, 
+        orderNumber: order.orderNumber,
+        customerId: order.customerId,
+        customerName: order.customer?.name,
+        hasShippingAddress: !!order.shippingAddress
       });
       
-      // Enviar PDF como descarga
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="etiqueta-envio-${order.orderNumber || 'sin-numero'}.pdf"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
+      // Extraer información de envío (incluso si está incompleta)
+      let shippingInfo: any = {};
       
-      return res.send(pdfBuffer);
+      if (order.shippingAddress) {
+        try {
+          // Si es un objeto JSON almacenado como string
+          if (typeof order.shippingAddress === 'string') {
+            console.log('[ETIQUETA] Parseando shippingAddress de string a objeto');
+            shippingInfo = JSON.parse(order.shippingAddress);
+          } else {
+            // Si ya es un objeto
+            console.log('[ETIQUETA] shippingAddress ya es un objeto');
+            shippingInfo = order.shippingAddress;
+          }
+          console.log('[ETIQUETA] Datos de shipping extraídos:', shippingInfo);
+        } catch (e) {
+          console.error('[ETIQUETA] Error al parsear shippingAddress:', e, 'Valor recibido:', order.shippingAddress);
+          // Si hay error al parsear, usar un objeto vacío
+          shippingInfo = {};
+        }
+      } else {
+        console.log('[ETIQUETA] No hay información de envío específica, usando datos del cliente');
+      }
+      
+      // Obtener nombre del cliente o usar ID como fallback
+      const customerName = 
+        shippingInfo.name || 
+        order.customer?.name || 
+        `Cliente #${order.customerId}`;
+      
+      // Obtener número de teléfono
+      const customerPhone = 
+        shippingInfo.phone || 
+        order.customer?.phone || 
+        'No disponible';
+      
+      // Obtener dirección o usar placeholders que indican que falta información
+      const streetAddress = 
+        shippingInfo.street || 
+        order.customer?.street || 
+        '[INFORMACIÓN PENDIENTE]';
+      
+      const cityName = 
+        shippingInfo.city || 
+        order.customer?.city || 
+        '[CIUDAD]';
+      
+      const provinceName = 
+        shippingInfo.province || 
+        order.customer?.province || 
+        '[PROVINCIA]';
+      
+      // Crear número de orden formateado si no existe
+      const formattedOrderNumber = 
+        order.orderNumber || 
+        `ORD-${order.id.toString().padStart(6, '0')}`;
+      
+      // Preparar datos para el PDF (con datos de fallback para casos incompletos)
+      const pdfData = {
+        name: customerName,
+        phone: customerPhone,
+        street: streetAddress,
+        city: cityName,
+        province: provinceName,
+        idNumber: order.customer?.idNumber || shippingInfo.idNumber || 'N/A',
+        deliveryInstructions: shippingInfo.instructions || '',
+        orderNumber: formattedOrderNumber,
+        // Usado companyName solo si existe en el cliente o en shipping info
+        companyName: shippingInfo.companyName || (order.customer && 'companyName' in order.customer ? order.customer.companyName : '') 
+      };
+      
+      console.log('[ETIQUETA] Datos preparados para generar PDF:', pdfData);
+      
+      // Generar el PDF incluso con datos incompletos
+      const pdfBuffer = await generateShippingLabelPdf(pdfData);
+      
+      console.log('[ETIQUETA] PDF generado correctamente, tamaño:', pdfBuffer.length, 'bytes');
+      
+      if (!pdfBuffer || pdfBuffer.length < 100) {
+        console.error('[ETIQUETA] Error: El PDF generado es demasiado pequeño o está vacío');
+        return res.status(500).json({ 
+          error: 'Error al generar la etiqueta de envío: PDF inválido'
+        });
+      }
+      
+      // Configurar cabeceras para enviar el PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=etiqueta-envio-${formattedOrderNumber}.pdf`);
+      
+      // Enviar el PDF como respuesta
+      console.log('[ETIQUETA] Enviando PDF al cliente');
+      res.send(pdfBuffer);
+      console.log('[ETIQUETA] PDF enviado con éxito');
     } catch (error) {
-      console.error('Error al generar etiqueta de envío:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error al generar etiqueta de envío',
-        error: error instanceof Error ? error.message : String(error)
+      console.error('[ETIQUETA] Error al generar etiqueta interna:', error);
+      
+      // Determinar si el error está relacionado con la biblioteca jsPDF
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorStack = error instanceof Error ? error.stack : '';
+      
+      if (errorStack && errorStack.includes('jspdf')) {
+        console.error('[ETIQUETA] Error relacionado con jsPDF:', errorStack);
+        return res.status(500).json({
+          error: 'Error al generar el PDF con jsPDF',
+          details: errorMessage,
+          suggestion: 'Puede ser un problema con la biblioteca de generación de PDF'
+        });
+      }
+      
+      res.status(500).json({ 
+        error: 'Error al generar la etiqueta de envío',
+        details: errorMessage
       });
     }
   });
   
-  // Servir el script de carga del formulario (para integración en Civetta.com)
+  // Servir el script de carga del formulario para WordPress
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
-      const scriptPath = path.join(process.cwd(), 'templates/shipping/shipping-form-loader.js');
-      
-      if (fs.existsSync(scriptPath)) {
-        // Configurar encabezados CORS explícitamente (usamos tanto middleware como encabezados para máxima compatibilidad)
-        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS, POST');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, Accept, X-Requested-With, Authorization');
-        res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas para evitar preflight frecuentes
-        // Configurar cache para mejorar rendimiento
-        res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos (reducido para pruebas)
-        
-        // Log para depuración
-        log("Sirviendo script loader con CORS optimizado desde: " + scriptPath, "shipping-service");
-        
-        return res.sendFile(scriptPath);
-      } else {
-        log("No se encontró el archivo del script en: " + scriptPath, "shipping-service");
-        return res.status(404).send('Script no encontrado');
-      }
+      const loaderPath = path.join(__dirname, '../templates/shipping/shipping-form-loader.js');
+      res.setHeader('Content-Type', 'application/javascript');
+      res.sendFile(loaderPath);
     } catch (error) {
-      console.error('Error sirviendo script de carga:', error);
-      return res.status(500).send('Error al cargar el script');
+      console.error('Error al servir script de carga:', error);
+      res.status(500).send('console.error("Error al cargar el script de formulario de envío");');
     }
   });
+
+  console.log('[shipping-service] Shipping routes registered');
 }

@@ -1,0 +1,320 @@
+/**
+ * NUEVO Sistema de Rutas para generación de etiquetas de envío
+ * Este archivo implementa una alternativa completa para solucionar los problemas
+ * con la generación de etiquetas PDF.
+ */
+
+import { Express, Request, Response } from 'express';
+import { db } from '../db';
+import { orders } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+// Asegurarse de que existe el directorio para almacenar PDFs temporales
+function ensureTempDir() {
+  const tempDir = path.join(process.cwd(), 'temp_pdfs');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  return tempDir;
+}
+
+/**
+ * Función para generar un PDF de etiqueta de envío directamente
+ * Esta implementación es independiente de cualquier otro servicio
+ */
+function generateSimpleShippingLabel(data: {
+  name: string;
+  phone: string;
+  street: string;
+  city: string;
+  province: string;
+  idNumber?: string;
+  orderNumber?: string;
+  instructions?: string;
+  trackingNumber?: string;
+  companyName?: string;
+}): Buffer {
+  // Crear un nuevo documento PDF tamaño A4
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+  
+  // Configurar fuentes y dimensiones
+  doc.setFont('helvetica', 'normal');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  
+  // Añadir título grande y claro
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ETIQUETA DE ENVÍO', pageWidth / 2, margin + 5, { align: 'center' });
+  
+  // Logo o texto de la empresa (con fondo destacado)
+  // Crear un fondo sombreado para el logo
+  doc.setFillColor(248, 249, 250);
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(pageWidth / 2 - 25, margin + 10, 50, 25, 3, 3, 'FD');
+
+  try {
+    const logoPath = path.join(process.cwd(), 'media', 'logoCivetta01.png');
+    if (fs.existsSync(logoPath)) {
+      const logoData = fs.readFileSync(logoPath);
+      const logoBase64 = 'data:image/png;base64,' + logoData.toString('base64');
+      const logoHeight = 20;
+      doc.addImage(logoBase64, 'PNG', pageWidth / 2 - 20, margin + 12, 40, logoHeight);
+    } else {
+      doc.setFontSize(24);
+      doc.setTextColor(232, 62, 140);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Civetta', pageWidth / 2, margin + 25, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+    }
+  } catch (e) {
+    // Usar texto en caso de error
+    doc.setFontSize(24);
+    doc.setTextColor(232, 62, 140);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Civetta', pageWidth / 2, margin + 25, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+  
+  // Iniciar contenido principal de la etiqueta
+  let yPos = margin + 40;
+  
+  // Campos de la etiqueta
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DESTINATARIO:', margin, yPos);
+  
+  // Nombre del destinatario (en grande)
+  yPos += 8;
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.name, margin, yPos);
+  
+  // Mostrar nombre de empresa si existe
+  if (data.companyName) {
+    yPos += 7;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Empresa: ${data.companyName}`, margin, yPos);
+  }
+  
+  // Resto de campos
+  yPos += 10;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Cédula/ID:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.idNumber || 'No proporcionada', margin + 30, yPos);
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Dirección:', margin, yPos);
+  const streetLines = doc.splitTextToSize(data.street || 'No disponible', pageWidth - margin * 2 - 30);
+  doc.setFont('helvetica', 'normal');
+  doc.text(streetLines, margin + 30, yPos);
+  
+  // Ajustar según líneas de dirección
+  yPos += streetLines.length * 6;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ciudad:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.city || 'No disponible', margin + 30, yPos);
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Provincia:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.province || 'No disponible', margin + 30, yPos);
+  
+  yPos += 8;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Teléfono:', margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.phone || 'No disponible', margin + 30, yPos);
+  
+  // Instrucciones si existen
+  if (data.instructions) {
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Instrucciones:', margin, yPos);
+    
+    const instructionsLines = doc.splitTextToSize(data.instructions, pageWidth - margin * 2 - 30);
+    doc.setFont('helvetica', 'normal');
+    yPos += 6;
+    doc.text(instructionsLines, margin, yPos);
+  }
+  
+  // Número de orden y fecha en la parte inferior
+  const bottomY = pageHeight / 2 - 10;
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic');
+  const currentDate = new Date().toLocaleDateString('es-ES');
+  
+  doc.text(`Fecha: ${currentDate}`, margin, bottomY);
+  
+  // Información de la orden
+  if (data.orderNumber) {
+    doc.text(`Orden: ${data.orderNumber}`, pageWidth - margin - 50, bottomY);
+  }
+  
+  // Número de seguimiento si existe
+  if (data.trackingNumber) {
+    const trackingY = bottomY - 5;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Seguimiento: ${data.trackingNumber}`, pageWidth - margin - 80, trackingY);
+  }
+  
+  // Línea punteada en mitad de página
+  doc.setLineDashPattern([3, 3], 0);
+  doc.setDrawColor(100, 100, 100);
+  doc.line(0, pageHeight / 2, pageWidth, pageHeight / 2);
+  
+  // Borde alrededor de la etiqueta
+  doc.setLineDashPattern([0, 0], 0);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.rect(5, 5, pageWidth - 10, pageHeight / 2 - 10);
+  
+  // Añadir instrucciones debajo de la línea
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Doble por la línea punteada', pageWidth / 2, pageHeight / 2 + 5, { align: 'center' });
+  
+  // Información del remitente en área inferior
+  const senderY = pageHeight / 2 + 15;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REMITENTE:', margin, senderY);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Civetta Fashion', margin, senderY + 5);
+  doc.text('Quito, Ecuador', margin, senderY + 10);
+  
+  // Pequeño recuadro decorativo para la etiqueta
+  doc.setDrawColor(220, 100, 150);
+  doc.setLineWidth(2);
+  doc.setLineDashPattern([0, 0], 0);
+  doc.roundedRect(3, 3, pageWidth - 6, pageHeight / 2 - 6, 2, 2, 'S');
+  
+  // Devolver como buffer
+  return Buffer.from(doc.output('arraybuffer'));
+}
+
+/**
+ * Registra las rutas de etiquetas de envío
+ */
+export function registerNewShippingRoutes(app: Express) {
+  console.log('🔄 Registrando rutas de etiquetas de envío (NUEVA VERSIÓN)');
+  
+  // Endpoint para generar etiquetas desde órdenes existentes
+  app.get('/api/shipping/label/:orderId', async (req: Request, res: Response) => {
+    console.log('⚡ Petición recibida para generar etiqueta, orden ID:', req.params.orderId);
+    
+    try {
+      const orderId = parseInt(req.params.orderId);
+      if (isNaN(orderId)) {
+        console.error('⚠️ ID de orden inválido:', req.params.orderId);
+        return res.status(400).json({ error: 'ID de orden inválido' });
+      }
+      
+      // Obtener la orden con todos los datos relacionados necesarios
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true,
+          items: true,
+          assignedUser: true
+        }
+      });
+      
+      if (!order) {
+        console.error('⚠️ Orden no encontrada:', orderId);
+        return res.status(404).json({ error: 'Orden no encontrada' });
+      }
+      
+      console.log('✅ Orden encontrada, ID:', order.id, 'Cliente:', order.customer?.name);
+      
+      // Extraer información de envío 
+      let shippingInfo: any = {};
+      
+      if (order.shippingAddress) {
+        try {
+          if (typeof order.shippingAddress === 'string') {
+            shippingInfo = JSON.parse(order.shippingAddress);
+          } else {
+            shippingInfo = order.shippingAddress;
+          }
+        } catch (e) {
+          console.error('⚠️ Error al parsear datos de envío:', e);
+          shippingInfo = {};
+        }
+      }
+      
+      // Preparar datos para la etiqueta con más información
+      const labelData = {
+        name: shippingInfo.fullName || shippingInfo.name || order.customer?.name || `Cliente #${order.customerId}`,
+        phone: shippingInfo.phone || order.customer?.phone || 'No disponible',
+        street: shippingInfo.street || order.customer?.street || order.customer?.address || 'No disponible',
+        city: shippingInfo.city || order.customer?.city || 'No disponible',
+        province: shippingInfo.province || order.customer?.province || 'No disponible',
+        idNumber: shippingInfo.idNumber || order.customer?.idNumber || 'No disponible',
+        orderNumber: order.orderNumber || `ORD-${order.id.toString().padStart(6, '0')}`,
+        trackingNumber: order.trackingNumber || '',
+        instructions: shippingInfo.instructions || order.customer?.deliveryInstructions || '',
+        companyName: order.customer?.type === 'company' ? order.customer.name : undefined
+      };
+      
+      console.log('📄 Generando etiqueta con datos:', labelData);
+      
+      // Generar el PDF
+      try {
+        const pdfBuffer = generateSimpleShippingLabel(labelData);
+        
+        // Guardar temporalmente el PDF (para debugging si es necesario)
+        const tempDir = ensureTempDir();
+        const tempFilename = `etiqueta_${orderId}_${uuidv4().substring(0, 8)}.pdf`;
+        const tempPath = path.join(tempDir, tempFilename);
+        fs.writeFileSync(tempPath, pdfBuffer);
+        
+        console.log('✅ PDF generado correctamente, tamaño:', pdfBuffer.length, 'bytes');
+        console.log('💾 PDF guardado temporalmente en:', tempPath);
+        
+        // Enviar el PDF como respuesta
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=etiqueta-${labelData.orderNumber}.pdf`);
+        res.setHeader('Content-Length', pdfBuffer.length.toString());
+        
+        // Enviar el buffer del PDF
+        res.send(pdfBuffer);
+        console.log('✅ PDF enviado al cliente correctamente');
+      } catch (pdfError) {
+        console.error('❌ Error al generar el PDF:', pdfError);
+        res.status(500).json({ 
+          error: 'Error al generar el PDF', 
+          details: pdfError instanceof Error ? pdfError.message : String(pdfError)
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error general al procesar la petición:', error);
+      res.status(500).json({ 
+        error: 'Error al generar la etiqueta de envío',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  console.log('✅ Rutas de etiquetas de envío (NUEVA VERSIÓN) registradas correctamente');
+}

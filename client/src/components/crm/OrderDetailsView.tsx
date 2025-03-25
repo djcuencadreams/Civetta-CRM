@@ -47,7 +47,7 @@ type OrderDetailsProps = {
     notes: string | null;
     createdAt: string;
     updatedAt: string;
-    woocommerceId: number | null;
+    wooCommerceId: number | null; // Cambiado de woocommerceId a wooCommerceId
     assignedUserId?: number | null;
     shippingMethod?: string | null;
     trackingNumber?: string | null;
@@ -56,9 +56,17 @@ type OrderDetailsProps = {
     discount?: number;
     subtotal?: number;
     paymentDate?: string | null;
+    isFromWebForm?: boolean;
+    shippingAddress?: Record<string, any>;
     customer?: {
       name: string;
       id: number;
+      street?: string;
+      city?: string;
+      province?: string;
+      phone?: string;
+      idNumber?: string;
+      companyName?: string;
     };
     assignedUser?: {
       id: number;
@@ -91,29 +99,89 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   const handleGenerateShippingLabel = async () => {
     try {
       setIsGeneratingLabel(true);
+      console.log('📦 Iniciando generación de etiqueta para pedido:', order.id);
       
       // Verificar que tengamos un ID válido
       if (!order.id) {
+        console.error('📦 Error: ID de pedido no válido');
         throw new Error('No se puede generar la etiqueta: ID de pedido no válido');
       }
       
+      // Verificar que tengamos datos del cliente
+      if (!order.customer) {
+        console.error('📦 Error: No hay datos del cliente para este pedido');
+        console.log('📦 Datos completos de la orden:', order);
+        throw new Error('No se puede generar la etiqueta: Falta información del cliente');
+      }
+      
+      // Verificar que tengamos direcciones necesarias
+      if (!order.shippingAddress && !order.customer.street) {
+        console.error('📦 Error: No hay dirección de envío');
+        throw new Error('No se puede generar la etiqueta: Falta dirección de envío');
+      }
+      
+      // Mostrar datos del pedido para depuración
+      console.log('📦 Datos de orden disponibles:', {
+        id: order.id,
+        customerId: order.customerId,
+        orderNumber: order.orderNumber,
+        shippingAddress: order.shippingAddress,
+        customer: order.customer
+      });
+      
+      // Construir URL del endpoint (NUEVO SISTEMA)
+      const endpoint = `/api/shipping/label/${order.id}`;
+      console.log('📦 Llamando al NUEVO endpoint de etiquetas:', endpoint);
+      
       // Llamar al endpoint para generar la etiqueta
-      const response = await fetch(`/api/shipping/generate-label-internal/${order.id}`, {
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
-          'Accept': 'application/pdf'
+          'Accept': 'application/pdf',
+          'Cache-Control': 'no-cache'
         }
       });
       
+      console.log('📦 Respuesta recibida, status:', response.status);
+      console.log('📦 Headers:', [...response.headers.entries()].reduce((obj, [key, val]) => {
+        obj[key] = val;
+        return obj;
+      }, {} as Record<string, string>));
+      
       if (!response.ok) {
-        throw new Error('Error al generar la etiqueta de envío');
+        // Intentar leer la respuesta de error para más detalles
+        let errorDetail = '';
+        try {
+          const errorData = await response.text();
+          console.error('📦 Respuesta de error detallada:', errorData);
+          errorDetail = errorData;
+        } catch (e) {
+          console.error('📦 No se pudo leer el detalle del error:', e);
+        }
+        
+        throw new Error(`Error al generar la etiqueta de envío (${response.status}): ${errorDetail}`);
+      }
+      
+      // Verificar tipo de contenido
+      const contentType = response.headers.get('Content-Type');
+      console.log('📦 Tipo de contenido:', contentType);
+      
+      if (!contentType || !contentType.includes('application/pdf')) {
+        console.warn('📦 Advertencia: El servidor no devolvió un PDF (Content-Type: ' + contentType + ')');
       }
       
       // Obtener el blob del PDF
       const blob = await response.blob();
+      console.log('📦 Tamaño del blob recibido:', blob.size, 'bytes');
+      
+      if (blob.size < 100) {
+        console.error('📦 Error: El blob recibido es demasiado pequeño para ser un PDF válido');
+        throw new Error('El archivo PDF generado parece estar corrupto o incompleto');
+      }
       
       // Crear URL para el blob
       const url = window.URL.createObjectURL(blob);
+      console.log('📦 URL creada para el blob:', url);
       
       // Crear un elemento anchor para descargar
       const a = document.createElement('a');
@@ -122,14 +190,20 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       // Obtener nombre del archivo de las cabeceras Content-Disposition o usar nombre por defecto
       let filename = `etiqueta-envio-${order.orderNumber || order.id}.pdf`;
       const contentDisposition = response.headers.get('Content-Disposition');
+      
+      console.log('📦 Content-Disposition:', contentDisposition);
+      
       if (contentDisposition) {
         const filenameMatch = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1].replace(/['"]/g, '');
+          console.log('📦 Nombre de archivo extraído de cabeceras:', filename);
         }
       }
       
       a.download = filename;
+      console.log('📦 Iniciando descarga con nombre:', filename);
+      
       document.body.appendChild(a);
       a.click();
       
@@ -137,16 +211,19 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
+      console.log('📦 Descarga de etiqueta completada con éxito');
+      
       toast({
         title: "Etiqueta generada",
         description: "La etiqueta de envío ha sido generada y descargada correctamente"
       });
       
     } catch (error) {
-      console.error('Error al generar etiqueta:', error);
+      console.error('📦 Error al generar etiqueta:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al generar la etiqueta de envío"
+        title: "Error al generar etiqueta",
+        description: error instanceof Error ? error.message : "Error al generar la etiqueta de envío",
+        variant: "destructive"
       });
     } finally {
       setIsGeneratingLabel(false);
@@ -198,11 +275,17 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   };
 
   // Formato para moneda
-  const formatCurrency = (amount: number): string => {
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return '$0.00';
+    // Convertir a número si es un string
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    // Verificar que sea un número válido
+    if (isNaN(numericAmount)) return '$0.00';
+    
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount);
+    }).format(numericAmount);
   };
 
   // Formato para fechas
@@ -279,6 +362,20 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       </div>
 
       <Separator />
+
+      {/* Mensaje informativo para órdenes que vienen del formulario web */}
+      {order.isFromWebForm && (
+        <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-md flex items-start gap-3 mb-4">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-blue-800 dark:text-blue-200">Orden creada desde formulario web</h4>
+            <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+              Esta orden fue creada desde el formulario de envío en la web. 
+              Por favor complete la información faltante, especialmente los detalles de productos y el valor total.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Información principal del pedido */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,15 +521,23 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             shippingMethod={order.shippingMethod}
             trackingNumber={order.trackingNumber}
             shippingCost={order.shippingCost}
-            estimatedDeliveryDate={null} // Se podría agregar esta propiedad en el futuro
+            estimatedDeliveryDate={null}
             status={order.status}
-            shippingAddress={{
-              street: "Dirección del cliente", // Estos datos podrían obtenerse del cliente en una implementación futura
-              city: "Ciudad",
-              province: "Provincia",
-              country: "Ecuador",
-              postalCode: ""
-            }}
+            shippingAddress={
+              (order.shippingAddress as any) ? {
+                street: (order.shippingAddress as any).street || order.customer?.street || "No disponible",
+                city: (order.shippingAddress as any).city || order.customer?.city || "No disponible",
+                province: (order.shippingAddress as any).province || order.customer?.province || "No disponible",
+                country: "Ecuador",
+                postalCode: ""
+              } : {
+                street: order.customer?.street || "No disponible",
+                city: order.customer?.city || "No disponible",
+                province: order.customer?.province || "No disponible",
+                country: "Ecuador",
+                postalCode: ""
+              }
+            }
           />
         </CardContent>
       </Card>

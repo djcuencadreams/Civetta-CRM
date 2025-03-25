@@ -10,7 +10,7 @@ type Order = {
   customerId: number;
   leadId: number | null;
   orderNumber: string | null;
-  totalAmount: number;
+  totalAmount: number | string; // Puede venir como string "0.00" del backend
   status: string;
   paymentStatus: string;
   paymentMethod: string | null;
@@ -19,23 +19,31 @@ type Order = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  wooCommerceId: number | null; // Cambiado de woocommerceId a wooCommerceId para coincidir con la API
+  wooCommerceId: number | null; // Nombre correcto desde la API
   assignedUserId?: number | null;
   shippingMethod?: string | null;
   trackingNumber?: string | null;
-  shippingCost?: number;
-  tax?: number;
-  discount?: number;
-  subtotal?: number;
+  shippingCost?: number | string; // Puede venir como string "0.00" desde el backend
+  tax?: number | string; // Puede venir como string "0.00" desde el backend
+  discount?: number | string; // Puede venir como string "0.00" desde el backend
+  subtotal?: number | string; // Puede venir como string "0.00" desde el backend 
   paymentDate?: string | null;
+  isFromWebForm?: boolean; // Flag para órdenes del formulario web
+  shippingAddress?: Record<string, any>; // Para direcciones de envío
+  billingAddress?: Record<string, any>; // Para direcciones de facturación
   customer?: {
     name: string;
     id: number;
+    email?: string;
+    phone?: string;
+    street?: string;
+    city?: string;
+    province?: string;
   };
   assignedUser?: {
     id: number;
     fullName: string;
-  };
+  } | null;
   items?: {
     id: number;
     orderId: number;

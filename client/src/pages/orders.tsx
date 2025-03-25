@@ -97,7 +97,7 @@ type Order = {
   paymentStatus: string;
   paymentMethod: string | null;
   source: string | null;
-  woocommerceId: number | null;
+  wooCommerceId: number | null; // API devuelve wooCommerceId con C mayúscula
   brand: string | null;
   notes: string | null;
   createdAt: string;

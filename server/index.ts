@@ -4,6 +4,7 @@ import { registerAdditionalRoutes } from "./routes-extension";
 import { registerEmailRoutes } from "./routes-email";
 import { registerConfigurationRoutes } from "./routes-configuration";
 import { registerShippingRoutes } from "./routes-shipping";
+import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
@@ -100,6 +101,10 @@ app.use((req, res, next) => {
   // Register shipping routes
   registerShippingRoutes(app);
   log("Shipping routes registered");
+  
+  // Registrar NUEVO sistema de etiquetas
+  registerNewShippingRoutes(app);
+  log("Nuevo sistema de etiquetas registrado");
   
   // Ensure shipping label template directories exist
   ensureShippingLabelTemplateDirectories();

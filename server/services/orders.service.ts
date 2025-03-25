@@ -128,9 +128,12 @@ export class OrdersService implements Service {
         where: eq(orders.id, orderId),
         with: {
           customer: true,
-          items: true
+          items: true,
+          assignedUser: true
         }
       });
+      
+      console.log(`Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
       
       if (!order) {
         res.status(404).json({ error: "Order not found" });

@@ -300,6 +300,7 @@ export const orders = pgTable("orders", {
   paymentDetails: jsonb("payment_details").default({}), // Detalles de pago (números de transacción, etc)
   paymentDate: timestamp("payment_date"), // Fecha de pago
   source: varchar("source", { length: 50 }).default(sourceEnum.WEBSITE),
+  isFromWebForm: boolean("is_from_web_form").default(false), // Indica si el pedido fue creado desde el formulario web
   wooCommerceId: integer("wooCommerceId"), // ID del pedido en WooCommerce para sincronización
   trackingNumber: text("tracking_number"), // Número de seguimiento de envío
   shippingMethod: varchar("shipping_method", { length: 50 }), // Método de envío seleccionado
@@ -479,6 +480,10 @@ export const orderRelations = relations(orders, ({ one, many }) => ({
   lead: one(leads, {
     fields: [orders.leadId],
     references: [leads.id]
+  }),
+  assignedUser: one(crmUsers, {
+    fields: [orders.assignedUserId],
+    references: [crmUsers.id]
   }),
   items: many(orderItems),
   sales: many(sales)
