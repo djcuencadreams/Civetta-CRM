@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas de Envío</title>
+    <style>
+        /* Reset y estilos base */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            color: #e2e8f0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        /* Contenedor principal con tema oscuro */
+        .form-container {
+            width: 100%;
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #111827;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Encabezados y textos */
+        .form-header {
+            text-align: center;
+            padding: 24px 16px;
+            background-color: #1e293b;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #60a5fa;
+            margin: 0;
+            padding: 0;
+        }
+        
+        h2 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #60a5fa;
+            margin: 20px 0 15px 0;
+        }
+        
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #60a5fa;
+            margin: 0 0 12px 0;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+        
+        /* Contenedor del formulario */
+        .form-content {
+            padding: 24px;
+        }
+        
+        /* Componente de tarjeta */
+        .card {
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        
+        .card-header {
+            padding: 16px 20px;
+            background-color: #1e293b;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .card-content {
+            padding: 20px;
+            background-color: #1f2937;
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #60a5fa;
+            margin: 0;
+        }
+        
+        .card-description {
+            color: #94a3b8;
+            margin-top: 6px;
+            font-size: 0.95rem;
+        }
+        
+        /* Estilos de formulario */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            background-color: #1f2937;
+            color: #e2e8f0;
+            font-size: 16px;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+        
+        ::placeholder {
+            color: #6b7280;
+        }
+        
+        /* Select personalizado */
+        .select-wrapper {
+            position: relative;
+        }
+        
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        
+        select {
+            appearance: none;
+            padding-right: 30px;
+        }
+        
+        /* Dropdown */
+        .dropdown {
+            position: relative;
+            user-select: none;
+        }
+        
+        .dropdown-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            background-color: #1f2937;
+            color: #e2e8f0;
+            cursor: pointer;
+        }
+        
+        .dropdown-icon {
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        
+        .dropdown-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            margin-top: 4px;
+            z-index: 10;
+            display: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+        
+        .dropdown.active .dropdown-icon {
+            transform: rotate(180deg);
+        }
+        
+        .dropdown-item {
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #2d3748;
+        }
+        
+        .dropdown-item.selected {
+            background-color: #2563eb;
+            color: white;
+        }
+        
+        /* Botones */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-primary:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn-secondary {
+            background-color: #4b5563;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #374151;
+        }
+        
+        .btn-secondary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .btn-full {
+            width: 100%;
+        }
+        
+        .btn-icon {
+            margin-right: 8px;
+        }
+        
+        /* Mensajes y alertas */
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-success {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+        
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+        
+        .alert-info {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid #3b82f6;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Componentes de formulario específicos */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .search-container {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        
+        .search-title {
+            font-weight: 600;
+            color: #60a5fa;
+            margin-bottom: 8px;
+        }
+        
+        .search-description {
+            color: #94a3b8;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+        }
+        
+        .search-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Layouts */
+        .grid {
+            display: grid;
+            grid-gap: 20px;
+        }
+        
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .flex-col {
+            flex-direction: column;
+        }
+        
+        .items-center {
+            align-items: center;
+        }
+        
+        .justify-between {
+            justify-content: space-between;
+        }
+        
+        .gap-2 {
+            gap: 8px;
+        }
+        
+        .w-full {
+            width: 100%;
+        }
+        
+        .flex-1 {
+            flex: 1;
+        }
+        
+        /* Separador */
+        .separator {
+            height: 1px;
+            background-color: #374151;
+            margin: 24px 0;
+            border: none;
+        }
+        
+        /* Checkbox personalizado */
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        .checkbox-custom {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #1f2937;
+            cursor: pointer;
+        }
+        
+        .checkbox-custom.checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        
+        .checkbox-custom.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .checkbox-input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        /* Sección de instrucciones */
+        .instructions {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 24px;
+            color: #94a3b8;
+        }
+        
+        .instructions h3 {
+            color: #e2e8f0;
+            font-size: 1rem;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        /* Iconos */
+        .icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+            vertical-align: middle;
+        }
+        
+        /* Estilos responsivos */
+        @media (max-width: 768px) {
+            .grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-content {
+                padding: 20px;
+            }
+            
+            .search-controls {
+                flex-direction: column;
+            }
+            
+            .dropdown {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            input, textarea, select, button {
+                font-size: 16px;
+                padding: 12px;
+            }
+            
+            h1 {
+                font-size: 1.75rem;
+            }
+            
+            h2 {
+                font-size: 1.25rem;
+            }
+            
+            .card-title {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <!-- Encabezado -->
+        <div class="form-header">
+            <h1>Etiquetas de Envío</h1>
+            <div class="subtitle">Genere etiquetas de envío para sus productos de Civetta</div>
+        </div>
+        
+        <!-- Contenido del formulario -->
+        <div class="form-content">
+            <!-- Alertas -->
+            <div id="alert-success" class="alert alert-success hidden">
+                <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Etiqueta generada con éxito. La descarga comenzará automáticamente.
+            </div>
+            <div id="alert-error" class="alert alert-error hidden">
+                <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                Error al generar la etiqueta. Por favor intente nuevamente.
+            </div>
+            <div id="alert-customer-found" class="alert alert-info hidden">
+                <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+                Cliente encontrado. Se han completado algunos campos automáticamente.
+            </div>
+            
+            <!-- Tarjeta del formulario -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Formulario de Dirección de Envío</h2>
+                    <p class="card-description">Complete el formulario para generar una etiqueta de envío para su pedido</p>
+                </div>
+                <div class="card-content">
+                    <!-- Sección de búsqueda de cliente -->
+                    <div class="search-container">
+                        <h3 class="search-title">Buscar cliente existente</h3>
+                        <p class="search-description">
+                            Si el cliente ya existe, puede buscar sus datos para completar el formulario automáticamente.
+                        </p>
+                        <div class="search-controls">
+                            <!-- Select para tipo de búsqueda -->
+                            <div class="dropdown" id="search-type-dropdown">
+                                <div class="dropdown-trigger">
+                                    <span id="search-type-text">Cédula/Pasaporte</span>
+                                    <span class="dropdown-icon">▼</span>
+                                </div>
+                                <div class="dropdown-content">
+                                    <div class="dropdown-item selected" data-value="idNumber">Cédula/Pasaporte</div>
+                                    <div class="dropdown-item" data-value="email">Email</div>
+                                    <div class="dropdown-item" data-value="phone">Teléfono</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Input de búsqueda y botón -->
+                            <div class="flex flex-1 gap-2">
+                                <input type="text" id="search-value" placeholder="Ingrese valor de búsqueda" class="flex-1">
+                                <button type="button" id="search-button" class="btn btn-secondary">
+                                    <span class="btn-icon">
+                                        <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                                        </svg>
+                                    </span>
+                                    Verificar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulario de envío -->
+                    <form id="shipping-form">
+                        <div class="grid grid-cols-2">
+                            <div class="form-group">
+                                <label for="firstName">Nombres *</label>
+                                <input type="text" id="firstName" name="firstName" required placeholder="Nombres">
+                                <div class="error-message" id="firstName-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="lastName">Apellidos *</label>
+                                <input type="text" id="lastName" name="lastName" required placeholder="Apellidos">
+                                <div class="error-message" id="lastName-error"></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2">
+                            <div class="form-group">
+                                <label for="idNumber">Cédula o Pasaporte *</label>
+                                <input type="text" id="idNumber" name="idNumber" required placeholder="Número de identificación">
+                                <div class="error-message" id="idNumber-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Teléfono de contacto *</label>
+                                <input type="text" id="phone" name="phone" required placeholder="Teléfono">
+                                <div class="error-message" id="phone-error"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Correo electrónico *</label>
+                            <input type="email" id="email" name="email" required placeholder="correo@ejemplo.com">
+                            <div class="error-message" id="email-error"></div>
+                        </div>
+
+                        <div class="separator"></div>
+
+                        <div class="form-group">
+                            <label for="street">Dirección de Entrega *</label>
+                            <textarea id="street" name="street" rows="3" required 
+                                placeholder="Escriba aquí la calle principal, secundaria y número de casa, departamento u oficina. Agregue alguna referencia de ser necesario."></textarea>
+                            <div class="error-message" id="street-error"></div>
+                        </div>
+
+                        <div class="grid grid-cols-2">
+                            <div class="form-group">
+                                <label for="city">Ciudad *</label>
+                                <input type="text" id="city" name="city" required placeholder="Ciudad">
+                                <div class="error-message" id="city-error"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="province">Provincia *</label>
+                                <input type="text" id="province" name="province" required placeholder="Provincia">
+                                <div class="error-message" id="province-error"></div>
+                            </div>
+                        </div>
+
+                        <div class="separator"></div>
+
+                        <div class="grid grid-cols-2">
+                            <div class="form-group">
+                                <label for="companyName">Empresa</label>
+                                <input type="text" id="companyName" name="companyName" placeholder="Nombre de empresa (opcional)" value="Civetta">
+                            </div>
+                            <div class="form-group">
+                                <label for="orderNumber">Número de pedido</label>
+                                <input type="text" id="orderNumber" name="orderNumber" placeholder="Número de pedido (opcional)">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="deliveryInstructions">Comentarios o Instrucciones Especiales para la Entrega</label>
+                            <textarea id="deliveryInstructions" name="deliveryInstructions" rows="2" 
+                                placeholder="Instrucciones especiales para la entrega"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="saveToDatabase" name="saveToDatabase" class="checkbox-input" checked>
+                                <div class="checkbox-custom checked" id="checkbox-visual"></div>
+                                <span>Guardar información para futuros envíos</span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 30px;">
+                            <button type="submit" id="submit-button" class="btn btn-primary btn-full">
+                                Generar etiqueta de envío
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Instrucciones -->
+            <div class="instructions">
+                <h3>Instrucciones:</h3>
+                <ul>
+                    <li>Si ya es cliente, puede verificar su información ingresando su cédula, teléfono o email y haciendo clic en "Verificar"</li>
+                    <li>Complete todos los campos marcados con asterisco (*)</li>
+                    <li>Asegúrese de que la dirección sea completa y detallada</li>
+                    <li>La etiqueta se descargará automáticamente como archivo PDF</li>
+                    <li>Imprima la etiqueta en tamaño A5 para mejores resultados</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos del DOM
+            const form = document.getElementById('shipping-form');
+            const submitButton = document.getElementById('submit-button');
+            const alertSuccess = document.getElementById('alert-success');
+            const alertError = document.getElementById('alert-error');
+            const alertCustomerFound = document.getElementById('alert-customer-found');
+            const searchButton = document.getElementById('search-button');
+            const searchValueInput = document.getElementById('search-value');
+            const searchTypeDropdown = document.getElementById('search-type-dropdown');
+            const searchTypeText = document.getElementById('search-type-text');
+            const checkboxInput = document.getElementById('saveToDatabase');
+            const checkboxVisual = document.getElementById('checkbox-visual');
+            
+            // Configuración para API
+            const API_BASE_URL = window.location.origin;
+            
+            // Estado inicial
+            let isSearching = false;
+            let isPdfGenerating = false;
+            let searchType = 'idNumber';
+            
+            // Inicializar el dropdown
+            searchTypeDropdown.addEventListener('click', function(e) {
+                if (e.target.closest('.dropdown-trigger')) {
+                    // Toggle del dropdown
+                    searchTypeDropdown.classList.toggle('active');
+                } else if (e.target.classList.contains('dropdown-item')) {
+                    // Selección de un item
+                    const value = e.target.dataset.value;
+                    const text = e.target.textContent;
+                    searchType = value;
+                    searchTypeText.textContent = text;
+                    
+                    // Actualizar clase seleccionada
+                    document.querySelectorAll('.dropdown-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    e.target.classList.add('selected');
+                    
+                    // Cerrar dropdown
+                    searchTypeDropdown.classList.remove('active');
+                }
+            });
+            
+            // Cerrar dropdown cuando se haga clic fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#search-type-dropdown')) {
+                    searchTypeDropdown.classList.remove('active');
+                }
+            });
+            
+            // Checkbox personalizado
+            checkboxInput.addEventListener('change', function() {
+                if (this.checked) {
+                    checkboxVisual.classList.add('checked');
+                } else {
+                    checkboxVisual.classList.remove('checked');
+                }
+            });
+            
+            checkboxVisual.addEventListener('click', function() {
+                checkboxInput.checked = !checkboxInput.checked;
+                if (checkboxInput.checked) {
+                    checkboxVisual.classList.add('checked');
+                } else {
+                    checkboxVisual.classList.remove('checked');
+                }
+            });
+            
+            // Función para verificar cliente existente
+            async function checkExistingCustomer() {
+                const identifier = searchValueInput.value;
+                
+                if (!identifier || identifier.trim().length < 3) {
+                    showMessage('Por favor ingrese un valor válido para verificar (mínimo 3 caracteres)', 'error');
+                    return;
+                }
+                
+                if (isSearching) return;
+                isSearching = true;
+                
+                // Actualizar estado del botón
+                const originalText = searchButton.innerHTML;
+                searchButton.disabled = true;
+                searchButton.innerHTML = '<span class="loading-spinner" style="margin-right: 8px;">↻</span> Buscando...';
+                
+                // Ocultar alertas
+                hideAlerts();
+                
+                try {
+                    // Realizar la petición
+                    const response = await fetch(`${API_BASE_URL}/api/shipping/check-customer`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            identifier: identifier.trim(),
+                            type: searchType
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.exists) {
+                        // Completar formulario con datos del cliente
+                        document.getElementById('firstName').value = data.customer.firstName || '';
+                        document.getElementById('lastName').value = data.customer.lastName || '';
+                        document.getElementById('idNumber').value = data.customer.idNumber || '';
+                        document.getElementById('phone').value = data.customer.phone || '';
+                        document.getElementById('email').value = data.customer.email || '';
+                        document.getElementById('street').value = data.customer.street || '';
+                        document.getElementById('city').value = data.customer.city || '';
+                        document.getElementById('province').value = data.customer.province || '';
+                        
+                        // Mostrar alerta de cliente encontrado
+                        alertCustomerFound.classList.remove('hidden');
+                        
+                        // Hacer scroll a la alerta
+                        alertCustomerFound.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        showMessage('No se encontró ningún cliente con esa información', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error verificando cliente:', error);
+                    showMessage('Error al verificar el cliente. Por favor intente nuevamente.', 'error');
+                } finally {
+                    // Restaurar estado del botón
+                    searchButton.disabled = false;
+                    searchButton.innerHTML = originalText;
+                    isSearching = false;
+                }
+            }
+            
+            // Asignar evento al botón de búsqueda
+            searchButton.addEventListener('click', checkExistingCustomer);
+            
+            // Buscar al presionar Enter en el input
+            searchValueInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    checkExistingCustomer();
+                }
+            });
+            
+            // Función para validar el formulario
+            function validateForm() {
+                let isValid = true;
+                const requiredFields = ['firstName', 'lastName', 'idNumber', 'phone', 'email', 'street', 'city', 'province'];
+                
+                // Limpiar errores previos
+                document.querySelectorAll('.error-message').forEach(el => {
+                    el.textContent = '';
+                });
+                
+                // Validar campos requeridos
+                requiredFields.forEach(field => {
+                    const input = document.getElementById(field);
+                    const errorDiv = document.getElementById(`${field}-error`);
+                    
+                    if (!input.value.trim()) {
+                        errorDiv.textContent = 'Este campo es obligatorio';
+                        isValid = false;
+                    }
+                });
+                
+                // Validación específica para email
+                const emailInput = document.getElementById('email');
+                const emailError = document.getElementById('email-error');
+                
+                if (emailInput.value.trim() && !emailInput.value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                    emailError.textContent = 'Por favor ingrese un email válido';
+                    isValid = false;
+                }
+                
+                return isValid;
+            }
+            
+            // Función para mostrar mensajes
+            function showMessage(message, type) {
+                hideAlerts();
+                
+                if (type === 'success') {
+                    alertSuccess.textContent = message;
+                    alertSuccess.classList.remove('hidden');
+                    alertSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (type === 'error') {
+                    alertError.textContent = message;
+                    alertError.classList.remove('hidden');
+                    alertError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            // Ocultar todas las alertas
+            function hideAlerts() {
+                alertSuccess.classList.add('hidden');
+                alertError.classList.add('hidden');
+                alertCustomerFound.classList.add('hidden');
+            }
+            
+            // Manejar el envío del formulario
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Validar el formulario
+                if (!validateForm()) {
+                    return;
+                }
+                
+                if (isPdfGenerating) return;
+                isPdfGenerating = true;
+                
+                // Actualizar estado del botón
+                const originalText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading-spinner" style="margin-right: 8px;">↻</span> Generando...';
+                
+                // Ocultar alertas previas
+                hideAlerts();
+                
+                try {
+                    // Recopilar los datos del formulario
+                    const formData = {
+                        firstName: document.getElementById('firstName').value,
+                        lastName: document.getElementById('lastName').value,
+                        name: `${document.getElementById('firstName').value} ${document.getElementById('lastName').value}`,
+                        idNumber: document.getElementById('idNumber').value,
+                        phone: document.getElementById('phone').value,
+                        email: document.getElementById('email').value,
+                        street: document.getElementById('street').value,
+                        city: document.getElementById('city').value,
+                        province: document.getElementById('province').value,
+                        companyName: document.getElementById('companyName').value || 'Civetta',
+                        orderNumber: document.getElementById('orderNumber').value || null,
+                        deliveryInstructions: document.getElementById('deliveryInstructions').value || null,
+                        saveToDatabase: document.getElementById('saveToDatabase').checked
+                    };
+                    
+                    // Enviar los datos al servidor
+                    const response = await fetch(`${API_BASE_URL}/api/shipping/generate-label`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Error al generar la etiqueta');
+                    }
+                    
+                    // Verificar el tipo de contenido
+                    const contentType = response.headers.get('Content-Type');
+                    
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Es un PDF, descargarlo
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        
+                        // Crear un enlace para la descarga
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        
+                        // Configurar nombre de archivo
+                        const fileName = `etiqueta-envio-${formData.name.replace(/\s+/g, '_')}.pdf`;
+                        a.download = fileName;
+                        
+                        // Añadir al DOM, hacer clic y remover
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // Limpiar
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                        // Mostrar mensaje de éxito
+                        showMessage('Etiqueta generada con éxito. La descarga comenzará automáticamente.', 'success');
+                        
+                        // Limpiar campos no esenciales
+                        document.getElementById('orderNumber').value = '';
+                        document.getElementById('deliveryInstructions').value = '';
+                    } else {
+                        throw new Error('El servidor no envió un archivo PDF');
+                    }
+                } catch (error) {
+                    console.error('Error generando etiqueta:', error);
+                    showMessage('Error al generar la etiqueta. Por favor intente nuevamente.', 'error');
+                } finally {
+                    // Restaurar estado del botón
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                    isPdfGenerating = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

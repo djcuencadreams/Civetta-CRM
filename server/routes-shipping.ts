@@ -370,21 +370,37 @@ export function registerShippingRoutes(app: Express) {
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      // Usar la versión moderna con diseño oscuro (nueva interfaz)
-      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-dark.html');
+      // Usar la versión moderna con funcionalidad completa igual al CRM
+      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-modern.html');
       
-      // Si el archivo de diseño oscuro no existe, volver al diseño clásico
+      // Tener alternativas como backup en caso de que el archivo principal no exista
       if (!fs.existsSync(formPath)) {
-        const backupPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
-        if (fs.existsSync(backupPath)) {
-          log("Usando versión clásica del formulario porque el diseño oscuro no está disponible", "shipping-service");
+        // Intentar con la versión oscura como primera alternativa
+        const darkPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-dark.html');
+        if (fs.existsSync(darkPath)) {
+          log("Usando versión alternativa oscura del formulario", "shipping-service");
           
           // Configurar encabezados
           res.setHeader('Content-Type', 'text/html; charset=UTF-8');
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos (reducido para pruebas)
+          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
+          
+          return res.sendFile(darkPath);
+        }
+        
+        // Intentar con la versión standalone como última alternativa
+        const backupPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
+        if (fs.existsSync(backupPath)) {
+          log("Usando versión básica del formulario como última alternativa", "shipping-service");
+          
+          // Configurar encabezados
+          res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
           
           return res.sendFile(backupPath);
         } else {
@@ -402,7 +418,7 @@ export function registerShippingRoutes(app: Express) {
       res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
       
       // Log para depuración
-      log("Sirviendo formulario moderno (diseño oscuro) desde: " + formPath, "shipping-service");
+      log("Sirviendo formulario moderno con funcionalidad completa desde: " + formPath, "shipping-service");
       
       // Enviar el archivo HTML
       return res.sendFile(formPath);
