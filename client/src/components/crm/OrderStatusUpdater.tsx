@@ -87,6 +87,8 @@ export function OrderStatusUpdater({
 
     setIsUpdating(true);
     try {
+      console.log(`Enviando actualización de estado para pedido ${orderId}: ${status}`, { notes: statusNote });
+      
       const response = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
         headers: {
@@ -96,20 +98,22 @@ export function OrderStatusUpdater({
       });
 
       const data = await response.json();
+      console.log("Respuesta de actualización de estado:", data);
 
       if (response.ok) {
         toast({
           title: "Estado actualizado",
           description: `El pedido ahora está ${statusConfig[status as keyof typeof statusConfig]?.label.toLowerCase() || status}`,
         });
+        // Recargar los datos del pedido
         onStatusUpdate();
       } else {
-        throw new Error(data?.message || "Error al actualizar el estado");
+        throw new Error(data?.error || data?.message || "Error al actualizar el estado");
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "No se pudo actualizar el estado del pedido",
+        description: `No se pudo actualizar el estado del pedido: ${error.message || "Error desconocido"}`,
         variant: "destructive",
       });
       console.error("Error updating order status:", error);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -11,14 +11,18 @@ import {
   Tag, 
   FileText, 
   MapPin,
-  DollarSign
+  DollarSign,
+  FileDown,
+  Loader2
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ShippingInfoCard } from './ShippingInfoCard';
+import { useToast } from '@/hooks/use-toast';
 
 type OrderDetailsProps = {
   order?: {

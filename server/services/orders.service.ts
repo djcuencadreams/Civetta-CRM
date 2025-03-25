@@ -121,40 +121,23 @@ export class OrdersService implements Service {
     try {
       // Req.params ya está validado y transformado por el middleware de validación
       const { id } = req.params;
+      const orderId = parseInt(id);
       
-      // Usar SQL parametrizado directo para proteger contra SQL injection
-      const orderData = await db.execute(sql`
-        SELECT o.* 
-        FROM orders o
-        WHERE o.id = ${id}
-      `);
+      // Usar la API de consulta de Drizzle en lugar de SQL directo
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
       
-      if (!orderData || orderData.length === 0) {
+      if (!order) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
       
-      // Obtener items del pedido
-      const items = await db.execute(sql`
-        SELECT * FROM order_items
-        WHERE order_id = ${id}
-      `);
-      
-      // Obtener cliente
-      const customerData = await db.execute(sql`
-        SELECT c.* 
-        FROM customers c
-        JOIN orders o ON c.id = o.customer_id
-        WHERE o.id = ${id}
-      `);
-      
-      const result = {
-        ...orderData[0],
-        customer: customerData[0] || null,
-        items: items || []
-      };
-      
-      res.json(result);
+      res.json(order);
     } catch (error) {
       console.error('Error fetching order:', error);
       res.status(500).json({ error: "Failed to fetch order" });
@@ -271,32 +254,29 @@ export class OrdersService implements Service {
     try {
       // req.params ya está validado y transformado por validateParams(orderIdSchema)
       const { id } = req.params;
+      const orderId = parseInt(id);
       const orderData = req.body;
       const { customerId, items, ...orderDetails } = orderData;
 
-      // Verificar si el pedido existe
-      const existingOrderResult = await db.execute(sql`
-        SELECT * FROM orders WHERE id = ${id}
-      `);
+      // Verificar si el pedido existe usando Drizzle ORM
+      const existingOrder = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId)
+      });
 
-      if (!existingOrderResult || existingOrderResult.length === 0) {
+      if (!existingOrder) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
 
-      const existingOrder = existingOrderResult[0];
+      // Verificar si el cliente existe usando Drizzle ORM
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, customerId)
+      });
 
-      // Verificar si el cliente existe
-      const customerResult = await db.execute(sql`
-        SELECT * FROM customers WHERE id = ${customerId}
-      `);
-
-      if (!customerResult || customerResult.length === 0) {
+      if (!customer) {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
-
-      const customer = customerResult[0];
       
       // Calcular monto total desde los items si se proporcionan
       let totalAmount = orderDetails.totalAmount;
@@ -332,81 +312,52 @@ export class OrdersService implements Service {
         }
       }
 
-      // Actualizar el pedido con SQL parametrizado
-      await db.execute(sql`
-        UPDATE orders
-        SET
-          customer_id = ${customerId},
-          lead_id = ${orderDetails.leadId ?? existingOrder.lead_id},
-          order_number = ${orderDetails.orderNumber ?? existingOrder.order_number},
-          total_amount = ${totalAmount},
-          status = ${orderDetails.status ?? existingOrder.status},
-          payment_status = ${orderDetails.paymentStatus ?? existingOrder.payment_status},
-          payment_method = ${orderDetails.paymentMethod ?? existingOrder.payment_method},
-          source = ${orderDetails.source ?? existingOrder.source},
-          brand = ${orderDetails.brand ?? existingOrder.brand},
-          notes = ${orderDetails.notes ?? existingOrder.notes},
-          updated_at = ${new Date()}
-        WHERE id = ${id}
-      `);
-
-      // Obtener el pedido actualizado
-      const updatedOrderResult = await db.execute(sql`
-        SELECT * FROM orders WHERE id = ${id}
-      `);
-      
-      const updatedOrder = updatedOrderResult[0];
+      // Actualizar el pedido usando Drizzle ORM
+      const [updatedOrder] = await db.update(orders)
+        .set({
+          customerId,
+          leadId: orderDetails.leadId ?? existingOrder.leadId,
+          orderNumber: orderDetails.orderNumber ?? existingOrder.orderNumber,
+          totalAmount,
+          status: orderDetails.status ?? existingOrder.status,
+          paymentStatus: orderDetails.paymentStatus ?? existingOrder.paymentStatus,
+          paymentMethod: orderDetails.paymentMethod ?? existingOrder.paymentMethod,
+          source: orderDetails.source ?? existingOrder.source,
+          brand: orderDetails.brand ?? existingOrder.brand,
+          notes: orderDetails.notes ?? existingOrder.notes,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId))
+        .returning();
 
       // Manejar actualización de items si se proporcionan
       if (items && items.length > 0) {
-        // Eliminar items existentes
-        await db.execute(sql`
-          DELETE FROM order_items WHERE order_id = ${id}
-        `);
+        // Eliminar items existentes usando Drizzle ORM
+        await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
 
-        // Crear nuevos items
-        for (const item of items) {
-          await db.execute(sql`
-            INSERT INTO order_items (
-              order_id, 
-              product_id, 
-              product_name, 
-              quantity, 
-              unit_price, 
-              discount, 
-              subtotal, 
-              created_at
-            )
-            VALUES (
-              ${id},
-              ${item.productId || null},
-              ${item.productName},
-              ${item.quantity},
-              ${item.unitPrice},
-              ${item.discount || 0},
-              ${item.subtotal},
-              ${new Date()}
-            )
-          `);
-        }
+        // Crear nuevos items usando Drizzle ORM
+        const orderItemsData = items.map((item: any) => ({
+          orderId: orderId,
+          productId: item.productId || null,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount || 0,
+          subtotal: item.subtotal,
+          createdAt: new Date()
+        }));
+
+        await db.insert(orderItems).values(orderItemsData);
       }
 
-      // Obtener los items del pedido actualizado
-      const updatedItemsResult = await db.execute(sql`
-        SELECT * FROM order_items WHERE order_id = ${id}
-      `);
-      
-      // Obtener datos del cliente
-      const customerData = await db.execute(sql`
-        SELECT * FROM customers WHERE id = ${customerId}
-      `);
-
-      // Construir respuesta completa
-      const completeOrder = {
-        ...updatedOrder,
-        customer: customerData[0],
-        items: updatedItemsResult
-      };
+      // Obtener el pedido completo con items y cliente usando Drizzle ORM
+      const completeOrder = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: true,
+          items: true
+        }
+      });
 
       // Emitir evento de actualización de pedido
       appEvents.emit(EventTypes.ORDER_UPDATED, completeOrder);
@@ -459,7 +410,10 @@ export class OrdersService implements Service {
     try {
       const { id } = req.params;
       const orderId = parseInt(id);
-      const { status, reason } = req.body;
+      // Obtener status y notes (no reason) del cuerpo de la solicitud
+      const { status, notes } = req.body;
+
+      console.log(`Actualizando estado de pedido ${orderId} a ${status}`, { notes });
 
       // Check if order exists
       const existingOrder = await db.query.orders.findFirst({
@@ -471,12 +425,22 @@ export class OrdersService implements Service {
         return;
       }
 
+      // Verificar que el estado sea válido
+      const validStatuses = ['new', 'preparing', 'shipped', 'completed', 'cancelled'];
+      if (!validStatuses.includes(status)) {
+        res.status(400).json({ 
+          error: "Estado inválido", 
+          message: "El estado debe ser uno de: nuevo, preparando, enviado, completado, cancelado"
+        });
+        return;
+      }
+
       // Update order status
       const [updatedOrder] = await db.update(orders)
         .set({
           status,
-          notes: reason 
-            ? `${existingOrder.notes ? existingOrder.notes + '\n' : ''}Status changed to ${status}: ${reason}`
+          notes: notes 
+            ? `${existingOrder.notes ? existingOrder.notes + '\n' : ''}Status changed to ${status}: ${notes}`
             : existingOrder.notes,
           updatedAt: new Date()
         })
@@ -488,13 +452,19 @@ export class OrdersService implements Service {
         order: updatedOrder,
         previousStatus: existingOrder.status,
         newStatus: status,
-        reason
+        reason: notes
       });
       
-      res.json(updatedOrder);
+      // Devolver respuesta acorde a lo que espera el frontend
+      res.json({ 
+        success: true, 
+        message: "Estado actualizado correctamente",
+        status,
+        order: updatedOrder
+      });
     } catch (error) {
       console.error('Error updating order status:', error);
-      res.status(500).json({ error: "Failed to update order status" });
+      res.status(500).json({ error: "Error al actualizar el estado del pedido" });
     }
   }
 
@@ -507,6 +477,8 @@ export class OrdersService implements Service {
       const orderId = parseInt(id);
       const { paymentStatus, paymentMethod, reason } = req.body;
 
+      console.log(`Actualizando estado de pago de pedido ${orderId} a ${paymentStatus}`, { paymentMethod, reason });
+
       // Check if order exists
       const existingOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId)
@@ -514,6 +486,16 @@ export class OrdersService implements Service {
 
       if (!existingOrder) {
         res.status(404).json({ error: "Order not found" });
+        return;
+      }
+
+      // Verificar que el estado de pago sea válido
+      const validPaymentStatuses = ['pending', 'paid', 'refunded', 'cancelled'];
+      if (!validPaymentStatuses.includes(paymentStatus)) {
+        res.status(400).json({ 
+          error: "Estado de pago inválido", 
+          message: "El estado de pago debe ser uno de: pendiente, pagado, reembolsado, cancelado"
+        });
         return;
       }
 
@@ -538,10 +520,16 @@ export class OrdersService implements Service {
         reason
       });
       
-      res.json(updatedOrder);
+      // Devolver respuesta con formato para el frontend
+      res.json({
+        success: true,
+        message: "Estado de pago actualizado correctamente",
+        paymentStatus,
+        order: updatedOrder
+      });
     } catch (error) {
       console.error('Error updating payment status:', error);
-      res.status(500).json({ error: "Failed to update payment status" });
+      res.status(500).json({ error: "Error al actualizar el estado de pago" });
     }
   }
 
