@@ -13,7 +13,9 @@ import {
   MapPin,
   DollarSign,
   FileDown,
-  Loader2
+  Loader2,
+  AlertCircle,
+  Info
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +25,12 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ShippingInfoCard } from './ShippingInfoCard';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type OrderDetailsProps = {
   order?: {
@@ -83,6 +91,11 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   const handleGenerateShippingLabel = async () => {
     try {
       setIsGeneratingLabel(true);
+      
+      // Verificar que tengamos un ID válido
+      if (!order.id) {
+        throw new Error('No se puede generar la etiqueta: ID de pedido no válido');
+      }
       
       // Llamar al endpoint para generar la etiqueta
       const response = await fetch(`/api/shipping/generate-label-internal/${order.id}`, {
@@ -365,25 +378,46 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           <CardTitle className="text-lg flex items-center">
             <Truck className="w-5 h-5 mr-2" /> Información de Envío
           </CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleGenerateShippingLabel}
-            disabled={isGeneratingLabel}
-            className="flex items-center gap-2"
-          >
-            {isGeneratingLabel ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generando...
-              </>
-            ) : (
-              <>
-                <FileDown className="h-4 w-4" />
-                Generar Etiqueta
-              </>
-            )}
-          </Button>
+          {!order.id ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={true}
+                    className="flex items-center gap-2"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Generar Etiqueta
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Este pedido debe guardarse primero antes de generar una etiqueta</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleGenerateShippingLabel}
+              disabled={isGeneratingLabel}
+              className="flex items-center gap-2"
+            >
+              {isGeneratingLabel ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4" />
+                  Generar Etiqueta
+                </>
+              )}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <ShippingInfoCard 
