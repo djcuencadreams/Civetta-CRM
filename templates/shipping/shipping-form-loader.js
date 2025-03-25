@@ -111,11 +111,11 @@ var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
             const iframe = document.createElement('iframe');
             iframe.src = url;
             iframe.style.width = '100%';
-            iframe.style.height = '1200px'; // Altura mayor para asegurar visibilidad en móvil
+            iframe.style.height = '1600px'; // Altura mayor para asegurar visibilidad en móvil
             iframe.style.border = 'none';
-            iframe.style.overflow = 'hidden';
+            iframe.style.overflow = 'auto'; // Permitir scroll si es necesario
             iframe.setAttribute('frameborder', '0');
-            iframe.setAttribute('scrolling', 'no');
+            iframe.setAttribute('scrolling', 'yes'); // Habilitar scroll
             
             // Añadir atributo title para accesibilidad
             iframe.setAttribute('title', 'Formulario de etiquetas de envío Civetta');
