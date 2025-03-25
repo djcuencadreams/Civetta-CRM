@@ -370,24 +370,42 @@ export function registerShippingRoutes(app: Express) {
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      // Usar la versión optimizada para WordPress sin menú del CRM
-      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
+      // Usar la versión moderna con diseño oscuro (nueva interfaz)
+      const formPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-dark.html');
       
-      if (fs.existsSync(formPath)) {
-        // Configurar encabezados CORS para permitir el acceso desde WordPress
-        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        // Configurar cache para mejorar rendimiento
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
-        
-        // Enviar el archivo HTML
-        return res.sendFile(formPath);
-      } else {
-        log("No se encontró el archivo del formulario en: " + formPath, "shipping-service");
-        return res.status(404).send('Formulario no encontrado');
+      // Si el archivo de diseño oscuro no existe, volver al diseño clásico
+      if (!fs.existsSync(formPath)) {
+        const backupPath = path.join(process.cwd(), 'templates/shipping/wordpress-embed-standalone.html');
+        if (fs.existsSync(backupPath)) {
+          log("Usando versión clásica del formulario porque el diseño oscuro no está disponible", "shipping-service");
+          
+          // Configurar encabezados
+          res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos (reducido para pruebas)
+          
+          return res.sendFile(backupPath);
+        } else {
+          log("No se encontró ninguna versión del formulario", "shipping-service");
+          return res.status(404).send('Formulario no encontrado');
+        }
       }
+      
+      // Configurar encabezados CORS para permitir el acceso desde WordPress
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      // Configurar cache para mejorar rendimiento (reducido para pruebas)
+      res.setHeader('Cache-Control', 'public, max-age=900'); // Cache por 15 minutos
+      
+      // Log para depuración
+      log("Sirviendo formulario moderno (diseño oscuro) desde: " + formPath, "shipping-service");
+      
+      // Enviar el archivo HTML
+      return res.sendFile(formPath);
     } catch (error) {
       console.error('Error sirviendo formulario:', error);
       return res.status(500).send('Error al cargar el formulario');
