@@ -72,9 +72,73 @@ type OrderDetailsProps = {
 };
 
 export function OrderDetailsView({ order }: OrderDetailsProps) {
+  const { toast } = useToast();
+  const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
+
   if (!order) {
     return <div>No se encontró información del pedido</div>;
   }
+
+  // Función para generar y descargar etiqueta de envío
+  const handleGenerateShippingLabel = async () => {
+    try {
+      setIsGeneratingLabel(true);
+      
+      // Llamar al endpoint para generar la etiqueta
+      const response = await fetch(`/api/shipping/generate-label-internal/${order.id}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al generar la etiqueta de envío');
+      }
+      
+      // Obtener el blob del PDF
+      const blob = await response.blob();
+      
+      // Crear URL para el blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Crear un elemento anchor para descargar
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Obtener nombre del archivo de las cabeceras Content-Disposition o usar nombre por defecto
+      let filename = `etiqueta-envio-${order.orderNumber || order.id}.pdf`;
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition) {
+        const filenameMatch = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Limpieza
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Etiqueta generada",
+        description: "La etiqueta de envío ha sido generada y descargada correctamente"
+      });
+      
+    } catch (error) {
+      console.error('Error al generar etiqueta:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al generar la etiqueta de envío"
+      });
+    } finally {
+      setIsGeneratingLabel(false);
+    }
+  };
 
   // Obtener texto de estado
   const getStatusText = (status: string): string => {
@@ -296,20 +360,48 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       </div>
 
       {/* Información de envío */}
-      <ShippingInfoCard 
-        shippingMethod={order.shippingMethod}
-        trackingNumber={order.trackingNumber}
-        shippingCost={order.shippingCost}
-        estimatedDeliveryDate={null} // Se podría agregar esta propiedad en el futuro
-        status={order.status}
-        shippingAddress={{
-          street: "Dirección del cliente", // Estos datos podrían obtenerse del cliente en una implementación futura
-          city: "Ciudad",
-          province: "Provincia",
-          country: "Ecuador",
-          postalCode: ""
-        }}
-      />
+      <Card>
+        <CardHeader className="pb-2 flex flex-row justify-between items-center">
+          <CardTitle className="text-lg flex items-center">
+            <Truck className="w-5 h-5 mr-2" /> Información de Envío
+          </CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleGenerateShippingLabel}
+            disabled={isGeneratingLabel}
+            className="flex items-center gap-2"
+          >
+            {isGeneratingLabel ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4" />
+                Generar Etiqueta
+              </>
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <ShippingInfoCard 
+            shippingMethod={order.shippingMethod}
+            trackingNumber={order.trackingNumber}
+            shippingCost={order.shippingCost}
+            estimatedDeliveryDate={null} // Se podría agregar esta propiedad en el futuro
+            status={order.status}
+            shippingAddress={{
+              street: "Dirección del cliente", // Estos datos podrían obtenerse del cliente en una implementación futura
+              city: "Ciudad",
+              province: "Provincia",
+              country: "Ecuador",
+              postalCode: ""
+            }}
+          />
+        </CardContent>
+      </Card>
 
       {/* Productos del pedido */}
       <Card>
