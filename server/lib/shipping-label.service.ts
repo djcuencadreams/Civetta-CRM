@@ -39,101 +39,139 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   try {
     log('Generando etiqueta de envío con jsPDF', 'shipping-service');
     
-    // Crear un nuevo documento PDF tamaño A5
-    // A5 es 148x210mm, orientación landscape para la etiqueta de envío
+    // Crear un nuevo documento PDF tamaño A4
+    // A4 es 210x297mm, orientación portrait para usar media hoja como etiqueta
     const doc = new jsPDF({
-      orientation: 'landscape',
+      orientation: 'portrait',
       unit: 'mm',
-      format: 'a5'
+      format: 'a4'
     });
     
     // Configurar fuentes
     doc.setFont('helvetica', 'normal');
     
-    // Dibujar bordes y cabecera
+    // Definir dimensiones
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    
-    // Configurar el documento
     const margin = 10;
     
-    // Dibujar borde
-    doc.setLineWidth(0.5);
-    doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
+    try {
+      // Intentar cargar el logo
+      const logoPath = path.join(process.cwd(), 'media', 'logoCivetta01.png');
+      if (fs.existsSync(logoPath)) {
+        // Cargar el logo como base64
+        const logoData = fs.readFileSync(logoPath);
+        const logoBase64 = 'data:image/png;base64,' + logoData.toString('base64');
+        
+        // Insertar logo (centrado, con tamaño ajustado)
+        const logoHeight = 15; // altura fija en mm
+        doc.addImage(logoBase64, 'PNG', pageWidth / 2 - 20, margin + 5, 40, logoHeight, undefined, 'FAST');
+      } else {
+        // Si no se encuentra el logo, usar texto
+        doc.setFontSize(28);
+        doc.setTextColor(232, 62, 140); // Color rosa similar al logo
+        doc.setFont('helvetica', 'italic');
+        doc.text('Civetta', pageWidth / 2, margin + 15, { align: 'center' });
+        doc.setTextColor(0, 0, 0); // Volver al color negro
+      }
+    } catch (logoError) {
+      // Si hay error al cargar el logo, usar texto
+      log(`Error loading logo: ${logoError}`, 'shipping-service');
+      doc.setFontSize(28);
+      doc.setTextColor(232, 62, 140); // Color rosa similar al logo
+      doc.setFont('helvetica', 'italic');
+      doc.text('Civetta', pageWidth / 2, margin + 15, { align: 'center' });
+      doc.setTextColor(0, 0, 0); // Volver al color negro
+    }
     
-    // Logo o nombre de la compañía
-    doc.setFontSize(20);
+    // Comenzar el contenido debajo del logo
+    let yPos = margin + 30;
+    
+    // Datos del destinatario (usando un diseño similar a la segunda imagen)
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(data.companyName || 'CIVETTA', pageWidth / 2, margin + 10, { align: 'center' });
-    
-    // Subtítulo
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ETIQUETA DE ENVÍO', pageWidth / 2, margin + 18, { align: 'center' });
-    
-    // Línea horizontal después del encabezado
-    doc.setLineWidth(0.3);
-    doc.line(margin + 5, margin + 22, pageWidth - margin - 5, margin + 22);
-    
-    // Fecha y número de orden
-    doc.setFontSize(10);
+    doc.text('Nombre:', margin, yPos);
     doc.setFont('helvetica', 'normal');
+    doc.text(data.name, margin + 40, yPos);
+    
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cédula:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.idNumber || 'No proporcionada', margin + 40, yPos);
+    
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Dirección:', margin, yPos);
+    
+    // Partir la dirección en múltiples líneas si es larga
+    const maxWidth = pageWidth - margin * 2 - 40;
+    const streetLines = doc.splitTextToSize(data.street, maxWidth);
+    doc.setFont('helvetica', 'normal');
+    doc.text(streetLines, margin + 40, yPos);
+    
+    // Ajustar posición vertical según número de líneas de dirección
+    yPos += 5 * streetLines.length;
+    
+    yPos += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Ciudad:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.city, margin + 40, yPos);
+    
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Provincia:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.province, margin + 40, yPos);
+    
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Teléfono:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.phone, margin + 40, yPos);
+    
+    // Instrucciones de entrega si existen
+    if (data.deliveryInstructions) {
+      yPos += 15;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Instrucciones:', margin, yPos);
+      
+      const instructionsLines = doc.splitTextToSize(data.deliveryInstructions, maxWidth);
+      doc.setFont('helvetica', 'normal');
+      doc.text(instructionsLines, margin + 40, yPos);
+      
+      // Ajustar posición vertical según número de líneas de instrucciones
+      yPos += 5 * instructionsLines.length;
+    }
+    
+    // Añadir fecha actual y número de orden en la parte inferior
+    yPos = pageHeight / 2 - 20; // Cerca de la mitad de la página
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
     const fechaActual = new Date().toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
     
-    doc.text(`Fecha: ${fechaActual}`, margin + 10, margin + 30);
+    doc.text(`Fecha: ${fechaActual}`, margin, yPos);
     
     if (data.orderNumber) {
-      doc.text(`Orden #: ${data.orderNumber}`, pageWidth - margin - 50, margin + 30);
+      doc.text(`Orden #: ${data.orderNumber}`, pageWidth - margin - 50, yPos);
     }
     
-    // Datos del destinatario
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DESTINATARIO:', margin + 10, margin + 40);
+    // Dibujar línea punteada en la mitad de la página (para doblar)
+    doc.setLineDashPattern([3, 3], 0);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(0, pageHeight / 2, pageWidth, pageHeight / 2);
     
-    doc.setFontSize(14);
-    doc.text(data.name, margin + 10, margin + 48);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    
-    if (data.idNumber) {
-      doc.text(`ID/RUC: ${data.idNumber}`, margin + 10, margin + 55);
-    }
-    
-    doc.text(`Teléfono: ${data.phone}`, margin + 10, margin + 62);
-    doc.text(`Dirección: ${data.street}`, margin + 10, margin + 69);
-    doc.text(`Ciudad: ${data.city}, ${data.province}`, margin + 10, margin + 76);
-    
-    // Instrucciones de entrega si existen
-    if (data.deliveryInstructions) {
-      doc.setLineWidth(0.3);
-      doc.rect(margin + 10, margin + 83, pageWidth - (margin * 2) - 20, 30);
-      
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('INSTRUCCIONES DE ENTREGA:', margin + 12, margin + 89);
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(data.deliveryInstructions, margin + 12, margin + 95, {
-        maxWidth: pageWidth - (margin * 2) - 24
-      });
-    }
-    
-    // Código QR (simulado con un cuadrado)
+    // Añadir un borde a la parte superior de la página (área de la etiqueta)
+    doc.setLineDashPattern([0, 0], 0); // Línea sólida
+    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.5);
-    doc.rect(pageWidth - margin - 40, margin + 40, 30, 30);
-    doc.setFontSize(8);
-    doc.text('Código QR', pageWidth - margin - 25, margin + 55, { align: 'center' });
-    
-    // Pie de página
-    doc.setFontSize(8);
-    doc.text('CIVETTA CRM - Sistema de Gestión de Envíos', pageWidth / 2, pageHeight - margin - 5, { align: 'center' });
+    doc.rect(margin / 2, margin / 2, pageWidth - margin, pageHeight / 2 - margin);
     
     // Convertir a Buffer
     const pdfBytes = doc.output('arraybuffer');
