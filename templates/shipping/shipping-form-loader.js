@@ -27,7 +27,8 @@ var CivettaShippingFormLoader = CivettaShippingFormLoader || {};
         
         // Múltiples rutas para mejorar compatibilidad con diferentes configuraciones de WordPress
         formPaths: [
-            '/wordpress-embed',       // Ruta principal optimizada para WordPress
+            '/wordpress-embed-modern.html', // Ruta principal - versión moderna
+            '/wordpress-embed',       // Ruta de respaldo optimizada para WordPress
             '/shipping-form',         // Ruta alternativa 1
             '/forms/shipping',        // Ruta alternativa 2
             '/public/shipping-form'   // Ruta alternativa 3

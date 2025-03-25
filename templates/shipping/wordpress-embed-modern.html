@@ -651,7 +651,7 @@
 
                         <div style="margin-top: 30px;">
                             <button type="submit" id="submit-button" class="btn btn-primary btn-full">
-                                Generar etiqueta de envío
+                                Enviar datos de envío
                             </button>
                         </div>
                     </form>
@@ -665,8 +665,8 @@
                     <li>Si ya es cliente, puede verificar su información ingresando su cédula, teléfono o email y haciendo clic en "Verificar"</li>
                     <li>Complete todos los campos marcados con asterisco (*)</li>
                     <li>Asegúrese de que la dirección sea completa y detallada</li>
-                    <li>La etiqueta se descargará automáticamente como archivo PDF</li>
-                    <li>Imprima la etiqueta en tamaño A5 para mejores resultados</li>
+                    <li>Al enviar el formulario, sus datos se guardarán en nuestro sistema</li>
+                    <li>Nuestro equipo se encargará de preparar su envío y se pondrá en contacto con usted</li>
                 </ul>
             </div>
         </div>
@@ -692,7 +692,7 @@
             
             // Estado inicial
             let isSearching = false;
-            let isPdfGenerating = false;
+            let isSubmitting = false;
             let searchType = 'idNumber';
             
             // Inicializar el dropdown
@@ -883,13 +883,13 @@
                     return;
                 }
                 
-                if (isPdfGenerating) return;
-                isPdfGenerating = true;
+                if (isSubmitting) return;
+                isSubmitting = true;
                 
                 // Actualizar estado del botón
                 const originalText = submitButton.textContent;
                 submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="loading-spinner" style="margin-right: 8px;">↻</span> Generando...';
+                submitButton.innerHTML = '<span class="loading-spinner" style="margin-right: 8px;">↻</span> Enviando datos...';
                 
                 // Ocultar alertas previas
                 hideAlerts();
@@ -913,7 +913,7 @@
                     };
                     
                     // Enviar los datos al servidor
-                    const response = await fetch(`${API_BASE_URL}/api/shipping/generate-label`, {
+                    const response = await fetch(`${API_BASE_URL}/api/shipping/save-data`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -922,51 +922,40 @@
                     });
                     
                     if (!response.ok) {
-                        throw new Error('Error al generar la etiqueta');
+                        throw new Error('Error al guardar los datos de envío');
                     }
                     
-                    // Verificar el tipo de contenido
-                    const contentType = response.headers.get('Content-Type');
+                    // Procesar respuesta JSON
+                    const responseData = await response.json();
                     
-                    if (contentType && contentType.includes('application/pdf')) {
-                        // Es un PDF, descargarlo
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        
-                        // Crear un enlace para la descarga
-                        const a = document.createElement('a');
-                        a.style.display = 'none';
-                        a.href = url;
-                        
-                        // Configurar nombre de archivo
-                        const fileName = `etiqueta-envio-${formData.name.replace(/\s+/g, '_')}.pdf`;
-                        a.download = fileName;
-                        
-                        // Añadir al DOM, hacer clic y remover
-                        document.body.appendChild(a);
-                        a.click();
-                        
-                        // Limpiar
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                        
+                    if (responseData.success) {
                         // Mostrar mensaje de éxito
-                        showMessage('Etiqueta generada con éxito. La descarga comenzará automáticamente.', 'success');
+                        showMessage('Datos de envío guardados correctamente. Nuestro equipo preparará su pedido y se pondrá en contacto con usted.', 'success');
                         
                         // Limpiar campos no esenciales
                         document.getElementById('orderNumber').value = '';
                         document.getElementById('deliveryInstructions').value = '';
+                        
+                        // Si queremos limpiar todo el formulario, descomentar estas líneas
+                        // document.getElementById('firstName').value = '';
+                        // document.getElementById('lastName').value = '';
+                        // document.getElementById('idNumber').value = '';
+                        // document.getElementById('phone').value = '';
+                        // document.getElementById('email').value = '';
+                        // document.getElementById('street').value = '';
+                        // document.getElementById('city').value = '';
+                        // document.getElementById('province').value = '';
                     } else {
-                        throw new Error('El servidor no envió un archivo PDF');
+                        throw new Error(responseData.message || 'Error al guardar los datos de envío');
                     }
                 } catch (error) {
-                    console.error('Error generando etiqueta:', error);
-                    showMessage('Error al generar la etiqueta. Por favor intente nuevamente.', 'error');
+                    console.error('Error guardando datos de envío:', error);
+                    showMessage('Error al guardar los datos de envío. Por favor intente nuevamente.', 'error');
                 } finally {
                     // Restaurar estado del botón
                     submitButton.disabled = false;
                     submitButton.textContent = originalText;
-                    isPdfGenerating = false;
+                    isSubmitting = false;
                 }
             });
         });
