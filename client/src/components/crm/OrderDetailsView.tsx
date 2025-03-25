@@ -249,7 +249,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       <div className="flex flex-col md:flex-row justify-between">
         <div>
           <h3 className="text-2xl font-bold">
-            {order.orderNumber || `ORD-${order.id.toString().padStart(6, '0')}`}
+            {order.orderNumber || `ORD-${order.id ? order.id.toString().padStart(6, '0') : '000000'}`}
           </h3>
           <p className="text-muted-foreground">
             Cliente: {order.customer?.name || `Cliente #${order.customerId}`}
@@ -278,7 +278,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Número:</span>
-              <span className="font-medium">{order.orderNumber || `ORD-${order.id.toString().padStart(6, '0')}`}</span>
+              <span className="font-medium">{order.orderNumber || `ORD-${order.id ? order.id.toString().padStart(6, '0') : '000000'}`}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Fecha:</span>
