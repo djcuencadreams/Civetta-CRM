@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.tree
     pkgs.wget
     pkgs.chromium
     pkgs.glibcLocales

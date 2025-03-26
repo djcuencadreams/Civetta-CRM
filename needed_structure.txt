@@ -1,0 +1,71 @@
+server
+├── index.ts
+├── lib
+│   ├── email.service.ts
+│   ├── event-emitter.ts
+│   ├── shipping-label.service.ts
+│   ├── slack.ts
+│   ├── whatsapp.ts
+│   └── woocommerce-config.ts
+├── routes-configuration.ts
+├── routes-email.ts
+├── routes-extension.ts
+├── routes-orders-new.ts
+├── routes-orders.ts
+├── routes-shipping-new.ts
+├── routes-shipping.ts
+├── routes-temp.ts
+├── routes.ts
+├── routes.ts.bak
+├── services
+│   ├── activities.service.ts
+│   ├── customers.service.ts
+│   ├── event-listener.service.ts
+│   ├── index.ts
+│   ├── interactions.service.ts
+│   ├── inventory.service.ts
+│   ├── leads.service.ts
+│   ├── opportunities.service.ts
+│   ├── orders.service.ts
+│   ├── service-registry.ts
+│   ├── social.service.ts
+│   └── woocommerce.service.ts
+├── validation.ts
+├── vite.ts
+└── webhooks
+    └── woocommerce.ts
+scripts
+├── add-new-columns.ts
+├── add-web-form-column.ts
+├── alter-tables.ts
+├── backup.ts
+├── check-schema.ts
+├── create-db-schema.ts
+├── create-orders-table.ts
+├── generate-template.cjs
+├── generate-test-data.js
+├── generate-test-data.mjs
+├── migrate-data.ts
+├── restore.ts
+├── update-product-schema.ts
+├── update-schemas.ts
+├── update-schema.ts
+├── validate-flow.ts
+└── woocommerce-sync.ts
+templates
+├── emails
+│   ├── order-confirmation.html
+│   └── welcome.html
+└── shipping
+    ├── shipping-form-loader.js
+    ├── shipping-form-standalone.html
+    ├── shipping-label.html
+    ├── wordpress-embed-dark.html
+    ├── wordpress-embed.html
+    ├── wordpress-embed-modern.html
+    ├── wordpress-embed-standalone.html
+    ├── wordpress-example-advanced.html
+    ├── wordpress-integration-guide.html
+    └── wordpress-integration-guide.md
+
+8 directories, 61 files
