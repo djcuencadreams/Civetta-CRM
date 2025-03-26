@@ -50,6 +50,20 @@ async function createOrdersTable() {
         console.log('La tabla products ya existe.');
       }
       
+      // Verificamos si existe la tabla crm_users (necesaria para la referencia en orders)
+      console.log('Verificando si existe tabla crm_users...');
+      const crmUsersTable = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_name = 'crm_users'
+      `);
+      
+      if (crmUsersTable.rowCount === 0) {
+        console.log('ADVERTENCIA: La tabla crm_users no existe. La tabla orders no podrá tener la restricción foreign key a crm_users.');
+      } else {
+        console.log('La tabla crm_users existe.');
+      }
+      
       // Verificamos si existe la tabla orders
       console.log('Verificando si existe tabla orders...');
       const ordersTable = await client.query(`
@@ -67,14 +81,25 @@ async function createOrdersTable() {
             lead_id INTEGER REFERENCES leads(id),
             order_number TEXT UNIQUE,
             total_amount DECIMAL(10, 2) NOT NULL,
+            subtotal DECIMAL(10, 2),
+            tax DECIMAL(10, 2) DEFAULT 0,
+            discount DECIMAL(10, 2) DEFAULT 0,
+            shipping_cost DECIMAL(10, 2) DEFAULT 0,
             status VARCHAR(50) DEFAULT 'new',
             payment_status VARCHAR(50) DEFAULT 'pending',
             payment_method VARCHAR(50),
+            payment_details JSONB DEFAULT '{}',
+            payment_date TIMESTAMP,
             source VARCHAR(50) DEFAULT 'website',
+            is_from_web_form BOOLEAN DEFAULT false,
             woocommerce_id INTEGER,
+            tracking_number TEXT,
+            shipping_method VARCHAR(50),
             brand VARCHAR(20) DEFAULT 'sleepwear',
             shipping_address JSONB DEFAULT '{}',
             billing_address JSONB DEFAULT '{}',
+            coupon_code TEXT,
+            assigned_user_id INTEGER,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL

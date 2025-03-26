@@ -499,6 +499,10 @@ export function registerShippingRoutes(app: Express) {
           customerId = insertedCustomer[0]?.id;
         }
         
+        // Generar un número de orden para la etiqueta
+        const orderPrefix = 'FORM-';
+        const formOrderNumber = orderPrefix + Date.now().toString().slice(-6);
+        
         // Preparar datos para el PDF
         const pdfData = {
           name: formData.name,
@@ -508,7 +512,8 @@ export function registerShippingRoutes(app: Express) {
           province: formData.province,
           idNumber: formData.idNumber || 'N/A',
           deliveryInstructions: formData.deliveryInstructions || 'N/A',
-          companyName: formData.companyName || ''
+          companyName: formData.companyName || '',
+          orderNumber: formOrderNumber
         };
         
         // Generar el PDF
@@ -570,7 +575,7 @@ export function registerShippingRoutes(app: Express) {
         
         // Configurar cabeceras para enviar el PDF
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=etiqueta-envio.pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=etiqueta-${formOrderNumber}.pdf`);
         
         // Enviar el PDF como respuesta
         res.send(pdfBuffer);
