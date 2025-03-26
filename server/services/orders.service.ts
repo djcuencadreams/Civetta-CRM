@@ -1,7 +1,7 @@
 import { Express, Request, Response } from "express";
 import { db } from "@db";
 import { orders, orderItems, customers, products } from "@db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
 import { validateBody, validateParams } from "../validation";
@@ -98,15 +98,42 @@ export class OrdersService implements Service {
   /**
    * Get all orders
    */
-  async getAllOrders(_req: Request, res: Response): Promise<void> {
+  async getAllOrders(req: Request, res: Response): Promise<void> {
     try {
+      // Obtener parámetros de consulta opcionales
+      const { source, status, paymentStatus, isFromWebForm } = req.query;
+      
+      let filters = [];
+      
+      // Aplicar filtros si están presentes
+      if (source) {
+        filters.push(eq(orders.source, source as string));
+      }
+      
+      if (status) {
+        filters.push(eq(orders.status, status as string));
+      }
+      
+      if (paymentStatus) {
+        filters.push(eq(orders.paymentStatus, paymentStatus as string));
+      }
+      
+      if (isFromWebForm === 'true') {
+        filters.push(eq(orders.isFromWebForm, true));
+      } else if (isFromWebForm === 'false') {
+        filters.push(eq(orders.isFromWebForm, false));
+      }
+      
       const result = await db.query.orders.findMany({
         orderBy: [desc(orders.createdAt)],
+        where: filters.length > 0 ? and(...filters) : undefined,
         with: {
           customer: true,
-          items: true
+          items: true,
+          assignedUser: true
         }
       });
+      
       res.json(result);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -127,8 +154,38 @@ export class OrdersService implements Service {
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: true,
-          items: true,
+          customer: {
+            // Incluir todos los campos del cliente para mostrar información completa
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneCountry: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              idNumber: true,
+              billingAddress: true
+            }
+          },
+          items: {
+            // Incluir todos los campos de items para mostrar detalles completos
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
           assignedUser: true
         }
       });
@@ -235,8 +292,37 @@ export class OrdersService implements Service {
       const completeOrder = await db.query.orders.findFirst({
         where: eq(orders.id, order.id),
         with: {
-          customer: true,
-          items: true
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneCountry: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              idNumber: true,
+              billingAddress: true
+            }
+          },
+          items: {
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
+          assignedUser: true
         }
       });
 
@@ -357,8 +443,37 @@ export class OrdersService implements Service {
       const completeOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: true,
-          items: true
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneCountry: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              idNumber: true,
+              billingAddress: true
+            }
+          },
+          items: {
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
+          assignedUser: true
         }
       });
 
@@ -439,7 +554,7 @@ export class OrdersService implements Service {
       }
 
       // Update order status
-      const [updatedOrder] = await db.update(orders)
+      const [updatedOrderBasic] = await db.update(orders)
         .set({
           status,
           notes: notes 
@@ -449,10 +564,48 @@ export class OrdersService implements Service {
         })
         .where(eq(orders.id, orderId))
         .returning();
+        
+      // Obtener el pedido actualizado con toda la información relacionada
+      const updatedOrder = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneCountry: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              idNumber: true,
+              billingAddress: true
+            }
+          },
+          items: {
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
+          assignedUser: true
+        }
+      });
 
       // Emit order status changed event
       appEvents.emit(EventTypes.ORDER_STATUS_CHANGED, {
-        order: updatedOrder,
+        order: updatedOrderBasic,
         previousStatus: existingOrder.status,
         newStatus: status,
         reason: notes
@@ -503,7 +656,7 @@ export class OrdersService implements Service {
       }
 
       // Update order payment status
-      const [updatedOrder] = await db.update(orders)
+      const [updatedOrderBasic] = await db.update(orders)
         .set({
           paymentStatus,
           paymentMethod: paymentMethod || existingOrder.paymentMethod,
@@ -514,10 +667,48 @@ export class OrdersService implements Service {
         })
         .where(eq(orders.id, orderId))
         .returning();
+        
+      // Obtener el pedido actualizado con toda la información relacionada
+      const updatedOrder = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId),
+        with: {
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneCountry: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              idNumber: true,
+              billingAddress: true
+            }
+          },
+          items: {
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
+          assignedUser: true
+        }
+      });
 
       // Emit order payment status changed event
       appEvents.emit(EventTypes.ORDER_PAYMENT_STATUS_CHANGED, {
-        order: updatedOrder,
+        order: updatedOrderBasic,
         previousStatus: existingOrder.paymentStatus,
         newStatus: paymentStatus,
         reason

@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
 import { registerEmailRoutes } from "./routes-email";
 import { registerConfigurationRoutes } from "./routes-configuration";
-import { registerShippingRoutes } from "./routes-shipping";
+import { registerShippingRoutes } from "./routes-shipping-fixed";
 import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";

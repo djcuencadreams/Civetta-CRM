@@ -9,7 +9,15 @@
 import { Express, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
-import { customers, orders, orderStatusEnum, paymentStatusEnum, sourceEnum } from '../db/schema';
+import { 
+  customers, 
+  orders,
+  orderStatusEnum,
+  paymentStatusEnum, 
+  paymentMethodEnum, 
+  sourceEnum, 
+  brandEnum 
+} from '../db/schema';
 import { eq, or, and, like, ilike } from 'drizzle-orm';
 import cors from 'cors';
 import { appEvents, EventTypes } from './lib/event-emitter';
@@ -94,7 +102,7 @@ export function registerShippingRoutes(app: Express) {
           case 'identification':
             whereClause = or(
               eq(customers.idNumber, query),
-              eq(customers.taxId, query)
+              eq(customers.ruc, query)  // Usamos ruc en lugar de taxId ya que así está definido en el esquema
             );
             break;
           case 'email':
@@ -144,6 +152,8 @@ export function registerShippingRoutes(app: Express) {
     cors(corsOptions),
     validateBody(shippingFormSchema),
     async (req: Request, res: Response) => {
+      // Forzar el tipo de contenido a JSON
+      res.setHeader('Content-Type', 'application/json');
       try {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
@@ -284,6 +294,8 @@ export function registerShippingRoutes(app: Express) {
     cors(corsOptions),
     validateBody(shippingFormSchema),
     async (req: Request, res: Response) => {
+      // Forzar el tipo de contenido a JSON
+      res.setHeader('Content-Type', 'application/json');
       try {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
@@ -374,9 +386,12 @@ export function registerShippingRoutes(app: Express) {
               subtotal: "0.00",
               status: orderStatusEnum.NEW,
               paymentStatus: paymentStatusEnum.PENDING,
+              paymentMethod: paymentMethodEnum.OTHER, // Campo requerido para evitar nulos
               source: sourceEnum.WEBSITE,
               isFromWebForm: true,
               shippingAddress: shippingInfo,
+              brand: brandEnum.SLEEPWEAR, // Asignar una marca por defecto
+              shippingMethod: "Por determinar", // Campo adicional requerido
               notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
               createdAt: new Date(),
               updatedAt: new Date()
@@ -525,9 +540,12 @@ export function registerShippingRoutes(app: Express) {
               subtotal: "0.00",
               status: orderStatusEnum.NEW,
               paymentStatus: paymentStatusEnum.PENDING,
+              paymentMethod: paymentMethodEnum.OTHER, // Campo requerido para evitar nulos
               source: sourceEnum.WEBSITE,
               isFromWebForm: true,
               shippingAddress: shippingInfo,
+              brand: brandEnum.SLEEPWEAR, // Asignar una marca por defecto
+              shippingMethod: "Por determinar", // Campo adicional requerido
               notes: "Orden creada desde formulario de envío - Pendiente completar detalles",
               createdAt: new Date(),
               updatedAt: new Date()
@@ -619,13 +637,10 @@ export function registerShippingRoutes(app: Express) {
     try {
       const orderId = parseInt(req.params.orderId);
       if (isNaN(orderId)) {
-        console.error('[ETIQUETA] Error: ID de orden inválido:', req.params.orderId);
         return res.status(400).json({ error: 'ID de orden inválido' });
       }
       
-      console.log('[ETIQUETA] Solicitando etiqueta para orden ID:', orderId);
-      
-      // Obtener la orden con datos del cliente
+      // Obtener los datos de la orden
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
@@ -634,145 +649,56 @@ export function registerShippingRoutes(app: Express) {
       });
       
       if (!order) {
-        console.error('[ETIQUETA] Error: Orden no encontrada con ID:', orderId);
         return res.status(404).json({ error: 'Orden no encontrada' });
       }
       
-      console.log('[ETIQUETA] Orden encontrada:', { 
-        id: order.id, 
-        orderNumber: order.orderNumber,
-        customerId: order.customerId,
-        customerName: order.customer?.name,
-        hasShippingAddress: !!order.shippingAddress
-      });
-      
-      // Extraer información de envío (incluso si está incompleta)
-      let shippingInfo: any = {};
-      
-      if (order.shippingAddress) {
-        try {
-          // Si es un objeto JSON almacenado como string
-          if (typeof order.shippingAddress === 'string') {
-            console.log('[ETIQUETA] Parseando shippingAddress de string a objeto');
-            shippingInfo = JSON.parse(order.shippingAddress);
-          } else {
-            // Si ya es un objeto
-            console.log('[ETIQUETA] shippingAddress ya es un objeto');
-            shippingInfo = order.shippingAddress;
-          }
-          console.log('[ETIQUETA] Datos de shipping extraídos:', shippingInfo);
-        } catch (e) {
-          console.error('[ETIQUETA] Error al parsear shippingAddress:', e, 'Valor recibido:', order.shippingAddress);
-          // Si hay error al parsear, usar un objeto vacío
-          shippingInfo = {};
-        }
-      } else {
-        console.log('[ETIQUETA] No hay información de envío específica, usando datos del cliente');
+      if (!order.customer) {
+        return res.status(404).json({ error: 'Cliente no encontrado para esta orden' });
       }
       
-      // Obtener nombre del cliente o usar ID como fallback
-      const customerName = 
-        shippingInfo.name || 
-        order.customer?.name || 
-        `Cliente #${order.customerId}`;
+      const shippingInfo = typeof order.shippingAddress === 'string' 
+        ? JSON.parse(order.shippingAddress) 
+        : order.shippingAddress;
       
-      // Obtener número de teléfono
-      const customerPhone = 
-        shippingInfo.phone || 
-        order.customer?.phone || 
-        'No disponible';
-      
-      // Obtener dirección o usar placeholders que indican que falta información
-      const streetAddress = 
-        shippingInfo.street || 
-        order.customer?.street || 
-        '[INFORMACIÓN PENDIENTE]';
-      
-      const cityName = 
-        shippingInfo.city || 
-        order.customer?.city || 
-        '[CIUDAD]';
-      
-      const provinceName = 
-        shippingInfo.province || 
-        order.customer?.province || 
-        '[PROVINCIA]';
-      
-      // Crear número de orden formateado si no existe
-      const formattedOrderNumber = 
-        order.orderNumber || 
-        `ORD-${order.id.toString().padStart(6, '0')}`;
-      
-      // Preparar datos para el PDF (con datos de fallback para casos incompletos)
+      // Preparar datos para el PDF
       const pdfData = {
-        name: customerName,
-        phone: customerPhone,
-        street: streetAddress,
-        city: cityName,
-        province: provinceName,
-        idNumber: order.customer?.idNumber || shippingInfo.idNumber || 'N/A',
-        deliveryInstructions: shippingInfo.instructions || '',
-        orderNumber: formattedOrderNumber,
-        // Usado companyName solo si existe en el cliente o en shipping info
-        companyName: shippingInfo.companyName || (order.customer && 'companyName' in order.customer ? order.customer.companyName : '') 
+        name: shippingInfo?.name || order.customer.name || 'N/A',
+        phone: shippingInfo?.phone || order.customer.phone || 'N/A',
+        street: shippingInfo?.street || order.customer.street || 'N/A',
+        city: shippingInfo?.city || order.customer.city || 'N/A',
+        province: shippingInfo?.province || order.customer.province || 'N/A',
+        idNumber: order.customer.idNumber || 'N/A',
+        deliveryInstructions: shippingInfo?.instructions || 'N/A',
+        companyName: '',
+        orderNumber: order.orderNumber || ''
       };
       
-      console.log('[ETIQUETA] Datos preparados para generar PDF:', pdfData);
-      
-      // Generar el PDF incluso con datos incompletos
+      // Generar el PDF
       const pdfBuffer = await generateShippingLabelPdf(pdfData);
-      
-      console.log('[ETIQUETA] PDF generado correctamente, tamaño:', pdfBuffer.length, 'bytes');
-      
-      if (!pdfBuffer || pdfBuffer.length < 100) {
-        console.error('[ETIQUETA] Error: El PDF generado es demasiado pequeño o está vacío');
-        return res.status(500).json({ 
-          error: 'Error al generar la etiqueta de envío: PDF inválido'
-        });
-      }
       
       // Configurar cabeceras para enviar el PDF
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=etiqueta-envio-${formattedOrderNumber}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=etiqueta-${order.orderNumber}.pdf`);
       
       // Enviar el PDF como respuesta
-      console.log('[ETIQUETA] Enviando PDF al cliente');
       res.send(pdfBuffer);
-      console.log('[ETIQUETA] PDF enviado con éxito');
     } catch (error) {
-      console.error('[ETIQUETA] Error al generar etiqueta interna:', error);
-      
-      // Determinar si el error está relacionado con la biblioteca jsPDF
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      const errorStack = error instanceof Error ? error.stack : '';
-      
-      if (errorStack && errorStack.includes('jspdf')) {
-        console.error('[ETIQUETA] Error relacionado con jsPDF:', errorStack);
-        return res.status(500).json({
-          error: 'Error al generar el PDF con jsPDF',
-          details: errorMessage,
-          suggestion: 'Puede ser un problema con la biblioteca de generación de PDF'
-        });
-      }
-      
+      console.error('Error al generar etiqueta interna:', error);
       res.status(500).json({ 
         error: 'Error al generar la etiqueta de envío',
-        details: errorMessage
+        details: error instanceof Error ? error.message : 'Error desconocido'
       });
     }
   });
   
-  // Servir el script de carga del formulario para WordPress
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
       const loaderPath = path.join(__dirname, '../templates/shipping/shipping-form-loader.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.sendFile(loaderPath);
     } catch (error) {
-      console.error('Error al servir script de carga:', error);
-      res.status(500).send('console.error("Error al cargar el script de formulario de envío");');
+      console.error('Error al servir el script de formulario:', error);
+      res.status(500).send('console.error("Error al cargar el script de formulario");');
     }
   });
-
-  console.log('[shipping-service] Shipping routes registered');
 }
