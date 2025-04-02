@@ -83,6 +83,10 @@ function deleteOldBackups() {
 
 // Function to create a commit-info.txt file
 function createCommitInfoFile(commitInfo) {
+  // Get current time in Ecuador timezone (UTC-5)
+  const now = new Date();
+  const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  
   const content = `CIVETTA-CRM PROJECT BACKUP
 
 COMMIT INFORMATION
@@ -95,7 +99,7 @@ COMMIT MESSAGE
 -----------------
 ${commitInfo.message}
 
-Backup generated: ${new Date().toISOString()}
+Backup generated: ${ecuadorTime.toISOString()} (Ecuador Time)
 `;
 
   const tempFilePath = path.join(BACKUP_DIR, 'commit-info.txt');
@@ -179,10 +183,23 @@ async function createProjectBackup() {
     // Delete old backups
     deleteOldBackups();
     
-    // Generate backup filename with date and commit hash
+    // Generate backup filename with date and commit hash (Ecuador timezone UTC-5)
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+    // Adjust for Ecuador timezone (UTC-5)
+    const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+    
+    // Format date as YYYY-MM-DD
+    const year = ecuadorTime.getUTCFullYear();
+    const month = String(ecuadorTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(ecuadorTime.getUTCDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
+    // Format time as HH-MM-SS
+    const hours = String(ecuadorTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(ecuadorTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(ecuadorTime.getUTCSeconds()).padStart(2, '0');
+    const timeStr = `${hours}-${minutes}-${seconds}`;
+    
     const backupFileName = `backup_${dateStr}_${timeStr}_${commitInfo.shortHash}.zip`;
     const backupFilePath = path.join(BACKUP_DIR, backupFileName);
     
