@@ -5,7 +5,7 @@
  * It generates a backup file with format: backup_YYYY-MM-DD_HH-MM-SS_COMMITHASH.zip
  * 
  * The script:
- * 1. Creates a backups/ folder if it doesn't exist
+ * 1. Creates a BackupforChatGPT/ folder if it doesn't exist
  * 2. Deletes any previous backup ZIP files
  * 3. Generates a new ZIP with the current project files
  * 4. Adds commit information to the ZIP file
@@ -13,9 +13,11 @@
  * Excluded from backup:
  * - .git/ directory
  * - node_modules/ directory
- * - backups/ directory
+ * - BackupforChatGPT/ directory
+ * - attached_assets/ directory
  * - All hidden folders (starting with .)
- * - .csv, .xlsx, .pdf files
+ * - Files with extensions: .png, .jpg, .jpeg, .csv, .xlsx, .pdf
+ * - Files starting with: screenshot., test_, Pasted-, Screenshot
  */
 
 import fs from 'fs';
@@ -110,7 +112,8 @@ function shouldExclude(filePath) {
   if (
     filePath === '.git' || 
     filePath === 'node_modules' || 
-    filePath === BACKUP_DIR
+    filePath === BACKUP_DIR ||
+    filePath === 'attached_assets'
   ) {
     return true;
   }
@@ -121,7 +124,17 @@ function shouldExclude(filePath) {
   }
   
   // Exclude specific file extensions
-  if (['.csv', '.xlsx', '.pdf'].includes(extension)) {
+  if (['.png', '.jpg', '.jpeg', '.csv', '.xlsx', '.pdf'].includes(extension)) {
+    return true;
+  }
+  
+  // Exclude files with specific prefixes
+  if (
+    fileName.startsWith('screenshot.') || 
+    fileName.startsWith('test_') || 
+    fileName.startsWith('Pasted-') || 
+    fileName.startsWith('Screenshot')
+  ) {
     return true;
   }
   
@@ -210,13 +223,13 @@ async function createProjectBackup() {
     // Wait for the output stream to finish
     await new Promise((resolve, reject) => {
       output.on('close', () => {
-        const sizeInMB = (archive.pointer() / 1024 / 1024).toFixed(2);
-        console.log(`Backup created successfully: ${backupFileName} (${sizeInMB} MB)`);
-        
         // Clean up temporary files
         if (fs.existsSync(commitInfoPath)) {
           fs.unlinkSync(commitInfoPath);
         }
+        
+        // Log completion message with the format specified
+        console.log(`✅ Backup generado: ${BACKUP_DIR}/${backupFileName}`);
         
         resolve();
       });

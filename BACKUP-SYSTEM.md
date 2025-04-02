@@ -8,7 +8,7 @@ Este sistema genera automáticamente un archivo ZIP con todo el código fuente d
 - ✅ Elimina los backups anteriores (solo conserva el más reciente)
 - ✅ Incluye información detallada del commit en cada backup
 - ✅ Excluye directorios innecesarios (.git, node_modules, etc.)
-- ✅ Excluye archivos grandes (.csv, .xlsx, .pdf)
+- ✅ Excluye archivos grandes e imágenes
 
 ## Formato del nombre del archivo de backup
 
@@ -30,11 +30,16 @@ El archivo ZIP contiene:
 
 ## Elementos excluidos del backup
 
-- Directorio `.git/`
-- Directorio `node_modules/`
-- Directorio `BackupforChatGPT/`
-- Carpetas ocultas (las que comienzan con `.`)
-- Archivos con extensiones `.csv`, `.xlsx`, `.pdf`
+- Directorios:
+  - `.git/`
+  - `node_modules/`
+  - `BackupforChatGPT/`
+  - `attached_assets/`
+  - Carpetas ocultas (las que comienzan con `.`)
+
+- Archivos:
+  - Con extensiones: `.png`, `.jpg`, `.jpeg`, `.csv`, `.xlsx`, `.pdf`
+  - Que comienzan con: `screenshot.`, `test_`, `Pasted-`, `Screenshot`
 
 ## Funcionamiento técnico
 
