@@ -223,8 +223,8 @@ export function registerShippingRoutes(app: Express) {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
+              shippingInfo,
+              products: [], // Sin productos
               source: sourceEnum.WEBSITE
             });
             
@@ -339,8 +339,8 @@ export function registerShippingRoutes(app: Express) {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
+              shippingInfo,
+              products: [], // Sin productos
               source: sourceEnum.WEBSITE
             });
             
@@ -469,8 +469,8 @@ export function registerShippingRoutes(app: Express) {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
+              shippingInfo,
+              products: [], // Sin productos
               source: sourceEnum.WEBSITE
             });
             

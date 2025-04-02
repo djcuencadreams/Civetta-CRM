@@ -32,6 +32,9 @@ interface ShippingLabelData {
  * Genera un PDF de etiqueta de envío a partir de los datos proporcionados
  * Esta versión utiliza jsPDF para crear directamente el PDF
  * 
+ * Nota: Esta función no requiere información de productos para funcionar.
+ * Simplemente genera la etiqueta con los datos del cliente y dirección de envío.
+ * 
  * @param data Datos para la etiqueta de envío
  * @returns Buffer con el PDF generado
  */
@@ -58,7 +61,7 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
       companyName: data.companyName || 'Civetta'
     };
     
-    log('Datos de etiqueta validados:', safeData, 'shipping-service');
+    log(JSON.stringify(safeData), 'shipping-service');
     
     try {
       // Crear un nuevo documento PDF tamaño A4

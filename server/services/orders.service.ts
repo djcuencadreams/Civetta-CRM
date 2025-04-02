@@ -783,13 +783,16 @@ export class OrdersService implements Service {
       let subtotal = "0.00";
       
       // Determine if we have products and calculate totals if we do
-      const hasProducts = items && Array.isArray(items) && items.length > 0;
+      // Si items es undefined, lo inicializamos como array vacío para asegurar
+      // que hasProducts sea false y se establezca el estado correcto
+      const itemsArr = items || [];
+      const hasProducts = Array.isArray(itemsArr) && itemsArr.length > 0;
       
       if (hasProducts) {
         let calculatedTotal = 0;
         let calculatedSubtotal = 0;
         
-        for (const item of items) {
+        for (const item of itemsArr) {
           const itemSubtotal = parseFloat(item.unitPrice) * item.quantity;
           calculatedSubtotal += itemSubtotal;
           // Apply item discount if present
