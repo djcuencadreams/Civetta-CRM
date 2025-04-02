@@ -26,6 +26,7 @@ export const orderStatusEnum = {
   SHIPPED: 'shipped',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
+  PENDIENTE_DE_COMPLETAR: 'pendiente_de_completar', // Status for orders without products
 } as const;
 
 // Define payment status enum values

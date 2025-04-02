@@ -1,6 +1,16 @@
 import { Express, Request, Response } from "express";
 import { db } from "@db";
-import { orders, orderItems, customers, products } from "@db/schema";
+import { 
+  orders, 
+  orderItems, 
+  customers, 
+  products, 
+  orderStatusEnum, 
+  paymentStatusEnum, 
+  paymentMethodEnum, 
+  sourceEnum, 
+  brandEnum 
+} from "@db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
@@ -735,6 +745,134 @@ export class OrdersService implements Service {
     const timestamp = Date.now().toString().slice(-6);
     const randomChars = Math.random().toString(36).slice(2, 7).toUpperCase();
     return `${prefix}-${randomChars}${timestamp}`;
+  }
+
+  /**
+   * Creates an order from shipping form data
+   * Allows creating orders without products by assigning 'pendiente_de_completar' status
+   * 
+   * @param orderData Order data with customer and shipping information
+   * @returns Created order data
+   */
+  async createOrderFromShippingForm(orderData: {
+    customerId: number;
+    items?: any[]; // Optional items array
+    shippingAddress?: any;
+    orderNumber?: string;
+    source?: string;
+    notes?: string;
+    brand?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    [key: string]: any; // Allow other properties
+  }): Promise<any> {
+    try {
+      const { customerId, items, ...orderDetails } = orderData;
+
+      // Check if customer exists
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, customerId)
+      });
+
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      
+      // Calculate total amount from items if provided
+      let totalAmount = "0.00";
+      let subtotal = "0.00";
+      
+      // Determine if we have products and calculate totals if we do
+      const hasProducts = items && Array.isArray(items) && items.length > 0;
+      
+      if (hasProducts) {
+        let calculatedTotal = 0;
+        let calculatedSubtotal = 0;
+        
+        for (const item of items) {
+          const itemSubtotal = parseFloat(item.unitPrice) * item.quantity;
+          calculatedSubtotal += itemSubtotal;
+          // Apply item discount if present
+          const itemDiscount = item.discount ? parseFloat(item.discount) : 0;
+          calculatedTotal += itemSubtotal - itemDiscount;
+        }
+        
+        totalAmount = calculatedTotal.toFixed(2);
+        subtotal = calculatedSubtotal.toFixed(2);
+      }
+
+      // Create order with appropriate status
+      // If no products, set status to 'pendiente_de_completar'
+      const [newOrder] = await db.insert(orders).values({
+        customerId,
+        leadId: orderDetails.leadId || null,
+        orderNumber: orderDetails.orderNumber || this.generateOrderNumber(),
+        totalAmount,
+        subtotal,
+        status: hasProducts ? (orderDetails.status || orderStatusEnum.NEW) : orderStatusEnum.PENDIENTE_DE_COMPLETAR,
+        paymentStatus: orderDetails.paymentStatus || paymentStatusEnum.PENDING,
+        paymentMethod: orderDetails.paymentMethod || paymentMethodEnum.OTHER,
+        source: orderDetails.source || sourceEnum.WEBSITE,
+        isFromWebForm: true,
+        brand: orderDetails.brand || customer.brand || brandEnum.SLEEPWEAR,
+        shippingAddress: orderDetails.shippingAddress || {},
+        notes: orderDetails.notes || (hasProducts ? null : "Orden creada sin productos - Pendiente de completar"),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      // Insert order items if we have them
+      if (hasProducts) {
+        for (const item of items) {
+          await db.insert(orderItems).values({
+            orderId: newOrder.id,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount || "0.00",
+            subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
+            attributes: item.attributes || {},
+            createdAt: new Date()
+          });
+
+          // Update product stock if item has a product ID
+          if (item.productId) {
+            await db.transaction(async (tx) => {
+              const product = await tx.query.products.findFirst({
+                where: eq(products.id, item.productId)
+              });
+
+              if (product) {
+                const currentStock = product.stock || 0;
+                await tx
+                  .update(products)
+                  .set({
+                    stock: currentStock - item.quantity,
+                    updatedAt: new Date()
+                  })
+                  .where(eq(products.id, item.productId));
+              }
+            });
+          }
+        }
+      }
+
+      // Emit order created event
+      appEvents.emit(EventTypes.ORDER_CREATED, { 
+        id: newOrder.id,
+        customerId,
+        orderNumber: newOrder.orderNumber,
+        status: newOrder.status,
+        paymentStatus: newOrder.paymentStatus,
+        source: newOrder.source
+      });
+
+      return newOrder;
+    } catch (error) {
+      console.error('Error in createOrderFromShippingForm:', error);
+      throw error;
+    }
   }
 }
 
