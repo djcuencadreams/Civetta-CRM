@@ -1,6 +1,10 @@
 /**
  * Script para realizar un commit y luego ejecutar el script de backup
- * Este enfoque evita depender de git hooks en Replit
+ * Este enfoque garantiza que SIEMPRE se generará un backup después de cada commit,
+ * sin depender de git hooks que pueden no funcionar correctamente en Replit.
+ * 
+ * IMPORTANTE: SIEMPRE USA ESTE SCRIPT EN LUGAR DE 'git commit' PARA ASEGURAR
+ * QUE SE GENERE UN BACKUP AUTOMÁTICAMENTE.
  * 
  * Uso:
  *   1. Interactivo: node commit-and-backup.js

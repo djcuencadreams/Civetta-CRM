@@ -1,19 +1,35 @@
 # Sistema Automático de Backups - Civetta CRM
 
-Este sistema genera un archivo ZIP con todo el código fuente del proyecto cuando se realiza un commit en Git.
+## ⚠️ IMPORTANTE: Cómo hacer commits con backup automático
+
+Para garantizar que **SIEMPRE** se genere un backup después de cada commit, **UTILIZA ESTE COMANDO** en lugar del comando git commit tradicional:
+
+```bash
+node commit-and-backup.js "Tu mensaje de commit aquí"
+```
+
+O en modo interactivo:
+
+```bash
+node commit-and-backup.js
+```
+
+Este método es 100% confiable y asegura que se genere un backup después de cada commit, sin depender de git hooks que pueden fallar en Replit.
 
 ## Características
 
-- ✅ Genera un backup al usar el script `commit-and-backup.js`
+- ✅ Genera automáticamente un backup con cada commit (usando el comando recomendado)
 - ✅ Elimina los backups anteriores (solo conserva el más reciente)
 - ✅ Incluye información detallada del commit en cada backup
 - ✅ Excluye directorios innecesarios (.git, node_modules, etc.)
 - ✅ Excluye archivos grandes e imágenes
 
-## Formato del nombre del archivo de backup
+## Ubicación y formato del backup
+
+Los archivos de backup se guardan en:
 
 ```
-backup_YYYY-MM-DD_HH-MM-SS_COMMITHASH.zip
+BackupforChatGPT/backup_YYYY-MM-DD_HH-MM-SS_COMMITHASH.zip
 ```
 
 Ejemplo: `backup_2025-04-02_15-24-10_d34db33f.zip`
@@ -21,7 +37,7 @@ Ejemplo: `backup_2025-04-02_15-24-10_d34db33f.zip`
 ## Contenido del backup
 
 El archivo ZIP contiene:
-- Todo el código fuente del proyecto
+- Todo el código fuente esencial del proyecto
 - Un archivo `commit-info.txt` con:
   - Hash del commit
   - Fecha y hora del commit
@@ -41,54 +57,26 @@ El archivo ZIP contiene:
   - Con extensiones: `.png`, `.jpg`, `.jpeg`, `.csv`, `.xlsx`, `.pdf`
   - Que comienzan con: `screenshot.`, `test_`, `Pasted-`, `Screenshot`
 
-## Funcionamiento técnico
+## Componentes del sistema
 
 El sistema consta de dos componentes principales:
 
-1. **zip-project.js**: Script en Node.js que implementa la lógica de generación del backup
+1. **zip-project.js**: Script base que implementa la lógica de generación del backup
 2. **commit-and-backup.js**: Script que combina el proceso de commit con la generación automática del backup
 
-### Script zip-project.js
+### Script commit-and-backup.js
 
-Este script:
-- Verifica si existe la carpeta `BackupforChatGPT/` y la crea si es necesario
-- Elimina cualquier backup previo
-- Obtiene información del último commit (hash, mensaje, autor, fecha)
-- Crea un archivo ZIP con todos los archivos del proyecto
-- Añade un archivo `commit-info.txt` al ZIP con los detalles del commit
-
-### Script commit-and-backup.js (NUEVO)
-
-Este script facilita el proceso completo:
+Este script es la solución completa para asegurar backups con cada commit:
 - Ejecuta `git add .` para añadir todos los archivos modificados
 - Realiza el commit con el mensaje proporcionado
-- Ejecuta automáticamente `zip-project.js` para generar el backup
+- Ejecuta automáticamente la generación del backup
+- Funciona de manera confiable en el entorno Replit
 
-El script puede utilizarse de dos formas:
+### ⚠️ Nota importante sobre git hooks
 
-1. **Modo interactivo** - solicita el mensaje de commit:
-
-```bash
-node commit-and-backup.js
-```
-
-2. **Modo directo** - proporciona el mensaje de commit como argumento:
-
-```bash
-node commit-and-backup.js "Mensaje del commit"
-```
-
-## Otras formas de generar backups
-
-Si necesitas generar un backup manualmente (sin hacer un commit), puedes ejecutar:
-
-```bash
-node --experimental-modules zip-project.js
-```
-
-Esto generará un nuevo backup en la carpeta `BackupforChatGPT/` con la información del último commit realizado.
+Aunque existe un hook de git post-commit configurado (.git/hooks/post-commit), este puede no ejecutarse de manera confiable en Replit. Por eso, se recomienda encarecidamente utilizar el script `commit-and-backup.js` para realizar todos los commits.
 
 ## Dependencias
 
 - Node.js
-- Paquete NPM: `archiver`
+- Paquete NPM: `archiver` (ya instalado en el proyecto)
