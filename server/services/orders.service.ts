@@ -755,7 +755,11 @@ export class OrdersService implements Service {
    * @returns Created order data
    */
   async createOrderFromShippingForm(orderData: {
-    customerId: number;
+    customerId?: number;
+    customerName?: string;
+    email?: string;
+    phone?: string;
+    idNumber?: string;
     items?: any[]; // Optional items array
     shippingAddress?: any;
     orderNumber?: string;
@@ -767,16 +771,76 @@ export class OrdersService implements Service {
     [key: string]: any; // Allow other properties
   }): Promise<any> {
     try {
-      const { customerId, items, ...orderDetails } = orderData;
-
-      // Check if customer exists
-      const customer = await db.query.customers.findFirst({
-        where: eq(customers.id, customerId)
-      });
+      let { customerId, items, ...orderDetails } = orderData;
+      let customer = null;
+      
+      // Attempt to find or create a customer
+      if (customerId) {
+        // If customerId is provided, verify customer exists
+        customer = await db.query.customers.findFirst({
+          where: eq(customers.id, customerId)
+        });
+      }
+      
+      // If no customerId provided or customer not found by ID, try to find by other identifiers
+      if (!customer) {
+        // Try to find by identification number
+        if (orderDetails.idNumber) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.idNumber, orderDetails.idNumber)
+          });
+        }
+        
+        // Try to find by phone
+        if (!customer && orderDetails.phone) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.phone, orderDetails.phone)
+          });
+        }
+        
+        // Try to find by email
+        if (!customer && orderDetails.email) {
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.email, orderDetails.email)
+          });
+        }
+        
+        // If still no customer found, create a new one with available data
+        if (!customer && (orderDetails.customerName || orderDetails.shippingAddress?.name)) {
+          console.log('Creating new customer from shipping form data');
+          
+          // Get customer name from either customerName parameter or shippingAddress object
+          const name = orderDetails.customerName || orderDetails.shippingAddress?.name;
+          
+          if (!name) {
+            throw new Error("Customer name is required to create a new customer");
+          }
+          
+          // Create customer with minimal information
+          const [newCustomer] = await db.insert(customers).values({
+            name,
+            phone: orderDetails.phone || orderDetails.shippingAddress?.phone || null,
+            email: orderDetails.email || null,
+            idNumber: orderDetails.idNumber || null,
+            street: orderDetails.shippingAddress?.street || null,
+            city: orderDetails.shippingAddress?.city || null,
+            province: orderDetails.shippingAddress?.province || null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }).returning();
+          
+          customer = newCustomer;
+          customerId = newCustomer.id;
+          console.log(`Created new customer with ID: ${customerId}`);
+        }
+      }
 
       if (!customer) {
-        throw new Error("Customer not found");
+        throw new Error("Unable to find or create customer. Customer information is required.");
       }
+      
+      // Update customerId with the found or created customer
+      customerId = customer.id;
       
       // Calculate total amount from items if provided
       let totalAmount = "0.00";
