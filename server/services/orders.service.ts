@@ -179,7 +179,9 @@ export class OrdersService implements Service {
               province: true,
               deliveryInstructions: true,
               idNumber: true,
-              billingAddress: true
+              type: true,
+              source: true,
+              brand: true
             }
           },
           items: {
@@ -199,6 +201,15 @@ export class OrdersService implements Service {
       });
 
       console.log(`Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
+
+      // Handle undefined customer
+      if (order && !order.customer && order.shippingAddress) {
+        order.customer = {
+          id: 0,
+          name: "Cliente no identificado",
+          ...order.shippingAddress
+        };
+      }
 
       if (!order) {
         res.status(404).json({ error: "Order not found" });
@@ -320,7 +331,9 @@ export class OrdersService implements Service {
               province: true,
               deliveryInstructions: true,
               idNumber: true,
-              billingAddress: true
+              type: true,
+              source: true,
+              brand: true
             }
           },
           items: {
@@ -471,7 +484,9 @@ export class OrdersService implements Service {
               province: true,
               deliveryInstructions: true,
               idNumber: true,
-              billingAddress: true
+              type: true,
+              source: true,
+              brand: true
             }
           },
           items: {
@@ -597,7 +612,9 @@ export class OrdersService implements Service {
               province: true,
               deliveryInstructions: true,
               idNumber: true,
-              billingAddress: true
+              type: true,
+              source: true,
+              brand: true
             }
           },
           items: {
@@ -700,7 +717,9 @@ export class OrdersService implements Service {
               province: true,
               deliveryInstructions: true,
               idNumber: true,
-              billingAddress: true
+              type: true,
+              source: true,
+              brand: true
             }
           },
           items: {

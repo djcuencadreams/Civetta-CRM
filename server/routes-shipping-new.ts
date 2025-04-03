@@ -7,7 +7,7 @@
 import { Express, Request, Response } from 'express';
 import { db } from '../db';
 import { orders, customers } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or, like } from 'drizzle-orm';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as fs from 'fs';
@@ -331,8 +331,47 @@ export function registerShippingRoutes(app: Express) {
     let shippingInfo = formData.shippingAddress;
 
 
-    // Verificar si tenemos customerId antes de crear la orden
-    if (!customerId) {
+    // Try multiple ways to find existing customer
+    let customer = null;
+
+    // Check by ID if provided
+    if (customerId) {
+      customer = await db.query.customers.findFirst({
+        where: eq(customers.id, customerId)
+      });
+    }
+
+    // Try by identification number
+    if (!customer && formData.idNumber) {
+      customer = await db.query.customers.findFirst({
+        where: eq(customers.idNumber, formData.idNumber)
+      });
+    }
+
+    // Try by phone with improved matching
+    if (!customer && formData.phone) {
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      customer = await db.query.customers.findFirst({
+        where: or(
+          eq(customers.phone, formData.phone),
+          eq(customers.phone, cleanPhone),
+          like(customers.phone, `%${cleanPhone.slice(-8)}`)
+        )
+      });
+    }
+
+    // Try by email
+    if (!customer && formData.email) {
+      customer = await db.query.customers.findFirst({
+        where: eq(customers.email, formData.email)
+      });
+    }
+
+    // If customer found, use existing ID
+    if (customer) {
+      customerId = customer.id;
+      console.log('[SHIPPING-NEW] Cliente existente encontrado, ID:', customerId);
+    } else {
       console.log('[SHIPPING-NEW] No se encontró cliente existente, creando uno nuevo');
       const insertedCustomer = await db
         .insert(customers)
