@@ -354,8 +354,20 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       {/* Encabezado */}
       <div className="flex flex-col md:flex-row justify-between">
         <div>
-          <h3 className="text-2xl font-bold">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
             {order.orderNumber || `ORD-${order.id ? order.id.toString().padStart(6, '0') : '000000'}`}
+            {!order.items?.length && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Orden incompleta - Sin productos</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </h3>
           <p className="text-muted-foreground">
             Cliente: {order.customer?.name || (order.customerId ? `Cliente #${order.customerId}` : "Cliente no asignado")}
@@ -373,15 +385,38 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
 
       <Separator />
 
-      {/* Mensaje informativo para órdenes que vienen del formulario web */}
-      {order.isFromWebForm && (
-        <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-md flex items-start gap-3 mb-4">
-          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+      {/* Mensaje informativo para órdenes incompletas o del formulario web */}
+      {(order.isFromWebForm || (!order.items?.length)) && (
+        <div className={cn(
+          "p-4 rounded-md flex items-start gap-3 mb-4",
+          !order.items?.length 
+            ? "bg-yellow-50 dark:bg-yellow-900/30" 
+            : "bg-blue-50 dark:bg-blue-900"
+        )}>
+          {!order.items?.length ? (
+            <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+          ) : (
+            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          )}
           <div>
-            <h4 className="font-semibold text-blue-800 dark:text-blue-200">Orden creada desde formulario web</h4>
-            <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
-              Esta orden fue creada desde el formulario de envío en la web. 
-              Por favor complete la información faltante, especialmente los detalles de productos y el valor total.
+            <h4 className={cn(
+              "font-semibold",
+              !order.items?.length 
+                ? "text-yellow-800 dark:text-yellow-200"
+                : "text-blue-800 dark:text-blue-200"
+            )}>
+              {!order.items?.length ? "Orden incompleta" : "Orden creada desde formulario web"}
+            </h4>
+            <p className={cn(
+              "text-sm mt-1",
+              !order.items?.length 
+                ? "text-yellow-700 dark:text-yellow-300"
+                : "text-blue-700 dark:text-blue-300"
+            )}>
+              {!order.items?.length 
+                ? "Esta orden fue generada desde la web solo con información de envío. Por favor, completa la información del pedido."
+                : "Esta orden fue creada desde el formulario de envío en la web. Por favor complete la información faltante, especialmente los detalles de productos y el valor total."
+              }
             </p>
           </div>
         </div>
