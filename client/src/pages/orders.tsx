@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { DateRange } from "react-day-picker";
 import { format, isAfter, isBefore, isEqual, parseISO, startOfDay, endOfDay } from "date-fns";
@@ -204,6 +205,8 @@ export default function OrdersPage() {
         return "status"; // Nuevo estado con variante status
       case "cancelled":
         return "destructive";
+      case "pendiente_de_completar":
+        return "secondary"; // Usamos secondary para un aspecto de advertencia
       default:
         return "outline";
     }
@@ -222,6 +225,8 @@ export default function OrdersPage() {
         return "Completado";
       case "cancelled":
         return "Cancelado";
+      case "pendiente_de_completar":
+        return "Pendiente de completar";
       default:
         return status;
     }
@@ -424,12 +429,23 @@ export default function OrdersPage() {
       },
       cell: ({ row }) => {
         const status = row.getValue("status") as string;
+        const paymentStatus = row.original.paymentStatus || "pending";
+        
+        // Añadir icono de advertencia si el pedido está "pendiente_de_completar"
         return (
-          <OrderStatusUpdater
-            orderId={row.original.id}
-            currentStatus={status}
-            onStatusUpdated={() => refetch()}
-          />
+          <div className="flex items-center">
+            {status === "pendiente_de_completar" && (
+              <div className="relative mr-2 rounded-full bg-orange-100 p-1 text-orange-600 flex items-center justify-center w-6 h-6" aria-label="Warning" title="Pedido incompleto">
+                <span className="text-sm font-bold">!</span>
+              </div>
+            )}
+            <OrderStatusUpdater
+              orderId={row.original.id}
+              currentStatus={status}
+              currentPaymentStatus={paymentStatus}
+              onStatusUpdate={() => refetch()}
+            />
+          </div>
         );
       },
     },
@@ -573,6 +589,7 @@ export default function OrdersPage() {
         { value: "shipped", label: "Enviado" },
         { value: "completed", label: "Completado" },
         { value: "cancelled", label: "Cancelado" },
+        { value: "pendiente_de_completar", label: "Pendiente de completar" },
       ],
     },
     {
@@ -787,8 +804,8 @@ export default function OrdersPage() {
             {/* Filtro de fechas */}
             <div className="flex gap-4 flex-wrap">
               <OrderDateFilter 
-                onRangeChange={handleDateRangeChange}
-                initialRange={dateRange}
+                dateRange={dateRange}
+                onChangeDateRange={handleDateRangeChange}
               />
               
               <div className="flex items-center text-sm text-muted-foreground">
@@ -814,12 +831,28 @@ export default function OrdersPage() {
           ) : (
             <div className="rounded-md border overflow-hidden">
               <div className="w-full overflow-auto">
-                <Table>
+                <Table className="border-collapse">
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
+                      <TableRow key={headerGroup.id} className="bg-muted/40">
                         {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id} className={isMobile ? "text-xs px-2" : ""}>
+                          <TableHead 
+                            key={header.id} 
+                            className={cn(
+                              isMobile ? "text-xs px-2" : "py-3",
+                              "whitespace-nowrap"
+                            )}
+                            style={{ 
+                              width: header.id === "expandedToggle" ? "40px" : 
+                                     header.id === "orderNumber" ? "180px" : 
+                                     header.id === "createdAt" ? "120px" :
+                                     header.id === "customer.name" ? "180px" :
+                                     header.id === "totalAmount" ? "120px" :
+                                     header.id === "status" ? "220px" :
+                                     header.id === "paymentStatus" ? "150px" :
+                                     header.id === "actions" ? "60px" : "auto" 
+                            }}
+                          >
                             {header.isPlaceholder
                               ? null
                               : flexRender(
@@ -837,10 +870,21 @@ export default function OrdersPage() {
                         <React.Fragment key={row.id}>
                           <TableRow
                             data-state={row.getIsSelected() && "selected"}
-                            className={row.getIsExpanded() ? "border-b-0" : undefined}
+                            className={cn(
+                              row.getIsExpanded() ? "border-b-0" : undefined,
+                              "hover:bg-muted/30",
+                              row.index % 2 === 0 ? "bg-background" : "bg-muted/10"
+                            )}
                           >
                             {row.getVisibleCells().map((cell) => (
-                              <TableCell key={cell.id} className={isMobile ? "text-xs px-2 py-3" : ""}>
+                              <TableCell 
+                                key={cell.id} 
+                                className={cn(
+                                  isMobile ? "text-xs px-2 py-3" : "py-3.5 align-middle",
+                                  cell.column.id === "status" || cell.column.id === "paymentStatus" 
+                                    ? "whitespace-nowrap" : ""
+                                )}
+                              >
                                 {flexRender(
                                   cell.column.columnDef.cell,
                                   cell.getContext()
@@ -851,21 +895,21 @@ export default function OrdersPage() {
                           {/* Fila expandible para mostrar productos */}
                           {row.getIsExpanded() && (
                             <TableRow>
-                              <TableCell colSpan={columns.length} className="bg-muted/30 p-2">
-                                <div className="rounded border p-2 bg-background">
-                                  <div className="flex items-center mb-2 text-sm font-medium">
+                              <TableCell colSpan={columns.length} className="bg-muted/10 p-2">
+                                <div className="rounded border p-3 bg-background shadow-sm">
+                                  <div className="flex items-center mb-3 text-sm font-medium text-primary">
                                     <Package className="mr-2 h-4 w-4" />
                                     Productos del pedido
                                   </div>
                                   <OrderItemsExpanded items={row.original.items} />
                                   
                                   {row.original.notes && (
-                                    <div className="mt-3 pt-3 border-t border-border">
-                                      <div className="flex items-center mb-1 text-sm font-medium">
+                                    <div className="mt-4 pt-3 border-t border-border">
+                                      <div className="flex items-center mb-2 text-sm font-medium text-muted-foreground">
                                         <FileText className="mr-2 h-4 w-4" />
                                         Notas internas
                                       </div>
-                                      <div className="text-sm p-2 bg-muted/50 rounded">
+                                      <div className="text-sm p-3 bg-muted/20 rounded-md">
                                         {row.original.notes}
                                       </div>
                                     </div>
@@ -905,7 +949,10 @@ export default function OrdersPage() {
               size="sm"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className={isMobile ? 'flex-1' : ''}
+              className={cn(
+                isMobile ? 'flex-1' : '',
+                "rounded-full border-primary/20 text-primary hover:bg-primary/5"
+              )}
             >
               Anterior
             </Button>
@@ -914,7 +961,10 @@ export default function OrdersPage() {
               size="sm"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className={isMobile ? 'flex-1' : ''}
+              className={cn(
+                isMobile ? 'flex-1' : '',
+                "rounded-full border-primary/20 text-primary hover:bg-primary/5"
+              )}
             >
               Siguiente
             </Button>

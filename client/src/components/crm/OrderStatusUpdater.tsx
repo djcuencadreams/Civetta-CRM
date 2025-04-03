@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckCircle2, Truck, Package, Loader2, XCircle, Clock, Info } from "lucide-react";
+import { CheckCircle2, Truck, Package, Loader2, XCircle, Clock, Info, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,37 +44,44 @@ export function OrderStatusUpdater({
     new: {
       label: "Nuevo",
       icon: <Clock className="h-4 w-4" />,
-      color: "bg-gray-100 text-gray-700",
+      color: "bg-slate-100 border-slate-200 text-slate-700",
       nextStatus: "preparing",
       nextLabel: "Preparar pedido",
     },
     preparing: {
       label: "Preparando",
       icon: <Package className="h-4 w-4" />,
-      color: "bg-yellow-100 text-yellow-700",
+      color: "bg-amber-50 border-amber-200 text-amber-700",
       nextStatus: "shipped",
       nextLabel: "Marcar como enviado",
     },
     shipped: {
       label: "Enviado",
       icon: <Truck className="h-4 w-4" />,
-      color: "bg-blue-100 text-blue-700",
+      color: "bg-blue-50 border-blue-200 text-blue-700",
       nextStatus: "completed",
       nextLabel: "Completar pedido",
     },
     completed: {
       label: "Completado",
       icon: <CheckCircle2 className="h-4 w-4" />,
-      color: "bg-green-100 text-green-700",
+      color: "bg-emerald-50 border-emerald-200 text-emerald-700",
       nextStatus: null,
       nextLabel: null,
     },
     cancelled: {
       label: "Cancelado",
       icon: <XCircle className="h-4 w-4" />,
-      color: "bg-red-100 text-red-700",
+      color: "bg-rose-50 border-rose-200 text-rose-700",
       nextStatus: null,
       nextLabel: null,
+    },
+    pendiente_de_completar: {
+      label: "Pendiente de completar",
+      icon: <AlertTriangle className="h-4 w-4" />,
+      color: "bg-orange-50 border-orange-300 text-orange-700",
+      nextStatus: "preparing",
+      nextLabel: "Completar productos",
     },
   };
 
@@ -142,19 +149,23 @@ export function OrderStatusUpdater({
           <Badge 
             variant="outline" 
             className={cn(
-              "h-7 px-2 flex items-center font-normal", 
+              "h-7 px-3 flex items-center font-medium rounded-full shadow-sm", 
               currentStatusConfig.color
             )}
           >
             {currentStatusConfig.icon}
-            <span className="ml-1">{currentStatusConfig.label}</span>
+            <span className="ml-1.5">{currentStatusConfig.label}</span>
           </Badge>
           
           {currentStatusConfig.nextStatus && (
             <Button
               variant="outline"
               size="sm"
-              className={cn("flex items-center", isMobile && "flex-grow justify-center")}
+              className={cn(
+                "flex items-center rounded-full shadow-sm", 
+                isMobile && "flex-grow justify-center",
+                "hover:bg-primary/5 border-primary/20 text-primary"
+              )}
               onClick={() => initiateStatusChange(currentStatusConfig.nextStatus!)}
               disabled={isUpdating || isBlocked}
             >
@@ -171,7 +182,7 @@ export function OrderStatusUpdater({
             <Button
               variant="ghost"
               size="sm"
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full border border-transparent hover:border-rose-200"
               onClick={() => initiateStatusChange("cancelled")}
             >
               <XCircle className="h-3.5 w-3.5 mr-1" />
