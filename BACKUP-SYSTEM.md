@@ -1,10 +1,10 @@
 # Sistema Automático de Backups - Civetta CRM
 
-Este sistema genera automáticamente un archivo ZIP con todo el código fuente del proyecto cada vez que se realiza un commit en Git.
+Este sistema genera un archivo ZIP con todo el código fuente del proyecto cuando se realiza un commit en Git.
 
 ## Características
 
-- ✅ Genera un backup al ejecutar `git commit`
+- ✅ Genera un backup al usar el script `commit-and-backup.js`
 - ✅ Elimina los backups anteriores (solo conserva el más reciente)
 - ✅ Incluye información detallada del commit en cada backup
 - ✅ Excluye directorios innecesarios (.git, node_modules, etc.)
@@ -46,7 +46,7 @@ El archivo ZIP contiene:
 El sistema consta de dos componentes principales:
 
 1. **zip-project.js**: Script en Node.js que implementa la lógica de generación del backup
-2. **Git Hook**: Configurado en `.git/hooks/post-commit` para ejecutarse automáticamente después de cada commit
+2. **commit-and-backup.js**: Script que combina el proceso de commit con la generación automática del backup
 
 ### Script zip-project.js
 
@@ -57,11 +57,28 @@ Este script:
 - Crea un archivo ZIP con todos los archivos del proyecto
 - Añade un archivo `commit-info.txt` al ZIP con los detalles del commit
 
-### Git Hook (post-commit)
+### Script commit-and-backup.js (NUEVO)
 
-El hook post-commit ejecuta `zip-project.js` automáticamente después de cada commit.
+Este script facilita el proceso completo:
+- Ejecuta `git add .` para añadir todos los archivos modificados
+- Realiza el commit con el mensaje proporcionado
+- Ejecuta automáticamente `zip-project.js` para generar el backup
 
-## Cómo ejecutar manualmente el backup
+El script puede utilizarse de dos formas:
+
+1. **Modo interactivo** - solicita el mensaje de commit:
+
+```bash
+node commit-and-backup.js
+```
+
+2. **Modo directo** - proporciona el mensaje de commit como argumento:
+
+```bash
+node commit-and-backup.js "Mensaje del commit"
+```
+
+## Otras formas de generar backups
 
 Si necesitas generar un backup manualmente (sin hacer un commit), puedes ejecutar:
 
