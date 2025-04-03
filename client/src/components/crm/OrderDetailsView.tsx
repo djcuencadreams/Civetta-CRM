@@ -114,8 +114,16 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         throw new Error('No se puede generar la etiqueta: Falta información del cliente');
       }
       
-      // Verificar que tengamos direcciones necesarias
-      if (!order.shippingAddress && !order.customer.street) {
+      // Verificar que tengamos direcciones necesarias en shippingAddress o en el cliente
+      const hasShippingAddress = order.shippingAddress && 
+        (order.shippingAddress.street || 
+         order.shippingAddress.address || 
+         order.shippingAddress.direccion);
+         
+      const hasCustomerAddress = order.customer && 
+        order.customer.street;
+      
+      if (!hasShippingAddress && !hasCustomerAddress) {
         console.error('📦 Error: No hay dirección de envío');
         throw new Error('No se puede generar la etiqueta: Falta dirección de envío');
       }
@@ -143,10 +151,12 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       });
       
       console.log('📦 Respuesta recibida, status:', response.status);
-      console.log('📦 Headers:', [...response.headers.entries()].reduce((obj, [key, val]) => {
-        obj[key] = val;
-        return obj;
-      }, {} as Record<string, string>));
+      // Registrar headers de forma segura para cualquier versión de TypeScript
+      const headersObj: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      console.log('📦 Headers:', headersObj);
       
       if (!response.ok) {
         // Intentar leer la respuesta de error para más detalles
@@ -499,7 +509,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               variant="outline" 
               size="sm" 
               onClick={handleGenerateShippingLabel}
-              disabled={isGeneratingLabel}
+              disabled={isGeneratingLabel || (!order.shippingAddress && !order.customer?.street)}
               className="flex items-center gap-2"
             >
               {isGeneratingLabel ? (

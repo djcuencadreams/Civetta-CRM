@@ -11,7 +11,7 @@ import {
   sourceEnum, 
   brandEnum 
 } from "@db/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, or, like } from "drizzle-orm";
 import { z } from "zod";
 import { Service } from "./service-registry";
 import { validateBody, validateParams } from "../validation";
@@ -791,10 +791,27 @@ export class OrdersService implements Service {
           });
         }
         
-        // Try to find by phone
+        // Try to find by phone (usando búsqueda mejorada)
         if (!customer && orderDetails.phone) {
+          // Limpiar el número de teléfono para comparación
+          const cleanPhone = orderDetails.phone.replace(/\D/g, '');
+          
+          // Preparar condiciones de búsqueda
+          const conditions = [];
+          
+          // Añadir condiciones básicas
+          conditions.push(eq(customers.phone, orderDetails.phone));
+          conditions.push(eq(customers.phone, cleanPhone));
+          conditions.push(eq(customers.phoneNumber, cleanPhone));
+          
+          // Añadir búsqueda con coincidencia parcial si hay suficientes dígitos
+          if (cleanPhone.length >= 7) {
+            conditions.push(like(customers.phone, `%${cleanPhone.slice(-7)}`));
+          }
+          
+          // Buscar con múltiples formatos
           customer = await db.query.customers.findFirst({
-            where: eq(customers.phone, orderDetails.phone)
+            where: or(...conditions)
           });
         }
         
@@ -805,26 +822,32 @@ export class OrdersService implements Service {
           });
         }
         
-        // If still no customer found, create a new one with available data
-        if (!customer && (orderDetails.customerName || orderDetails.shippingAddress?.name)) {
+        // Si aún no se encontró un cliente, crear uno nuevo con los datos disponibles
+        if (!customer) {
           console.log('Creating new customer from shipping form data');
           
-          // Get customer name from either customerName parameter or shippingAddress object
+          // Obtener el nombre del cliente de customerName o shippingAddress
           const name = orderDetails.customerName || orderDetails.shippingAddress?.name;
           
           if (!name) {
             throw new Error("Customer name is required to create a new customer");
           }
           
-          // Create customer with minimal information
+          // Extraer información adicional del objeto shippingAddress si existe
+          const shippingAddress = orderDetails.shippingAddress || {};
+          
+          // Crear cliente con toda la información disponible
           const [newCustomer] = await db.insert(customers).values({
             name,
-            phone: orderDetails.phone || orderDetails.shippingAddress?.phone || null,
-            email: orderDetails.email || null,
-            idNumber: orderDetails.idNumber || null,
-            street: orderDetails.shippingAddress?.street || null,
-            city: orderDetails.shippingAddress?.city || null,
-            province: orderDetails.shippingAddress?.province || null,
+            phone: orderDetails.phone || shippingAddress.phone || null,
+            email: orderDetails.email || shippingAddress.email || null,
+            idNumber: orderDetails.idNumber || shippingAddress.idNumber || null,
+            street: shippingAddress.street || null,
+            city: shippingAddress.city || null,
+            province: shippingAddress.province || null,
+            deliveryInstructions: shippingAddress.instructions || null,
+            source: orderDetails.source || sourceEnum.WEBSITE,
+            brand: orderDetails.brand || brandEnum.SLEEPWEAR,
             createdAt: new Date(),
             updatedAt: new Date()
           }).returning();
