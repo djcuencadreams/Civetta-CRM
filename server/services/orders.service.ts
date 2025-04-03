@@ -894,6 +894,23 @@ export class OrdersService implements Service {
         subtotal = calculatedSubtotal.toFixed(2);
       }
 
+      // Procesar y normalizar datos de envío
+      const shippingInfo = {
+        name: orderData.name || orderData.customerName,
+        phone: orderData.phone,
+        email: orderData.email,
+        street: orderData.street || orderData?.shippingAddress?.street,
+        city: orderData.city || orderData?.shippingAddress?.city,
+        province: orderData.province || orderData?.shippingAddress?.province,
+        instructions: orderData.deliveryInstructions || orderData?.shippingAddress?.instructions || '',
+        idNumber: orderData.idNumber || orderData?.shippingAddress?.idNumber,
+        // Procesar datos anidados si existen
+        ...(orderData.shippingAddress?.additionalDetails && {
+          additionalDetails: orderData.shippingAddress.additionalDetails
+        })
+      };
+
+
       // Create order with appropriate status
       // If no products, set status to 'pendiente_de_completar'
       const [newOrder] = await db.insert(orders).values({
@@ -908,7 +925,13 @@ export class OrdersService implements Service {
         source: orderDetails.source || sourceEnum.WEBSITE,
         isFromWebForm: true,
         brand: orderDetails.brand || customer.brand || brandEnum.SLEEPWEAR,
-        shippingAddress: orderDetails.shippingAddress || {},
+        shippingAddress: {
+          ...shippingInfo,
+          // Asegurar que los datos específicos de envío se preserven
+          source: orderDetails.source || 'web_form',
+          createdAt: new Date().toISOString(),
+          formattedAddress: `${shippingInfo.street}, ${shippingInfo.city}, ${shippingInfo.province}`.trim()
+        },
         notes: orderDetails.notes || (hasProducts ? null : "Orden creada sin productos - Pendiente de completar"),
         createdAt: new Date(),
         updatedAt: new Date()
