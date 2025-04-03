@@ -266,11 +266,15 @@ export class OrdersService implements Service {
         }
       }
 
+      // Generate a unique order number if not provided
+      const orderNumber = orderDetails.orderNumber || this.generateOrderNumber();
+      console.log(`Creating order with number: ${orderNumber} for customer ID: ${customerId}`);
+      
       // Create the order
       const [order] = await db.insert(orders).values({
         customerId,
         leadId: orderDetails.leadId || null,
-        orderNumber: orderDetails.orderNumber || this.generateOrderNumber(),
+        orderNumber: orderNumber,
         totalAmount,
         status: orderDetails.status || 'new',
         paymentStatus: orderDetails.paymentStatus || 'pending',
@@ -278,6 +282,7 @@ export class OrdersService implements Service {
         source: orderDetails.source || 'direct',
         brand: orderDetails.brand || customer.brand || 'sleepwear',
         notes: orderDetails.notes || null,
+        shippingAddress: orderDetails.shippingAddress || {},
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
@@ -742,8 +747,11 @@ export class OrdersService implements Service {
    */
   private generateOrderNumber(): string {
     const prefix = 'ORD';
+    // Use current timestamp's last 6 digits for uniqueness
     const timestamp = Date.now().toString().slice(-6);
+    // Add 2-5 random alphanumeric characters to make it even more unique
     const randomChars = Math.random().toString(36).slice(2, 7).toUpperCase();
+    // Combine into a unique order number format
     return `${prefix}-${randomChars}${timestamp}`;
   }
 

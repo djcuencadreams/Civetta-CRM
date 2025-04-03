@@ -358,7 +358,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             {order.orderNumber || `ORD-${order.id ? order.id.toString().padStart(6, '0') : '000000'}`}
           </h3>
           <p className="text-muted-foreground">
-            Cliente: {order.customer?.name || `Cliente #${order.customerId}`}
+            Cliente: {order.customer?.name || (order.customerId ? `Cliente #${order.customerId}` : "Cliente no asignado")}
           </p>
         </div>
         <div className="flex items-center space-x-2 mt-2 md:mt-0">

@@ -109,7 +109,7 @@ const orderFormSchema = z.object({
   trackingNumber: z.string().optional().nullable(),
   shippingCost: z.coerce.number().optional().nullable(),
   tax: z.coerce.number().optional().nullable(),
-  paymentDate: z.date().optional().nullable(),
+  paymentDate: z.date().optional(),
   items: z.array(
     z.object({
       productId: z.coerce.number().nullable(),
@@ -120,7 +120,7 @@ const orderFormSchema = z.object({
       subtotal: z.coerce.number().min(0, { message: "El subtotal debe ser mayor o igual a 0" }),
       attributes: z.record(z.string(), z.any()).optional(),
     })
-  ).min(1, { message: "Debe agregar al menos un producto" }),
+  ).optional().default([]),
 });
 
 export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
@@ -131,7 +131,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
   );
 
   // Cargar clientes y productos
-  const { data: customers = [] as Customer[], isLoading: isLoadingCustomers } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery<any[]>({
     queryKey: ["/api/customers"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
@@ -193,7 +193,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
       trackingNumber: order?.trackingNumber || null,
       shippingCost: order?.shippingCost || 0,
       tax: order?.tax || 0,
-      paymentDate: order?.paymentDate ? new Date(order.paymentDate) : null,
+      paymentDate: order?.paymentDate ? new Date(order.paymentDate) : undefined,
       items: order?.items?.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -568,7 +568,7 @@ export function OrderForm({ order, onClose, onSuccess }: OrderFormProps) {
                 <FormControl>
                   <DatePicker
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(date) => field.onChange(date || undefined)}
                   />
                 </FormControl>
                 <FormMessage />
