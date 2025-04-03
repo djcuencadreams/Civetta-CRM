@@ -21,11 +21,12 @@ interface ShippingLabelData {
   street: string;
   city: string;
   province: string;
-  idNumber?: string;
+  idNumber: string; // Changed to required
   deliveryInstructions?: string;
   orderNumber?: string;
   trackingNumber?: string;
   companyName?: string;
+  isIncompleteOrder?: boolean;
 }
 
 /**
@@ -42,10 +43,29 @@ export async function generateShippingLabelPdf(data: ShippingLabelData): Promise
   try {
     log('Generando etiqueta de envío con jsPDF', 'shipping-service');
     
-    // Validamos que tengamos al menos los datos mínimos necesarios
-    if (!data.name) {
-      log('ERROR: Nombre del destinatario es requerido para generar etiqueta', 'shipping-service');
-      throw new Error('El nombre del destinatario es obligatorio para generar la etiqueta');
+    // Validar campos requeridos para la etiqueta
+    const requiredFields = {
+      name: 'nombre',
+      idNumber: 'cédula o pasaporte',
+      street: 'dirección',
+      city: 'ciudad',
+      province: 'provincia',
+      phone: 'teléfono'
+    };
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([key]) => !data[key])
+      .map(([, label]) => label);
+
+    if (missingFields.length > 0) {
+      const errorMsg = `No se puede generar la etiqueta. Campos requeridos faltantes: ${missingFields.join(', ')}`;
+      log(`ERROR: ${errorMsg}`, 'shipping-service');
+      throw new Error(errorMsg);
+    }
+
+    // Si la orden está incompleta (sin productos/monto), agregar warning en el log
+    if (data.isIncompleteOrder) {
+      log('WARNING: Generando etiqueta para orden incompleta (sin productos o monto total)', 'shipping-service');
     }
     
     // Completar datos faltantes con valores predeterminados
