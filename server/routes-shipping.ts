@@ -30,17 +30,17 @@ import { ordersService } from './services/orders.service';
 function createPhoneQueries(phoneNumber: string) {
   const queries = [];
   const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-  
+
   // Búsqueda exacta
   queries.push(eq(customers.phone, phoneNumber));
-  
+
   // Búsqueda con comodín al inicio para encontrar coincidencias parciales
   // Ejemplo: Si el teléfono es "0991234567", buscar "*1234567"
   if (cleanPhone.length > 6) {
     const lastDigits = cleanPhone.slice(-7);
     queries.push(like(customers.phone, `%${lastDigits}`));
   }
-  
+
   return queries;
 }
 
@@ -78,7 +78,7 @@ export function registerShippingRoutes(app: Express) {
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization']
   };
-  
+
   /**
    * Endpoint para verificar si un cliente existe por cédula, email o teléfono
    */
@@ -89,7 +89,7 @@ export function registerShippingRoutes(app: Express) {
       try {
         const { query, type } = req.body;
         let whereClause;
-        
+
         // Construir la consulta según el tipo de búsqueda
         switch (type) {
           case 'identification':
@@ -104,12 +104,12 @@ export function registerShippingRoutes(app: Express) {
           default:
             return res.status(400).json({ error: 'Tipo de búsqueda no válido' });
         }
-        
+
         // Buscar cliente
         const customer = await db.query.customers.findFirst({
           where: whereClause
         });
-        
+
         if (customer) {
           res.json({
             found: true,
@@ -129,7 +129,7 @@ export function registerShippingRoutes(app: Express) {
         res.status(500).json({ error: 'Error al verificar cliente' });
       }
     });
-  
+
   /**
    * Genera una etiqueta de envío y opcionalmente guarda el cliente en la base de datos
    * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
@@ -146,7 +146,7 @@ export function registerShippingRoutes(app: Express) {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
         let orderId: number | undefined;
-        
+
         // Verificar si el cliente ya existe (por teléfono o cédula)
         let customer = null;
         if (formData.idNumber) {
@@ -154,23 +154,24 @@ export function registerShippingRoutes(app: Express) {
             where: eq(customers.idNumber, formData.idNumber)
           });
         }
-        
+
         if (!customer && formData.phone) {
           customer = await db.query.customers.findFirst({
             where: or(...createPhoneQueries(formData.phone))
           });
         }
-        
+
         if (!customer && formData.email) {
           customer = await db.query.customers.findFirst({
             where: eq(customers.email, formData.email)
           });
         }
-        
+
         // Si el cliente existe, usarlo; si no, crear uno nuevo
         if (customer) {
           customerId = customer.id;
-          
+          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
+
           // Actualizar sus datos si es necesario
           if (formData.saveCustomer !== false) {
             await db
@@ -185,9 +186,11 @@ export function registerShippingRoutes(app: Express) {
                 updatedAt: new Date()
               })
               .where(eq(customers.id, customer.id));
+            console.log('[SHIPPING] Datos del cliente actualizados');
           }
-        } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+        } else {
+          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
+          console.log('[SHIPPING] Creando nuevo cliente');
           const insertedCustomer = await db
             .insert(customers)
             .values({
@@ -198,14 +201,20 @@ export function registerShippingRoutes(app: Express) {
               street: formData.street,
               city: formData.city,
               province: formData.province,
+              source: 'web_form',
               createdAt: new Date(),
               updatedAt: new Date()
             })
             .returning({ id: customers.id });
-            
-          customerId = insertedCustomer[0]?.id;
+
+          if (!insertedCustomer[0]?.id) {
+            throw new Error('Error al crear el cliente: No se obtuvo ID');
+          }
+
+          customerId = insertedCustomer[0].id;
+          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
         }
-        
+
         // Si tenemos un cliente, crear una orden pendiente
         if (customerId) {
           // Crear objeto con los datos de envío
@@ -217,7 +226,7 @@ export function registerShippingRoutes(app: Express) {
               province: formData.province,
               instructions: formData.deliveryInstructions || ''
           };
-          
+
           // Usar el servicio de órdenes para crear una orden sin productos
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
@@ -227,14 +236,14 @@ export function registerShippingRoutes(app: Express) {
               items: [], // Sin productos (usando items en lugar de products)
               source: sourceEnum.WEBSITE
             });
-            
+
             orderId = orderResult.id;
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden
           }
         }
-        
+
         return res.json({
           success: true,
           message: "Datos guardados correctamente",
@@ -249,7 +258,7 @@ export function registerShippingRoutes(app: Express) {
         });
       }
     });
-    
+
   /**
    * Endpoint para guardar los datos de envío sin generar PDF
    * y crear una orden pendiente en el sistema
@@ -262,7 +271,7 @@ export function registerShippingRoutes(app: Express) {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
         let orderId: number | undefined;
-        
+
         // Verificar si el cliente ya existe (por teléfono, cédula o email)
         let customer = null;
         if (formData.idNumber) {
@@ -270,23 +279,24 @@ export function registerShippingRoutes(app: Express) {
             where: eq(customers.idNumber, formData.idNumber)
           });
         }
-        
+
         if (!customer && formData.phone) {
           customer = await db.query.customers.findFirst({
             where: or(...createPhoneQueries(formData.phone))
           });
         }
-        
+
         if (!customer && formData.email) {
           customer = await db.query.customers.findFirst({
             where: eq(customers.email, formData.email)
           });
         }
-        
+
         // Si el cliente existe, usarlo; si no, crear uno nuevo
         if (customer) {
           customerId = customer.id;
-          
+          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
+
           // Actualizar sus datos si es necesario
           if (formData.saveCustomer !== false) {
             await db
@@ -301,9 +311,11 @@ export function registerShippingRoutes(app: Express) {
                 updatedAt: new Date()
               })
               .where(eq(customers.id, customer.id));
+            console.log('[SHIPPING] Datos del cliente actualizados');
           }
-        } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+        } else {
+          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
+          console.log('[SHIPPING] Creando nuevo cliente');
           const insertedCustomer = await db
             .insert(customers)
             .values({
@@ -314,14 +326,20 @@ export function registerShippingRoutes(app: Express) {
               street: formData.street,
               city: formData.city,
               province: formData.province,
+              source: 'web_form',
               createdAt: new Date(),
               updatedAt: new Date()
             })
             .returning({ id: customers.id });
-            
-          customerId = insertedCustomer[0]?.id;
+
+          if (!insertedCustomer[0]?.id) {
+            throw new Error('Error al crear el cliente: No se obtuvo ID');
+          }
+
+          customerId = insertedCustomer[0].id;
+          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
         }
-        
+
         // Si tenemos un cliente, crear una orden pendiente
         if (customerId) {
           // Crear objeto con los datos de envío
@@ -333,7 +351,7 @@ export function registerShippingRoutes(app: Express) {
               province: formData.province,
               instructions: formData.deliveryInstructions || ''
           };
-          
+
           // Usar el servicio de órdenes para crear una orden sin productos
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
@@ -343,14 +361,14 @@ export function registerShippingRoutes(app: Express) {
               items: [], // Sin productos (usando items en lugar de products)
               source: sourceEnum.WEBSITE
             });
-            
+
             orderId = orderResult.id;
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden
           }
         }
-        
+
         return res.json({
           success: true,
           message: "Datos guardados correctamente y orden creada",
@@ -365,7 +383,7 @@ export function registerShippingRoutes(app: Express) {
         });
       }
     });
-    
+
   /**
    * Endpoint original que genera el PDF inmediatamente (se mantiene para compatibilidad)
    */
@@ -377,7 +395,7 @@ export function registerShippingRoutes(app: Express) {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
         let orderId: number | undefined;
-        
+
         // Verificar si el cliente ya existe
         let customer = null;
         if (formData.idNumber) {
@@ -385,23 +403,24 @@ export function registerShippingRoutes(app: Express) {
             where: eq(customers.idNumber, formData.idNumber)
           });
         }
-        
+
         if (!customer && formData.phone) {
           customer = await db.query.customers.findFirst({
             where: or(...createPhoneQueries(formData.phone))
           });
         }
-        
+
         if (!customer && formData.email) {
           customer = await db.query.customers.findFirst({
             where: eq(customers.email, formData.email)
           });
         }
-        
+
         // Si el cliente existe, usarlo; si no, crear uno nuevo
         if (customer) {
           customerId = customer.id;
-          
+          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
+
           // Actualizar los datos del cliente si es necesario
           if (formData.saveCustomer !== false) {
             await db
@@ -416,9 +435,11 @@ export function registerShippingRoutes(app: Express) {
                 updatedAt: new Date()
               })
               .where(eq(customers.id, customer.id));
+            console.log('[SHIPPING] Datos del cliente actualizados');
           }
-        } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+        } else {
+          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
+          console.log('[SHIPPING] Creando nuevo cliente');
           const insertedCustomer = await db
             .insert(customers)
             .values({
@@ -429,14 +450,20 @@ export function registerShippingRoutes(app: Express) {
               street: formData.street,
               city: formData.city,
               province: formData.province,
+              source: 'web_form',
               createdAt: new Date(),
               updatedAt: new Date()
             })
             .returning({ id: customers.id });
-            
-          customerId = insertedCustomer[0]?.id;
+
+          if (!insertedCustomer[0]?.id) {
+            throw new Error('Error al crear el cliente: No se obtuvo ID');
+          }
+
+          customerId = insertedCustomer[0].id;
+          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
         }
-        
+
         // Preparar datos para el PDF
         const pdfData = {
           name: formData.name,
@@ -448,10 +475,10 @@ export function registerShippingRoutes(app: Express) {
           deliveryInstructions: formData.deliveryInstructions || 'N/A',
           companyName: formData.companyName || ''
         };
-        
+
         // Generar el PDF
         const pdfBuffer = await generateShippingLabelPdf(pdfData);
-        
+
         // Si tenemos un cliente, crear una orden pendiente
         if (customerId) {
           // Crear objeto con los datos de envío
@@ -463,7 +490,7 @@ export function registerShippingRoutes(app: Express) {
               province: formData.province,
               instructions: formData.deliveryInstructions || ''
           };
-          
+
           // Usar el servicio de órdenes para crear una orden sin productos
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
@@ -473,18 +500,18 @@ export function registerShippingRoutes(app: Express) {
               items: [], // Sin productos (usando items en lugar de products)
               source: sourceEnum.WEBSITE
             });
-            
+
             orderId = orderResult.id;
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden
           }
         }
-        
+
         // Configurar cabeceras para enviar el PDF
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=etiqueta-envio.pdf');
-        
+
         // Enviar el PDF como respuesta
         res.send(pdfBuffer);
       } catch (error) {
@@ -495,7 +522,7 @@ export function registerShippingRoutes(app: Express) {
         });
       }
     });
-  
+
   /**
    * Servir el formulario HTML independiente para integrarlo en sitios externos
    * Se proporciona en múltiples rutas para mayor compatibilidad
@@ -513,13 +540,13 @@ export function registerShippingRoutes(app: Express) {
       res.status(500).send('Error al cargar el formulario de envío');
     }
   };
-  
+
   // Rutas para el formulario de envío
   app.get('/shipping-form', cors(corsOptions), serveShippingForm);
   app.get('/shipping', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta-de-envio', cors(corsOptions), serveShippingForm);
-  
+
   app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
     try {
       const guidePath = path.join(__dirname, '../templates/shipping/wordpress-integration-guide.html');
@@ -530,7 +557,7 @@ export function registerShippingRoutes(app: Express) {
       res.status(500).send('Error al cargar la guía de integración');
     }
   });
-  
+
   app.get('/wordpress-examples-advanced', cors(corsOptions), (req: Request, res: Response) => {
     try {
       const examplesPath = path.join(__dirname, '../templates/shipping/wordpress-advanced-examples.html');
@@ -541,7 +568,7 @@ export function registerShippingRoutes(app: Express) {
       res.status(500).send('Error al cargar los ejemplos avanzados');
     }
   });
-  
+
   /**
    * Endpoint para que el personal genere etiquetas de envío para órdenes existentes
    * Este endpoint no tiene CORS habilitado ya que es solo para uso interno del CRM
@@ -553,9 +580,9 @@ export function registerShippingRoutes(app: Express) {
         console.error('[ETIQUETA] Error: ID de orden inválido:', req.params.orderId);
         return res.status(400).json({ error: 'ID de orden inválido' });
       }
-      
+
       console.log('[ETIQUETA] Solicitando etiqueta para orden ID:', orderId);
-      
+
       // Obtener la orden con datos del cliente
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
@@ -563,12 +590,12 @@ export function registerShippingRoutes(app: Express) {
           customer: true
         }
       });
-      
+
       if (!order) {
         console.error('[ETIQUETA] Error: Orden no encontrada con ID:', orderId);
         return res.status(404).json({ error: 'Orden no encontrada' });
       }
-      
+
       console.log('[ETIQUETA] Orden encontrada:', { 
         id: order.id, 
         orderNumber: order.orderNumber,
@@ -576,10 +603,10 @@ export function registerShippingRoutes(app: Express) {
         customerName: order.customer?.name,
         hasShippingAddress: !!order.shippingAddress
       });
-      
+
       // Extraer información de envío (incluso si está incompleta)
       let shippingInfo: any = {};
-      
+
       if (order.shippingAddress) {
         try {
           // Si es un objeto JSON almacenado como string
@@ -600,40 +627,40 @@ export function registerShippingRoutes(app: Express) {
       } else {
         console.log('[ETIQUETA] No hay información de envío específica, usando datos del cliente');
       }
-      
+
       // Obtener nombre del cliente o usar ID como fallback
       const customerName = 
         shippingInfo.name || 
         order.customer?.name || 
         `Cliente #${order.customerId}`;
-      
+
       // Obtener número de teléfono
       const customerPhone = 
         shippingInfo.phone || 
         order.customer?.phone || 
         'No disponible';
-      
+
       // Obtener dirección o usar placeholders que indican que falta información
       const streetAddress = 
         shippingInfo.street || 
         order.customer?.street || 
         '[INFORMACIÓN PENDIENTE]';
-      
+
       const cityName = 
         shippingInfo.city || 
         order.customer?.city || 
         '[CIUDAD]';
-      
+
       const provinceName = 
         shippingInfo.province || 
         order.customer?.province || 
         '[PROVINCIA]';
-      
+
       // Crear número de orden formateado si no existe
       const formattedOrderNumber = 
         order.orderNumber || 
         `ORD-${order.id.toString().padStart(6, '0')}`;
-      
+
       // Preparar datos para el PDF (con datos de fallback para casos incompletos)
       const pdfData = {
         name: customerName,
@@ -647,36 +674,36 @@ export function registerShippingRoutes(app: Express) {
         // Usado companyName solo si existe en el cliente o en shipping info
         companyName: shippingInfo.companyName || (order.customer && 'companyName' in order.customer ? order.customer.companyName : '') 
       };
-      
+
       console.log('[ETIQUETA] Datos preparados para generar PDF:', pdfData);
-      
+
       // Generar el PDF incluso con datos incompletos
       const pdfBuffer = await generateShippingLabelPdf(pdfData);
-      
+
       console.log('[ETIQUETA] PDF generado correctamente, tamaño:', pdfBuffer.length, 'bytes');
-      
+
       if (!pdfBuffer || pdfBuffer.length < 100) {
         console.error('[ETIQUETA] Error: El PDF generado es demasiado pequeño o está vacío');
         return res.status(500).json({ 
           error: 'Error al generar la etiqueta de envío: PDF inválido'
         });
       }
-      
+
       // Configurar cabeceras para enviar el PDF
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=etiqueta-envio-${formattedOrderNumber}.pdf`);
-      
+
       // Enviar el PDF como respuesta
       console.log('[ETIQUETA] Enviando PDF al cliente');
       res.send(pdfBuffer);
       console.log('[ETIQUETA] PDF enviado con éxito');
     } catch (error) {
       console.error('[ETIQUETA] Error al generar etiqueta interna:', error);
-      
+
       // Determinar si el error está relacionado con la biblioteca jsPDF
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       const errorStack = error instanceof Error ? error.stack : '';
-      
+
       if (errorStack && errorStack.includes('jspdf')) {
         console.error('[ETIQUETA] Error relacionado con jsPDF:', errorStack);
         return res.status(500).json({
@@ -685,14 +712,14 @@ export function registerShippingRoutes(app: Express) {
           suggestion: 'Puede ser un problema con la biblioteca de generación de PDF'
         });
       }
-      
+
       res.status(500).json({ 
         error: 'Error al generar la etiqueta de envío',
         details: errorMessage
       });
     }
   });
-  
+
   // Servir el script de carga del formulario para WordPress
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
