@@ -75,19 +75,19 @@ export class OrdersService implements Service {
   registerRoutes(app: Express): void {
     // Get all orders
     app.get("/api/orders", this.getAllOrders.bind(this));
-    
+
     // Get order by ID
     app.get("/api/orders/:id", validateParams(orderIdSchema), this.getOrderById.bind(this));
-    
+
     // Create new order
     app.post("/api/orders", validateBody(orderSchema), this.createOrder.bind(this));
-    
+
     // Update order
     app.patch("/api/orders/:id", validateParams(orderIdSchema), validateBody(orderSchema), this.updateOrder.bind(this));
-    
+
     // Delete order
     app.delete("/api/orders/:id", validateParams(orderIdSchema), this.deleteOrder.bind(this));
-    
+
     // Update order status
     app.patch(
       "/api/orders/:id/status", 
@@ -95,7 +95,7 @@ export class OrdersService implements Service {
       validateBody(statusUpdateSchema), 
       this.updateOrderStatus.bind(this)
     );
-    
+
     // Update payment status
     app.patch(
       "/api/orders/:id/payment-status", 
@@ -112,28 +112,28 @@ export class OrdersService implements Service {
     try {
       // Obtener parámetros de consulta opcionales
       const { source, status, paymentStatus, isFromWebForm } = req.query;
-      
+
       let filters = [];
-      
+
       // Aplicar filtros si están presentes
       if (source) {
         filters.push(eq(orders.source, source as string));
       }
-      
+
       if (status) {
         filters.push(eq(orders.status, status as string));
       }
-      
+
       if (paymentStatus) {
         filters.push(eq(orders.paymentStatus, paymentStatus as string));
       }
-      
+
       if (isFromWebForm === 'true') {
         filters.push(eq(orders.isFromWebForm, true));
       } else if (isFromWebForm === 'false') {
         filters.push(eq(orders.isFromWebForm, false));
       }
-      
+
       const result = await db.query.orders.findMany({
         orderBy: [desc(orders.createdAt)],
         where: filters.length > 0 ? and(...filters) : undefined,
@@ -143,7 +143,7 @@ export class OrdersService implements Service {
           assignedUser: true
         }
       });
-      
+
       res.json(result);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -159,13 +159,12 @@ export class OrdersService implements Service {
       // Req.params ya está validado y transformado por el middleware de validación
       const { id } = req.params;
       const orderId = parseInt(id);
-      
+
       // Usar la API de consulta de Drizzle en lugar de SQL directo
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
           customer: {
-            // Incluir todos los campos del cliente para mostrar información completa
             columns: {
               id: true,
               name: true,
@@ -184,7 +183,6 @@ export class OrdersService implements Service {
             }
           },
           items: {
-            // Incluir todos los campos de items para mostrar detalles completos
             columns: {
               id: true,
               productId: true,
@@ -199,14 +197,14 @@ export class OrdersService implements Service {
           assignedUser: true
         }
       });
-      
+
       console.log(`Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
-      
+
       if (!order) {
         res.status(404).json({ error: "Order not found" });
         return;
       }
-      
+
       res.json(order);
     } catch (error) {
       console.error('Error fetching order:', error);
@@ -231,13 +229,13 @@ export class OrdersService implements Service {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
-      
+
       // Calculate total amount from items if not specified
       let totalAmount = orderDetails.totalAmount;
       if (!totalAmount && items?.length > 0) {
         totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
       }
-      
+
       // Verificar y sincronizar productos con WooCommerce si es necesario
       if (items && items.length > 0) {
         for (const item of items) {
@@ -247,14 +245,14 @@ export class OrdersService implements Service {
               const product = await db.query.products.findFirst({
                 where: eq(products.id, item.productId)
               });
-              
+
               // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
               if (product && !product.wooCommerceId) {
                 console.log(`Sincronizando producto ${product.name} (ID: ${product.id}) con WooCommerce antes de crear orden`);
-                
+
                 // Importar función de sincronización desde WooCommerce service
                 const { syncProductToWoo } = await import('./woocommerce.service');
-                
+
                 // Intentar crear el producto en WooCommerce
                 await syncProductToWoo(product.id, true);
               }
@@ -269,7 +267,7 @@ export class OrdersService implements Service {
       // Generate a unique order number if not provided
       const orderNumber = orderDetails.orderNumber || this.generateOrderNumber();
       console.log(`Creating order with number: ${orderNumber} for customer ID: ${customerId}`);
-      
+
       // Create the order
       const [order] = await db.insert(orders).values({
         customerId,
@@ -343,7 +341,7 @@ export class OrdersService implements Service {
 
       // Emit order created event
       appEvents.emit(EventTypes.ORDER_CREATED, completeOrder);
-      
+
       res.status(201).json(completeOrder);
     } catch (error) {
       console.error('Error creating order:', error);
@@ -381,13 +379,13 @@ export class OrdersService implements Service {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
-      
+
       // Calcular monto total desde los items si se proporcionan
       let totalAmount = orderDetails.totalAmount;
       if (items?.length > 0) {
         totalAmount = items.reduce((sum: number, item: any) => sum + item.subtotal, 0);
       }
-      
+
       // Verificar y sincronizar productos con WooCommerce si es necesario
       if (items && items.length > 0) {
         for (const item of items) {
@@ -397,14 +395,14 @@ export class OrdersService implements Service {
               const product = await db.query.products.findFirst({
                 where: eq(products.id, item.productId)
               });
-              
+
               // Si el producto existe pero no tiene wooCommerceId, intentar sincronizarlo
               if (product && !product.wooCommerceId) {
                 console.log(`Sincronizando producto ${product.name} (ID: ${product.id}) con WooCommerce antes de actualizar orden`);
-                
+
                 // Importar función de sincronización desde WooCommerce service
                 const { syncProductToWoo } = await import('./woocommerce.service');
-                
+
                 // Intentar crear el producto en WooCommerce
                 await syncProductToWoo(product.id, true);
               }
@@ -494,7 +492,7 @@ export class OrdersService implements Service {
 
       // Emitir evento de actualización de pedido
       appEvents.emit(EventTypes.ORDER_UPDATED, completeOrder);
-      
+
       res.json(completeOrder);
     } catch (error) {
       console.error('Error updating order:', error);
@@ -522,13 +520,13 @@ export class OrdersService implements Service {
 
       // Delete order items first (maintain referential integrity)
       await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
-      
+
       // Now delete the order
       await db.delete(orders).where(eq(orders.id, orderId));
 
       // Emit order deleted event
       appEvents.emit(EventTypes.ORDER_DELETED, existingOrder);
-      
+
       res.status(200).json({ success: true, message: "Order deleted successfully" });
     } catch (error) {
       console.error('Error deleting order:', error);
@@ -579,7 +577,7 @@ export class OrdersService implements Service {
         })
         .where(eq(orders.id, orderId))
         .returning();
-        
+
       // Obtener el pedido actualizado con toda la información relacionada
       const updatedOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
@@ -625,7 +623,7 @@ export class OrdersService implements Service {
         newStatus: status,
         reason: notes
       });
-      
+
       // Devolver respuesta acorde a lo que espera el frontend
       res.json({ 
         success: true, 
@@ -682,7 +680,7 @@ export class OrdersService implements Service {
         })
         .where(eq(orders.id, orderId))
         .returning();
-        
+
       // Obtener el pedido actualizado con toda la información relacionada
       const updatedOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
@@ -728,7 +726,7 @@ export class OrdersService implements Service {
         newStatus: paymentStatus,
         reason
       });
-      
+
       // Devolver respuesta con formato para el frontend
       res.json({
         success: true,
@@ -781,7 +779,7 @@ export class OrdersService implements Service {
     try {
       let { customerId, items, ...orderDetails } = orderData;
       let customer = null;
-      
+
       // Attempt to find or create a customer
       if (customerId) {
         // If customerId is provided, verify customer exists
@@ -789,7 +787,7 @@ export class OrdersService implements Service {
           where: eq(customers.id, customerId)
         });
       }
-      
+
       // If no customerId provided or customer not found by ID, try to find by other identifiers
       if (!customer) {
         // Try to find by identification number
@@ -798,52 +796,52 @@ export class OrdersService implements Service {
             where: eq(customers.idNumber, orderDetails.idNumber)
           });
         }
-        
+
         // Try to find by phone (usando búsqueda mejorada)
         if (!customer && orderDetails.phone) {
           // Limpiar el número de teléfono para comparación
           const cleanPhone = orderDetails.phone.replace(/\D/g, '');
-          
+
           // Preparar condiciones de búsqueda
           const conditions = [];
-          
+
           // Añadir condiciones básicas
           conditions.push(eq(customers.phone, orderDetails.phone));
           conditions.push(eq(customers.phone, cleanPhone));
           conditions.push(eq(customers.phoneNumber, cleanPhone));
-          
+
           // Añadir búsqueda con coincidencia parcial si hay suficientes dígitos
           if (cleanPhone.length >= 7) {
             conditions.push(like(customers.phone, `%${cleanPhone.slice(-7)}`));
           }
-          
+
           // Buscar con múltiples formatos
           customer = await db.query.customers.findFirst({
             where: or(...conditions)
           });
         }
-        
+
         // Try to find by email
         if (!customer && orderDetails.email) {
           customer = await db.query.customers.findFirst({
             where: eq(customers.email, orderDetails.email)
           });
         }
-        
+
         // Si aún no se encontró un cliente, crear uno nuevo con los datos disponibles
         if (!customer) {
           console.log('Creating new customer from shipping form data');
-          
+
           // Obtener el nombre del cliente de customerName o shippingAddress
           const name = orderDetails.customerName || orderDetails.shippingAddress?.name;
-          
+
           if (!name) {
             throw new Error("Customer name is required to create a new customer");
           }
-          
+
           // Extraer información adicional del objeto shippingAddress si existe
           const shippingAddress = orderDetails.shippingAddress || {};
-          
+
           // Crear cliente con toda la información disponible
           const [newCustomer] = await db.insert(customers).values({
             name,
@@ -859,7 +857,7 @@ export class OrdersService implements Service {
             createdAt: new Date(),
             updatedAt: new Date()
           }).returning();
-          
+
           customer = newCustomer;
           customerId = newCustomer.id;
           console.log(`Created new customer with ID: ${customerId}`);
@@ -869,21 +867,21 @@ export class OrdersService implements Service {
       if (!customer) {
         throw new Error("Unable to find or create customer. Customer information is required.");
       }
-      
+
       // Update customerId with the found or created customer
       customerId = customer.id;
-      
+
       // Calculate total amount from items if provided
       let totalAmount = "0.00";
       let subtotal = "0.00";
-      
+
       // Determine if we have products and calculate totals if we do
       const hasProducts = items && Array.isArray(items) && items.length > 0;
-      
+
       if (hasProducts) {
         let calculatedTotal = 0;
         let calculatedSubtotal = 0;
-        
+
         for (const item of items) {
           const itemSubtotal = parseFloat(item.unitPrice) * item.quantity;
           calculatedSubtotal += itemSubtotal;
@@ -891,7 +889,7 @@ export class OrdersService implements Service {
           const itemDiscount = item.discount ? parseFloat(item.discount) : 0;
           calculatedTotal += itemSubtotal - itemDiscount;
         }
-        
+
         totalAmount = calculatedTotal.toFixed(2);
         subtotal = calculatedSubtotal.toFixed(2);
       }
