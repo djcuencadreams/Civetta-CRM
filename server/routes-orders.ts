@@ -154,6 +154,7 @@ export function registerOrderRoutes(app: Express) {
     try {
       const param = req.params.id;
 
+      // Buscar el pedido por número de orden o ID
       const order = await db.query.orders.findFirst({
         where: or(
           eq(orders.orderNumber, param),
@@ -162,35 +163,20 @@ export function registerOrderRoutes(app: Express) {
         with: {
           customer: true,
           items: {
-            columns: {
-              id: true,
-              productId: true, 
-              productName: true,
-              quantity: true,
-              unitPrice: true,
-              discount: true,
-              subtotal: true,
-              attributes: true
-            }
+            with: {
+              product: true,
+            },
           },
-          assignedUser: true
-        }
+        },
       });
 
       if (!order) {
-        return res.status(404).json({ error: "Pedido no encontrado" });
+        return res.status(404).json({ error: "Orden no encontrada" });
       }
 
-      // Ensure order status reflects incomplete state
-      if (!order.items || order.items.length === 0) {
-        order.status = "pendiente_de_completar";
-      }
-
-      // If order has customerId but no customer data, force fetch it
-      if (order.customerId && !order.customer) {
-        console.log(`⚠️ Order ${order.id} has customerId ${order.customerId} but no customer data, fetching...`);
-        
-        order.customer = await db.query.customers.findFirst({
+      // Si el pedido tiene customerId pero no trae el objeto customer completo
+      if (!order.customer && order.customerId) {
+        const fullCustomer = await db.query.customers.findFirst({
           where: eq(customers.id, order.customerId),
           columns: {
             id: true,
@@ -204,40 +190,23 @@ export function registerOrderRoutes(app: Express) {
             city: true,
             province: true,
             idNumber: true,
-            deliveryInstructions: true, 
+            deliveryInstructions: true,
             companyName: true,
             type: true,
             source: true,
             brand: true,
             notes: true,
             createdAt: true,
-            updatedAt: true
-          }
+            updatedAt: true,
+          },
         });
 
-        if (order.customer) {
-          console.log(`✅ Customer ${order.customer.id} data retrieved successfully`);
+        if (fullCustomer) {
+          order.customer = fullCustomer;
         }
       }
 
-      // Remove any fake customer data from shippingAddress
-      if (!order.customerId) {
-        order.customer = null;
-      }
-
-      console.log('GET /api/orders/:id response:', {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        customerId: order.customerId,
-        hasCustomer: !!order.customer,
-        shippingAddress: order.shippingAddress,
-        isWebForm: order.isFromWebForm
-      });
-
-      res.json({
-        ...order,
-        customer: order.customer || null
-      });
+      res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);
       res.status(500).json({ error: "Error al obtener el pedido" });
