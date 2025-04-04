@@ -49,7 +49,7 @@ type OrderDetailsProps = {
     notes: string | null;
     createdAt: string;
     updatedAt: string;
-    wooCommerceId: number | null; // Cambiado de woocommerceId a wooCommerceId
+    wooCommerceId: number | null; 
     assignedUserId?: number | null;
     shippingMethod?: string | null;
     trackingNumber?: string | null;
@@ -96,47 +96,47 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   const { toast } = useToast();
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
 
-  // Temporary debug log
+  
   console.log('OrderDetailsView received order:', JSON.stringify(order, null, 2));
 
   if (!order) {
     return <div>No se encontró información del pedido</div>;
   }
 
-  // Función para generar y descargar etiqueta de envío
+  
   const handleGenerateShippingLabel = async () => {
     try {
       setIsGeneratingLabel(true);
       console.log('📦 Iniciando generación de etiqueta para pedido:', order.id);
+
       
-      // Verificar que tengamos un ID válido
       if (!order.id) {
         console.error('📦 Error: ID de pedido no válido');
         throw new Error('No se puede generar la etiqueta: ID de pedido no válido');
       }
+
       
-      // Verificar que tengamos datos del cliente
       if (!order.customer) {
         console.error('📦 Error: No hay datos del cliente para este pedido');
         console.log('📦 Datos completos de la orden:', order);
         throw new Error('No se puede generar la etiqueta: Falta información del cliente');
       }
+
       
-      // Verificar que tengamos direcciones necesarias en shippingAddress o en el cliente
       const hasShippingAddress = order.shippingAddress && 
         (order.shippingAddress.street || 
          order.shippingAddress.address || 
          order.shippingAddress.direccion);
-         
+
       const hasCustomerAddress = order.customer && 
         order.customer.street;
-      
+
       if (!hasShippingAddress && !hasCustomerAddress) {
         console.error('📦 Error: No hay dirección de envío');
         throw new Error('No se puede generar la etiqueta: Falta dirección de envío');
       }
+
       
-      // Mostrar datos del pedido para depuración
       console.log('📦 Datos de orden disponibles:', {
         id: order.id,
         customerId: order.customerId,
@@ -144,12 +144,12 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         shippingAddress: order.shippingAddress,
         customer: order.customer
       });
+
       
-      // Construir URL del endpoint (NUEVO SISTEMA)
       const endpoint = `/api/shipping/label/${order.id}`;
       console.log('📦 Llamando al NUEVO endpoint de etiquetas:', endpoint);
+
       
-      // Llamar al endpoint para generar la etiqueta
       const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
@@ -157,17 +157,17 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           'Cache-Control': 'no-cache'
         }
       });
-      
+
       console.log('📦 Respuesta recibida, status:', response.status);
-      // Registrar headers de forma segura para cualquier versión de TypeScript
+      
       const headersObj: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         headersObj[key] = value;
       });
       console.log('📦 Headers:', headersObj);
-      
+
       if (!response.ok) {
-        // Intentar leer la respuesta de error para más detalles
+        
         let errorDetail = '';
         try {
           const errorData = await response.text();
@@ -176,41 +176,41 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         } catch (e) {
           console.error('📦 No se pudo leer el detalle del error:', e);
         }
-        
+
         throw new Error(`Error al generar la etiqueta de envío (${response.status}): ${errorDetail}`);
       }
+
       
-      // Verificar tipo de contenido
       const contentType = response.headers.get('Content-Type');
       console.log('📦 Tipo de contenido:', contentType);
-      
+
       if (!contentType || !contentType.includes('application/pdf')) {
         console.warn('📦 Advertencia: El servidor no devolvió un PDF (Content-Type: ' + contentType + ')');
       }
+
       
-      // Obtener el blob del PDF
       const blob = await response.blob();
       console.log('📦 Tamaño del blob recibido:', blob.size, 'bytes');
-      
+
       if (blob.size < 100) {
         console.error('📦 Error: El blob recibido es demasiado pequeño para ser un PDF válido');
         throw new Error('El archivo PDF generado parece estar corrupto o incompleto');
       }
+
       
-      // Crear URL para el blob
       const url = window.URL.createObjectURL(blob);
       console.log('📦 URL creada para el blob:', url);
+
       
-      // Crear un elemento anchor para descargar
       const a = document.createElement('a');
       a.href = url;
+
       
-      // Obtener nombre del archivo de las cabeceras Content-Disposition o usar nombre por defecto
       let filename = `etiqueta-envio-${order.orderNumber || order.id}.pdf`;
       const contentDisposition = response.headers.get('Content-Disposition');
-      
+
       console.log('📦 Content-Disposition:', contentDisposition);
-      
+
       if (contentDisposition) {
         const filenameMatch = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
         if (filenameMatch && filenameMatch[1]) {
@@ -218,24 +218,24 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           console.log('📦 Nombre de archivo extraído de cabeceras:', filename);
         }
       }
-      
+
       a.download = filename;
       console.log('📦 Iniciando descarga con nombre:', filename);
-      
+
       document.body.appendChild(a);
       a.click();
+
       
-      // Limpieza
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       console.log('📦 Descarga de etiqueta completada con éxito');
-      
+
       toast({
         title: "Etiqueta generada",
         description: "La etiqueta de envío ha sido generada y descargada correctamente"
       });
-      
+
     } catch (error) {
       console.error('📦 Error al generar etiqueta:', error);
       toast({
@@ -248,7 +248,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Obtener texto de estado
+  
   const getStatusText = (status: string): string => {
     switch (status) {
       case "new": return "Nuevo";
@@ -260,7 +260,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Obtener color del badge de estado
+  
   const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" | "pending" | "status" | "info" => {
     switch (status) {
       case "completed": return "success";
@@ -272,7 +272,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Obtener texto de estado de pago
+  
   const getPaymentStatusText = (status: string): string => {
     switch (status) {
       case "pending": return "Pendiente";
@@ -282,7 +282,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Obtener color del badge de estado de pago
+  
   const getPaymentStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" => {
     switch (status) {
       case "paid": return "success";
@@ -292,27 +292,27 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Formato para moneda
+  
   const formatCurrency = (amount: number | string | undefined): string => {
     if (amount === undefined || amount === null) return '$0.00';
-    // Convertir a número si es un string
-    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    // Verificar que sea un número válido
-    if (isNaN(numericAmount)) return '$0.00';
     
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    if (isNaN(numericAmount)) return '$0.00';
+
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: 'USD'
     }).format(numericAmount);
   };
 
-  // Formato para fechas
+  
   const formatDate = (dateString: string | null | undefined): string => {
     if (!dateString) return 'N/A';
     return format(new Date(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
   };
 
-  // Texto del método de pago
+  
   const getPaymentMethodText = (method: string | null): string => {
     if (!method) return 'No especificado';
     switch (method) {
@@ -324,7 +324,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Texto del método de envío
+  
   const getShippingMethodText = (method: string | null | undefined): string => {
     if (!method) return 'No especificado';
     switch (method) {
@@ -335,7 +335,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Texto del origen
+  
   const getSourceText = (source: string | null): string => {
     if (!source) return 'Directo';
     switch (source) {
@@ -347,7 +347,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  // Texto de la marca
+  
   const getBrandText = (brand: string | null): string => {
     if (!brand) return 'No especificado';
     switch (brand) {
@@ -359,7 +359,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
+      
       <div className="flex flex-col md:flex-row justify-between">
         <div>
           <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -405,7 +405,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
 
       <Separator />
 
-      {/* Mensaje informativo para órdenes incompletas o del formulario web */}
+      
       {(order.isFromWebForm || (!order.items?.length)) && (
         <div className={cn(
           "p-4 rounded-md flex items-start gap-3 mb-4",
@@ -442,7 +442,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         </div>
       )}
 
-      {/* Información principal del pedido */}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -487,13 +487,13 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {/* Add temporary debug log */}
+            
             {console.log('OrderDetailsView rendering customer data:', {
               customerData: order.customer,
               shippingData: order.shippingAddress,
               customerId: order.customerId
             })}
-            
+
             {(order.customer || order.shippingAddress) ? (
               <>
                 <div className="flex justify-between">
@@ -557,7 +557,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             )}
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center">
@@ -612,7 +612,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         </Card>
       </div>
 
-      {/* Información de envío */}
+      
       <Card>
         <CardHeader className="pb-2 flex flex-row justify-between items-center">
           <CardTitle className="text-lg flex items-center">
@@ -685,7 +685,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         </CardContent>
       </Card>
 
-      {/* Productos del pedido */}
+      
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center">
