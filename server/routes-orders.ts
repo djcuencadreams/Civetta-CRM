@@ -139,14 +139,13 @@ export function registerOrderRoutes(app: Express) {
   // Obtener un pedido específico
   app.get("/api/orders/:id", async (req: Request, res: Response) => {
     try {
-      const orderId = parseInt(req.params.id);
-
-      if (isNaN(orderId)) {
-        return res.status(400).json({ error: "ID de pedido inválido" });
-      }
-
+      const param = req.params.id;
+      
       const order = await db.query.orders.findFirst({
-        where: eq(orders.id, orderId),
+        where: or(
+          eq(orders.orderNumber, param),
+          eq(orders.id, parseInt(param))
+        ),
         with: {
           customer: true,
           items: true,
