@@ -147,11 +147,11 @@ export function registerOrderRoutes(app: Express) {
           eq(orders.id, parseInt(param))
         ),
         with: {
-          customer: true, // Incluir TODOS los campos del cliente
+          customer: true,
           items: {
             columns: {
               id: true,
-              productId: true,
+              productId: true, 
               productName: true,
               quantity: true,
               unitPrice: true,
@@ -168,6 +168,41 @@ export function registerOrderRoutes(app: Express) {
       if (order && (!order.items || order.items.length === 0)) {
         order.status = "pendiente_de_completar";
       }
+
+      // Si no hay cliente pero hay datos de envío, crear objeto customer
+      if (order && !order.customer && order.shippingAddress) {
+        console.log('📦 Creating customer object from shipping data:', order.shippingAddress);
+        
+        order.customer = {
+          id: 0,
+          name: order.shippingAddress.name || "Cliente no identificado",
+          idNumber: order.shippingAddress.idNumber || null,
+          email: order.shippingAddress.email || null,
+          phone: order.shippingAddress.phone || null,
+          phoneNumber: order.shippingAddress.phone || null,
+          street: order.shippingAddress.street || null,
+          city: order.shippingAddress.city || null,
+          province: order.shippingAddress.province || null,
+          deliveryInstructions: order.shippingAddress.instructions || null,
+          type: "person",
+          status: "active",
+          source: order.source || "website",
+          brand: order.brand || "sleepwear",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        console.log('📦 Created customer object:', order.customer);
+      }
+
+      console.log('🔍 Order response:', {
+        orderId: order?.id,
+        orderNumber: order?.orderNumber,
+        hasCustomer: !!order?.customer,
+        customerData: order?.customer,
+        shippingData: order?.shippingAddress,
+        isWebForm: order?.isFromWebForm
+      });
 
       // Manejar caso donde no hay cliente pero sí hay datos de envío
       if (order && order.customerId && !order.customer) {
