@@ -160,30 +160,14 @@ export class OrdersService implements Service {
       const { id } = req.params;
       const orderId = parseInt(id);
 
+      console.log(`Obteniendo orden con ID: ${orderId}`);
+
       // Usar la API de consulta de Drizzle en lugar de SQL directo
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: {
-            columns: {
-              id: true,
-              name: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              phoneCountry: true,
-              phoneNumber: true,
-              street: true,
-              city: true,
-              province: true,
-              deliveryInstructions: true,
-              idNumber: true,
-              type: true,
-              source: true,
-              brand: true
-            }
-          },
+          // Incluir TODOS los campos del cliente
+          customer: true, 
           items: {
             columns: {
               id: true,
@@ -200,20 +184,67 @@ export class OrdersService implements Service {
         }
       });
 
+      // Log completo de la orden para depuración
       console.log(`Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
 
       // Handle undefined customer
       if (order && !order.customer && order.shippingAddress) {
+        // Crear un objeto cliente con todos los campos requeridos con valores predeterminados
         order.customer = {
           id: 0,
           name: "Cliente no identificado",
-          ...order.shippingAddress
+          firstName: null,
+          lastName: null,
+          email: null,
+          phone: null,
+          phoneCountry: null,
+          phoneNumber: null,
+          street: null,
+          city: null,
+          province: null,
+          deliveryInstructions: null,
+          idNumber: null,
+          type: null,
+          status: null,
+          source: null,
+          brand: null,
+          notes: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          address: null,
+          ruc: null,
+          secondaryPhone: null,
+          billingAddress: {},
+          tags: [],
+          totalValue: "0",
+          assignedUserId: null,
+          wooCommerceId: null,
+          lastPurchase: null,
+          // Agregar datos de shippingAddress
+          ...(typeof order.shippingAddress === 'object' ? order.shippingAddress : {})
         };
       }
 
       if (!order) {
+        console.error(`No se encontró la orden con ID ${orderId}`);
         res.status(404).json({ error: "Order not found" });
         return;
+      }
+
+      // Log de campos del cliente para depuración
+      if (order.customer) {
+        console.log(`Datos del cliente para orden ${orderId}:`, {
+          id: order.customer.id,
+          name: order.customer.name,
+          email: order.customer.email,
+          phone: order.customer.phone,
+          idNumber: order.customer.idNumber,
+          street: order.customer.street,
+          city: order.customer.city,
+          province: order.customer.province
+        });
+      } else {
+        console.warn(`Advertencia: Orden ${orderId} no tiene cliente asociado`);
       }
 
       res.json(order);

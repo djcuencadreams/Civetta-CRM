@@ -40,7 +40,7 @@ type OrderDetailsProps = {
     customerId: number;
     leadId: number | null;
     orderNumber: string | null;
-    totalAmount: number;
+    totalAmount: number | string;
     status: string;
     paymentStatus: string;
     paymentMethod: string | null;
@@ -63,11 +63,14 @@ type OrderDetailsProps = {
     customer?: {
       name: string;
       id: number;
+      email?: string;
+      phone?: string;
+      phoneNumber?: string;
       street?: string;
       city?: string;
       province?: string;
-      phone?: string;
       idNumber?: string;
+      deliveryInstructions?: string;
       companyName?: string;
     };
     assignedUser?: {
@@ -462,6 +465,71 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center">
+              <User className="w-5 h-5 mr-2" /> Información del Cliente
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {order.customer ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Nombre:</span>
+                  <span className="font-medium">{order.customer.name || 'No especificado'}</span>
+                </div>
+                {order.customer.idNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cédula/ID:</span>
+                    <span>{order.customer.idNumber}</span>
+                  </div>
+                )}
+                {order.customer.email && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email:</span>
+                    <span className="text-right">{order.customer.email}</span>
+                  </div>
+                )}
+                {(order.customer.phone || order.customer.phoneNumber) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Teléfono:</span>
+                    <span>{order.customer.phone || order.customer.phoneNumber || 'No especificado'}</span>
+                  </div>
+                )}
+                {order.customer.street && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Dirección:</span>
+                    <span className="text-right max-w-[60%]">{order.customer.street}</span>
+                  </div>
+                )}
+                {order.customer.city && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ciudad:</span>
+                    <span>{order.customer.city}</span>
+                  </div>
+                )}
+                {order.customer.province && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Provincia:</span>
+                    <span>{order.customer.province}</span>
+                  </div>
+                )}
+                {order.customer.deliveryInstructions && (
+                  <div className="mt-2">
+                    <span className="text-muted-foreground block mb-1">Instrucciones de entrega:</span>
+                    <p className="bg-muted p-2 rounded text-xs">{order.customer.deliveryInstructions}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-2 text-yellow-600">
+                <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
+                <p>No se encontró información del cliente.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center">

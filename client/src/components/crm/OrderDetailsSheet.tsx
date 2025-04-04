@@ -36,9 +36,13 @@ type Order = {
     id: number;
     email?: string;
     phone?: string;
+    phoneNumber?: string;
     street?: string;
     city?: string;
     province?: string;
+    idNumber?: string;
+    deliveryInstructions?: string;
+    companyName?: string;
   };
   assignedUser?: {
     id: number;
@@ -92,7 +96,10 @@ export function OrderDetailsSheet({ orderId, onEdit }: OrderDetailsSheetProps) {
 
   return (
     <div>
-      <OrderDetailsView order={order} />
+      <OrderDetailsView order={{
+        ...order,
+        totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount
+      }} />
       
       {onEdit && (
         <div className="mt-8 flex justify-end">
