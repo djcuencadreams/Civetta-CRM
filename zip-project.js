@@ -1,23 +1,16 @@
+
 /**
- * Civetta-CRM Automatic Backup Script
+ * Civetta-CRM Extended Backup Script
  * 
- * This script creates a ZIP backup of the project after each git commit.
- * It generates a backup file with format: backup_YYYY-MM-DD_HH-MM-SS_COMMITHASH.zip
+ * This script creates a comprehensive ZIP backup of the entire project including:
+ * - Source code files (.js, .ts, .py, etc.)
+ * - Configuration files
+ * - Documentation files
+ * - Database backups
+ * - Project structure
  * 
- * The script:
- * 1. Creates a BackupforChatGPT/ folder if it doesn't exist
- * 2. Deletes any previous backup ZIP files
- * 3. Generates a new ZIP with the current project files
- * 4. Adds commit information to the ZIP file
- * 
- * Excluded from backup:
- * - .git/ directory
- * - node_modules/ directory
- * - BackupforChatGPT/ directory
- * - attached_assets/ directory
- * - All hidden folders (starting with .)
- * - Files with extensions: .png, .jpg, .jpeg, .csv, .xlsx, .pdf
- * - Files starting with: screenshot., test_, Pasted-, Screenshot
+ * The backup is created after each git commit with format:
+ * backup_YYYY-MM-DD_HH-MM-SS_COMMITHASH.zip
  */
 
 import fs from 'fs';
@@ -81,13 +74,18 @@ function deleteOldBackups() {
   }
 }
 
-// Function to create a commit-info.txt file
-function createCommitInfoFile(commitInfo) {
-  // Get current time in Ecuador timezone (UTC-5)
+// Function to create a project-info.txt file
+function createProjectInfoFile(commitInfo) {
   const now = new Date();
   const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
   
   const content = `CIVETTA-CRM PROJECT BACKUP
+
+PROJECT INFORMATION
+-----------------
+Project Name: Civetta-CRM
+Environment: Replit
+Backup Type: Full Project + Data Backup
 
 COMMIT INFORMATION
 -----------------
@@ -99,10 +97,19 @@ COMMIT MESSAGE
 -----------------
 ${commitInfo.message}
 
+BACKUP CONTENTS
+-----------------
+- Complete source code
+- Configuration files
+- Documentation
+- Database backups
+- Project structure
+- Automation scripts
+
 Backup generated: ${ecuadorTime.toISOString()} (Ecuador Time)
 `;
 
-  const tempFilePath = path.join(BACKUP_DIR, 'commit-info.txt');
+  const tempFilePath = path.join(BACKUP_DIR, 'project-info.txt');
   fs.writeFileSync(tempFilePath, content);
   return tempFilePath;
 }
@@ -110,38 +117,56 @@ Backup generated: ${ecuadorTime.toISOString()} (Ecuador Time)
 // Function to check if a file/directory should be excluded from the backup
 function shouldExclude(filePath) {
   const fileName = path.basename(filePath);
-  const extension = path.extname(filePath).toLowerCase();
   
-  // Exclude specific directories
-  if (
-    filePath === '.git' || 
-    filePath === 'node_modules' || 
-    filePath === BACKUP_DIR ||
-    filePath === 'attached_assets'
-  ) {
+  // Critical directories to exclude
+  const excludedDirs = [
+    'node_modules',
+    '.git',
+    BACKUP_DIR,
+    'attached_assets',
+    'temp_download',
+    'temp_excel'
+  ];
+
+  // If it's one of the excluded directories
+  if (excludedDirs.includes(filePath)) {
     return true;
   }
-  
+
   // Exclude hidden directories (starting with '.')
-  if (fileName.startsWith('.')) {
+  if (fileName.startsWith('.') && fs.statSync(filePath).isDirectory()) {
     return true;
   }
-  
-  // Exclude specific file extensions
-  if (['.png', '.jpg', '.jpeg', '.csv', '.xlsx', '.pdf'].includes(extension)) {
+
+  // Exclude specific file types
+  const excludedExtensions = [
+    '.jpg', '.jpeg', '.png', '.gif',  // Images
+    '.mp4', '.avi', '.mov',           // Videos
+    '.mp3', '.wav',                   // Audio
+    '.zip', '.rar', '.7z',            // Archives
+    '.exe', '.dll',                   // Binaries
+    '.log'                            // Log files
+  ];
+
+  const extension = path.extname(filePath).toLowerCase();
+  if (excludedExtensions.includes(extension)) {
     return true;
   }
-  
-  // Exclude files with specific prefixes
-  if (
-    fileName.startsWith('screenshot.') || 
-    fileName.startsWith('test_') || 
-    fileName.startsWith('Pasted-') || 
-    fileName.startsWith('Screenshot')
-  ) {
+
+  // Exclude temporary and cache files
+  const excludedPatterns = [
+    'thumbs.db',
+    '.ds_store',
+    '*.tmp',
+    '*.temp',
+    '*.cache'
+  ];
+
+  if (excludedPatterns.some(pattern => 
+    fileName.toLowerCase().includes(pattern.replace('*', '').toLowerCase()))) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -172,7 +197,7 @@ function addDirectoryToZip(archive, dirPath, parentPath = '') {
 // Main function to create the backup
 async function createProjectBackup() {
   try {
-    console.log('Starting project backup...');
+    console.log('Starting comprehensive project backup...');
     
     // Get git commit information
     const commitInfo = getGitCommitInfo();
@@ -185,16 +210,13 @@ async function createProjectBackup() {
     
     // Generate backup filename with date and commit hash (Ecuador timezone UTC-5)
     const now = new Date();
-    // Adjust for Ecuador timezone (UTC-5)
     const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
     
-    // Format date as YYYY-MM-DD
     const year = ecuadorTime.getUTCFullYear();
     const month = String(ecuadorTime.getUTCMonth() + 1).padStart(2, '0');
     const day = String(ecuadorTime.getUTCDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
     
-    // Format time as HH-MM-SS
     const hours = String(ecuadorTime.getUTCHours()).padStart(2, '0');
     const minutes = String(ecuadorTime.getUTCMinutes()).padStart(2, '0');
     const seconds = String(ecuadorTime.getUTCSeconds()).padStart(2, '0');
@@ -226,11 +248,11 @@ async function createProjectBackup() {
     // Pipe archive data to the file
     archive.pipe(output);
     
-    // Create and add commit info file
-    const commitInfoPath = createCommitInfoFile(commitInfo);
-    archive.file(commitInfoPath, { name: 'commit-info.txt' });
+    // Create and add project info file
+    const projectInfoPath = createProjectInfoFile(commitInfo);
+    archive.file(projectInfoPath, { name: 'project-info.txt' });
     
-    // Add project files to the archive
+    // Add all project files to the archive
     console.log('Adding project files to backup...');
     addDirectoryToZip(archive, '.');
     
@@ -241,12 +263,12 @@ async function createProjectBackup() {
     await new Promise((resolve, reject) => {
       output.on('close', () => {
         // Clean up temporary files
-        if (fs.existsSync(commitInfoPath)) {
-          fs.unlinkSync(commitInfoPath);
+        if (fs.existsSync(projectInfoPath)) {
+          fs.unlinkSync(projectInfoPath);
         }
         
-        // Log completion message with the format specified
-        console.log(`✅ Backup generado: ${BACKUP_DIR}/${backupFileName}`);
+        const finalSize = (archive.pointer() / 1024 / 1024).toFixed(2);
+        console.log(`✅ Backup completo generado: ${BACKUP_DIR}/${backupFileName} (${finalSize} MB)`);
         
         resolve();
       });
