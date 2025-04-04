@@ -188,12 +188,12 @@ export function registerOrderRoutes(app: Express) {
       if (order && !order.customer && order.shippingAddress) {
         console.log(`📦 Usando datos de envío como información del cliente para orden ${order.id}`);
 
-        // Crear objeto cliente desde shippingAddress
+        // Crear objeto cliente desde shippingAddress con todos los campos posibles
         order.customer = {
           id: 0,
           name: order.shippingAddress.name || "Cliente no identificado",
-          firstName: null,
-          lastName: null,
+          firstName: order.shippingAddress.firstName || null,
+          lastName: order.shippingAddress.lastName || null,
           email: order.shippingAddress.email || null,
           phone: order.shippingAddress.phone || null,
           phoneNumber: order.shippingAddress.phone || null,
@@ -202,6 +202,7 @@ export function registerOrderRoutes(app: Express) {
           province: order.shippingAddress.province || null,
           deliveryInstructions: order.shippingAddress.instructions || null,
           idNumber: order.shippingAddress.idNumber || null,
+          companyName: order.shippingAddress.companyName || null,
           type: "person",
           status: "active",
           source: order.source || "website",
@@ -210,6 +211,9 @@ export function registerOrderRoutes(app: Express) {
           createdAt: new Date(),
           updatedAt: new Date()
         };
+
+        // Log para debug
+        console.log('📦 Cliente creado desde shippingAddress:', order.customer);
       }
 
       // Validar estado de orden incompleta si no tiene productos
