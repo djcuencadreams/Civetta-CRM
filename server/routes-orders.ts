@@ -207,6 +207,13 @@ export function registerOrderRoutes(app: Express) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
 
+      // Log the order details for debugging
+      console.log('GET /api/orders/:id response:', JSON.stringify({
+        id: order?.id,
+        customerInfo: order?.customer,
+        hasCustomer: !!order?.customer
+      }, null, 2));
+
       res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);

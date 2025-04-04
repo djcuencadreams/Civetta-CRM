@@ -96,6 +96,9 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   const { toast } = useToast();
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
 
+  // Temporary debug log
+  console.log('OrderDetailsView received order:', JSON.stringify(order, null, 2));
+
   if (!order) {
     return <div>No se encontró información del pedido</div>;
   }
