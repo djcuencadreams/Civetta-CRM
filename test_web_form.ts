@@ -3,10 +3,10 @@ import { ordersService } from './server/services/orders.service';
 
 async function testWebFormOrder() {
   try {
-    // Simular datos del formulario web de Civetta
+    // Simular datos del formulario web
     const formData = {
       customerName: "María Prueba Web",
-      email: "mprueba@test.com",
+      email: "mprueba@test.com", 
       phone: "0987654321",
       idNumber: "0923456789",
       shippingAddress: {
