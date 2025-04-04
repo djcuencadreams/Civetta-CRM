@@ -594,7 +594,8 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
                   </TableCell>
                 </TableRow>
               )}
-              {order.items && order.items.length > 0 && order.items.map((item) => (
+              {order.items?.length > 0 ? (
+                order.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
                       {item.productName}
