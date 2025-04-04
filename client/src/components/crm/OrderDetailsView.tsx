@@ -587,7 +587,7 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(!order.items || order.items.length === 0) ? (
+              {!order.items || order.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2 text-yellow-600 dark:text-yellow-500">
@@ -618,10 +618,6 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
                     <TableCell className="text-right font-medium">{formatCurrency(item.subtotal)}</TableCell>
                   </TableRow>
                 ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center">No hay productos en este pedido</TableCell>
-                </TableRow>
               )}
             </TableBody>
           </Table>
