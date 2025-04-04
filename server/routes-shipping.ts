@@ -147,97 +147,92 @@ export function registerShippingRoutes(app: Express) {
         let customerId: number | undefined;
         let orderId: number | undefined;
 
-        // Verificar si el cliente ya existe (por teléfono o cédula)
+        // Verificar si el cliente ya existe (por teléfono, cédula o email)
         let customer = null;
+        const searchQueries = [];
+
         if (formData.idNumber) {
+          searchQueries.push(eq(customers.idNumber, formData.idNumber));
+        }
+
+        if (formData.phone) {
+          const phoneQueries = createPhoneQueries(formData.phone);
+          searchQueries.push(...phoneQueries);
+        }
+
+        if (formData.email) {
+          searchQueries.push(eq(customers.email, formData.email));
+        }
+
+        if (searchQueries.length > 0) {
           customer = await db.query.customers.findFirst({
-            where: eq(customers.idNumber, formData.idNumber)
+            where: or(...searchQueries)
           });
         }
 
-        if (!customer && formData.phone) {
-          customer = await db.query.customers.findFirst({
-            where: or(...createPhoneQueries(formData.phone))
-          });
-        }
-
-        if (!customer && formData.email) {
-          customer = await db.query.customers.findFirst({
-            where: eq(customers.email, formData.email)
-          });
-        }
-
-        // Si el cliente existe, usarlo; si no, crear uno nuevo
-        if (customer) {
-          customerId = customer.id;
-          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
-
-          // Actualizar sus datos si es necesario
-          if (formData.saveCustomer !== false) {
-            await db
-              .update(customers)
-              .set({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || customer.email,
-                street: formData.street || customer.street,
-                city: formData.city || customer.city,
-                province: formData.province || customer.province,
-                updatedAt: new Date()
-              })
-              .where(eq(customers.id, customer.id));
-            console.log('[SHIPPING] Datos del cliente actualizados');
-          }
-        } else {
-          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
-          console.log('[SHIPPING] Creando nuevo cliente');
-          const insertedCustomer = await db
-            .insert(customers)
+        // Si no se encontró el cliente, crear uno nuevo
+        if (!customer) {
+          const [newCustomer] = await db.insert(customers)
             .values({
               name: formData.name,
-              phone: formData.phone,
+              firstName: formData.name.split(' ')[0],
+              lastName: formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
+              phone: formData.phone,
               idNumber: formData.idNumber || null,
               street: formData.street,
               city: formData.city,
               province: formData.province,
               source: 'web_form',
+              type: 'person',
+              status: 'active',
               createdAt: new Date(),
               updatedAt: new Date()
             })
-            .returning({ id: customers.id });
+            .returning();
 
-          if (!insertedCustomer[0]?.id) {
-            throw new Error('Error al crear el cliente: No se obtuvo ID');
-          }
-
-          customerId = insertedCustomer[0].id;
-          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
+          customer = newCustomer;
         }
+
+        customerId = customer.id;
 
         // Si tenemos un cliente, crear una orden pendiente
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              fullName: formData.name,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
               province: formData.province,
-              instructions: formData.deliveryInstructions || ''
+              instructions: formData.deliveryInstructions || '',
+              idNumber: formData.idNumber || null,
+              email: formData.email || null
           };
 
-          // Usar el servicio de órdenes para crear una orden sin productos
+          // Crear una orden pendiente de completar
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
-              source: sourceEnum.WEBSITE
+              shippingAddress: shippingInfo,
+              items: [],
+              source: sourceEnum.WEBSITE,
+              status: 'pendiente_de_completar', // Estado especial para órdenes web
+              paymentStatus: 'pending'
             });
 
             orderId = orderResult.id;
+
+            // Generar número de orden si no existe
+            if (!orderResult.orderNumber) {
+              await db.update(orders)
+                .set({
+                  orderNumber: `WEB-${orderResult.id.toString().padStart(6, '0')}`,
+                  updatedAt: new Date()
+                })
+                .where(eq(orders.id, orderResult.id));
+            }
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden
@@ -274,95 +269,90 @@ export function registerShippingRoutes(app: Express) {
 
         // Verificar si el cliente ya existe (por teléfono, cédula o email)
         let customer = null;
+        const searchQueries = [];
+
         if (formData.idNumber) {
+          searchQueries.push(eq(customers.idNumber, formData.idNumber));
+        }
+
+        if (formData.phone) {
+          const phoneQueries = createPhoneQueries(formData.phone);
+          searchQueries.push(...phoneQueries);
+        }
+
+        if (formData.email) {
+          searchQueries.push(eq(customers.email, formData.email));
+        }
+
+        if (searchQueries.length > 0) {
           customer = await db.query.customers.findFirst({
-            where: eq(customers.idNumber, formData.idNumber)
+            where: or(...searchQueries)
           });
         }
 
-        if (!customer && formData.phone) {
-          customer = await db.query.customers.findFirst({
-            where: or(...createPhoneQueries(formData.phone))
-          });
-        }
-
-        if (!customer && formData.email) {
-          customer = await db.query.customers.findFirst({
-            where: eq(customers.email, formData.email)
-          });
-        }
-
-        // Si el cliente existe, usarlo; si no, crear uno nuevo
-        if (customer) {
-          customerId = customer.id;
-          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
-
-          // Actualizar sus datos si es necesario
-          if (formData.saveCustomer !== false) {
-            await db
-              .update(customers)
-              .set({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || customer.email,
-                street: formData.street || customer.street,
-                city: formData.city || customer.city,
-                province: formData.province || customer.province,
-                updatedAt: new Date()
-              })
-              .where(eq(customers.id, customer.id));
-            console.log('[SHIPPING] Datos del cliente actualizados');
-          }
-        } else {
-          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
-          console.log('[SHIPPING] Creando nuevo cliente');
-          const insertedCustomer = await db
-            .insert(customers)
+        // Si no se encontró el cliente, crear uno nuevo
+        if (!customer) {
+          const [newCustomer] = await db.insert(customers)
             .values({
               name: formData.name,
-              phone: formData.phone,
+              firstName: formData.name.split(' ')[0],
+              lastName: formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
+              phone: formData.phone,
               idNumber: formData.idNumber || null,
               street: formData.street,
               city: formData.city,
               province: formData.province,
               source: 'web_form',
+              type: 'person',
+              status: 'active',
               createdAt: new Date(),
               updatedAt: new Date()
             })
-            .returning({ id: customers.id });
+            .returning();
 
-          if (!insertedCustomer[0]?.id) {
-            throw new Error('Error al crear el cliente: No se obtuvo ID');
-          }
-
-          customerId = insertedCustomer[0].id;
-          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
+          customer = newCustomer;
         }
+
+        customerId = customer.id;
 
         // Si tenemos un cliente, crear una orden pendiente
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              fullName: formData.name,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
               province: formData.province,
-              instructions: formData.deliveryInstructions || ''
+              instructions: formData.deliveryInstructions || '',
+              idNumber: formData.idNumber || null,
+              email: formData.email || null
           };
 
-          // Usar el servicio de órdenes para crear una orden sin productos
+          // Crear una orden pendiente de completar
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
-              source: sourceEnum.WEBSITE
+              shippingAddress: shippingInfo,
+              items: [],
+              source: sourceEnum.WEBSITE,
+              status: 'pendiente_de_completar', // Estado especial para órdenes web
+              paymentStatus: 'pending'
             });
 
             orderId = orderResult.id;
+
+            // Generar número de orden si no existe
+            if (!orderResult.orderNumber) {
+              await db.update(orders)
+                .set({
+                  orderNumber: `WEB-${orderResult.id.toString().padStart(6, '0')}`,
+                  updatedAt: new Date()
+                })
+                .where(eq(orders.id, orderResult.id));
+            }
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden
@@ -398,71 +388,52 @@ export function registerShippingRoutes(app: Express) {
 
         // Verificar si el cliente ya existe
         let customer = null;
+        const searchQueries = [];
+
         if (formData.idNumber) {
+          searchQueries.push(eq(customers.idNumber, formData.idNumber));
+        }
+
+        if (formData.phone) {
+          const phoneQueries = createPhoneQueries(formData.phone);
+          searchQueries.push(...phoneQueries);
+        }
+
+        if (formData.email) {
+          searchQueries.push(eq(customers.email, formData.email));
+        }
+
+        if (searchQueries.length > 0) {
           customer = await db.query.customers.findFirst({
-            where: eq(customers.idNumber, formData.idNumber)
+            where: or(...searchQueries)
           });
         }
 
-        if (!customer && formData.phone) {
-          customer = await db.query.customers.findFirst({
-            where: or(...createPhoneQueries(formData.phone))
-          });
-        }
-
-        if (!customer && formData.email) {
-          customer = await db.query.customers.findFirst({
-            where: eq(customers.email, formData.email)
-          });
-        }
-
-        // Si el cliente existe, usarlo; si no, crear uno nuevo
-        if (customer) {
-          customerId = customer.id;
-          console.log('[SHIPPING] Cliente existente encontrado, ID:', customerId);
-
-          // Actualizar los datos del cliente si es necesario
-          if (formData.saveCustomer !== false) {
-            await db
-              .update(customers)
-              .set({
-                name: formData.name,
-                phone: formData.phone,
-                email: formData.email || customer.email,
-                street: formData.street || customer.street,
-                city: formData.city || customer.city,
-                province: formData.province || customer.province,
-                updatedAt: new Date()
-              })
-              .where(eq(customers.id, customer.id));
-            console.log('[SHIPPING] Datos del cliente actualizados');
-          }
-        } else {
-          // Crear nuevo cliente (siempre crear si no existe, ignorando saveCustomer)
-          console.log('[SHIPPING] Creando nuevo cliente');
-          const insertedCustomer = await db
-            .insert(customers)
+        // Si no se encontró el cliente, crear uno nuevo
+        if (!customer) {
+          const [newCustomer] = await db.insert(customers)
             .values({
               name: formData.name,
-              phone: formData.phone,
+              firstName: formData.name.split(' ')[0],
+              lastName: formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
+              phone: formData.phone,
               idNumber: formData.idNumber || null,
               street: formData.street,
               city: formData.city,
               province: formData.province,
               source: 'web_form',
+              type: 'person',
+              status: 'active',
               createdAt: new Date(),
               updatedAt: new Date()
             })
-            .returning({ id: customers.id });
+            .returning();
 
-          if (!insertedCustomer[0]?.id) {
-            throw new Error('Error al crear el cliente: No se obtuvo ID');
-          }
-
-          customerId = insertedCustomer[0].id;
-          console.log('[SHIPPING] Nuevo cliente creado, ID:', customerId);
+          customer = newCustomer;
         }
+
+        customerId = customer.id;
 
         // Preparar datos para el PDF
         const pdfData = {
@@ -483,25 +454,39 @@ export function registerShippingRoutes(app: Express) {
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              fullName: formData.name,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
               province: formData.province,
-              instructions: formData.deliveryInstructions || ''
+              instructions: formData.deliveryInstructions || '',
+              idNumber: formData.idNumber || null,
+              email: formData.email || null
           };
 
-          // Usar el servicio de órdenes para crear una orden sin productos
+          // Crear una orden pendiente de completar
           try {
             const orderResult = await ordersService.createOrderFromShippingForm({
               customerId,
               customerName: formData.name,
-              shippingAddress: shippingInfo, // Usando shippingAddress
-              items: [], // Sin productos (usando items en lugar de products)
-              source: sourceEnum.WEBSITE
+              shippingAddress: shippingInfo,
+              items: [],
+              source: sourceEnum.WEBSITE,
+              status: 'pendiente_de_completar', // Estado especial para órdenes web
+              paymentStatus: 'pending'
             });
 
             orderId = orderResult.id;
+
+            // Generar número de orden si no existe
+            if (!orderResult.orderNumber) {
+              await db.update(orders)
+                .set({
+                  orderNumber: `WEB-${orderResult.id.toString().padStart(6, '0')}`,
+                  updatedAt: new Date()
+                })
+                .where(eq(orders.id, orderResult.id));
+            }
           } catch (orderError) {
             console.error('Error al crear orden:', orderError);
             // Continuar el flujo aunque haya error en la creación de la orden

@@ -3,8 +3,8 @@
  */
 import { Express, Request, Response } from "express";
 import { db } from "../db";
-import { customers } from "../db/schema";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { customers, orders, orderItems } from "../db/schema";
+import { eq, and, desc, isNull, or } from "drizzle-orm";
 import { validateBody } from "./validation";
 import { z } from "zod";
 
@@ -140,7 +140,7 @@ export function registerOrderRoutes(app: Express) {
   app.get("/api/orders/:id", async (req: Request, res: Response) => {
     try {
       const param = req.params.id;
-      
+
       const order = await db.query.orders.findFirst({
         where: or(
           eq(orders.orderNumber, param),
@@ -152,6 +152,11 @@ export function registerOrderRoutes(app: Express) {
           assignedUser: true
         }
       });
+
+      // Validar estado de orden incompleta si no tiene productos
+      if (order && (!order.items || order.items.length === 0) && order.shippingAddress) {
+        order.status = "pendiente_de_completar";
+      }
 
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
@@ -381,11 +386,11 @@ export function registerOrderRoutes(app: Express) {
       }
 
       // Verificar que el estado sea válido
-      const validStatuses = ['new', 'preparing', 'shipped', 'completed', 'cancelled'];
+      const validStatuses = ['new', 'preparing', 'shipped', 'completed', 'cancelled', 'pendiente_de_completar'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ 
           error: "Estado inválido", 
-          message: "El estado debe ser uno de: nuevo, preparando, enviado, completado, cancelado"
+          message: "El estado debe ser uno de: nuevo, preparando, enviado, completado, cancelado, pendiente_de_completar"
         });
       }
 
