@@ -484,52 +484,58 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {order.customer ? (
+            {(order.customer || order.shippingAddress) ? (
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nombre:</span>
-                  <span className="font-medium">{order.customer.name || 'No especificado'}</span>
+                  <span className="font-medium">
+                    {order.customer?.name || order.shippingAddress?.name || 'No especificado'}
+                  </span>
                 </div>
-                {order.customer.idNumber && (
+                {(order.customer?.idNumber || order.shippingAddress?.idNumber) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Cédula/ID:</span>
-                    <span>{order.customer.idNumber}</span>
+                    <span>{order.customer?.idNumber || order.shippingAddress?.idNumber}</span>
                   </div>
                 )}
-                {order.customer.email && (
+                {(order.customer?.email || order.shippingAddress?.email) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="text-right">{order.customer.email}</span>
+                    <span className="text-right">{order.customer?.email || order.shippingAddress?.email}</span>
                   </div>
                 )}
-                {(order.customer.phone || order.customer.phoneNumber) && (
+                {(order.customer?.phone || order.customer?.phoneNumber || order.shippingAddress?.phone) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Teléfono:</span>
-                    <span>{order.customer.phone || order.customer.phoneNumber || 'No especificado'}</span>
+                    <span>{order.customer?.phone || order.customer?.phoneNumber || order.shippingAddress?.phone}</span>
                   </div>
                 )}
-                {order.customer.street && (
+                {(order.customer?.street || order.shippingAddress?.street) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Dirección:</span>
-                    <span className="text-right max-w-[60%]">{order.customer.street}</span>
+                    <span className="text-right max-w-[60%]">
+                      {order.customer?.street || order.shippingAddress?.street}
+                    </span>
                   </div>
                 )}
-                {order.customer.city && (
+                {(order.customer?.city || order.shippingAddress?.city) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ciudad:</span>
-                    <span>{order.customer.city}</span>
+                    <span>{order.customer?.city || order.shippingAddress?.city}</span>
                   </div>
                 )}
-                {order.customer.province && (
+                {(order.customer?.province || order.shippingAddress?.province) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Provincia:</span>
-                    <span>{order.customer.province}</span>
+                    <span>{order.customer?.province || order.shippingAddress?.province}</span>
                   </div>
                 )}
-                {order.customer.deliveryInstructions && (
+                {(order.customer?.deliveryInstructions || order.shippingAddress?.instructions) && (
                   <div className="mt-2">
                     <span className="text-muted-foreground block mb-1">Instrucciones de entrega:</span>
-                    <p className="bg-muted p-2 rounded text-xs">{order.customer.deliveryInstructions}</p>
+                    <p className="bg-muted p-2 rounded text-xs">
+                      {order.customer?.deliveryInstructions || order.shippingAddress?.instructions}
+                    </p>
                   </div>
                 )}
               </>
