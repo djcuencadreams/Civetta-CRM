@@ -501,12 +501,12 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               customerId: order.customerId
             })}
             
-            {(order.customer || order.shippingAddress) ? (
+            {(order?.customer || order?.shippingAddress) ? (
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nombre:</span>
                   <span className="font-medium">
-                    {order.customer?.name || order.shippingAddress?.name || (order.customerId ? `Cliente #${order.customerId}` : 'No especificado')}
+                    {order?.customer?.name || order?.shippingAddress?.name || (order?.customerId ? `Cliente #${order.customerId}` : 'No especificado')}
                   </span>
                 </div>
                 {(order.customer?.idNumber || order.shippingAddress?.idNumber) && (

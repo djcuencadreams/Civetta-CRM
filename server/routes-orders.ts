@@ -147,37 +147,7 @@ export function registerOrderRoutes(app: Express) {
           eq(orders.id, parseInt(param))
         ),
         with: {
-          customer: {
-            columns: {
-              id: true,
-              name: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              phoneNumber: true,
-              street: true,
-              city: true,
-              province: true,
-              idNumber: true,
-              deliveryInstructions: true,
-              companyName: true,
-              createdAt: true,
-              updatedAt: true,
-              type: true,
-              source: true,
-              brand: true,
-              notes: true,
-              address: true,
-              ruc: true,
-              secondaryPhone: true,
-              tags: true,
-              totalValue: true,
-              wooCommerceId: true,
-              assignedUserId: true,
-              lastPurchase: true
-            }
-          },
+          customer: true, // Incluir TODOS los campos del cliente
           items: {
             columns: {
               id: true,
