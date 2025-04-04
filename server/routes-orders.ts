@@ -200,18 +200,46 @@ export function registerOrderRoutes(app: Express) {
         order.status = "pendiente_de_completar";
       }
 
-      // Handle undefined customer data when shipping address exists
+      // Manejar caso donde no hay cliente pero sí hay datos de envío
+      if (order && order.customerId && !order.customer) {
+        console.log(`⚠️ Orden ${order.id} tiene customerId ${order.customerId} pero no se encontró el cliente`);
+
+        // Intentar obtener el cliente directamente
+        const customer = await db.query.customers.findFirst({
+          where: eq(customers.id, order.customerId)
+        });
+
+        if (customer) {
+          console.log(`✅ Cliente ${customer.id} recuperado exitosamente`);
+          order.customer = customer;
+        }
+      }
+
+      // Si aún no hay cliente, usar datos de envío
       if (order && !order.customer && order.shippingAddress) {
+        console.log(`📦 Usando datos de envío como información del cliente para orden ${order.id}`);
+
+        // Crear objeto cliente desde shippingAddress
         order.customer = {
           id: 0,
           name: order.shippingAddress.name || "Cliente no identificado",
-          email: order.shippingAddress.email,
-          phone: order.shippingAddress.phone,
-          street: order.shippingAddress.street,
-          city: order.shippingAddress.city,
-          province: order.shippingAddress.province,
-          // Include other required fields with default values
-          ...order.shippingAddress
+          firstName: null,
+          lastName: null,
+          email: order.shippingAddress.email || null,
+          phone: order.shippingAddress.phone || null,
+          phoneNumber: order.shippingAddress.phone || null,
+          street: order.shippingAddress.street || null,
+          city: order.shippingAddress.city || null,
+          province: order.shippingAddress.province || null,
+          deliveryInstructions: order.shippingAddress.instructions || null,
+          idNumber: order.shippingAddress.idNumber || null,
+          type: "person",
+          status: "active",
+          source: order.source || "website",
+          brand: order.brand || "sleepwear",
+          notes: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
       }
 
