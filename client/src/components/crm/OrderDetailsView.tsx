@@ -6,17 +6,11 @@ import {
   Truck, 
   CreditCard, 
   User, 
-  Calendar, 
-  ShoppingCart, 
-  Tag, 
-  FileText, 
-  MapPin,
-  DollarSign,
   FileDown,
-  Loader2,
-  AlertCircle,
   AlertTriangle,
-  Info
+  Info,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -49,7 +43,7 @@ type OrderDetailsProps = {
     notes: string | null;
     createdAt: string;
     updatedAt: string;
-    wooCommerceId: number | null; 
+    wooCommerceId: number | null;
     assignedUserId?: number | null;
     shippingMethod?: string | null;
     trackingNumber?: string | null;
@@ -59,19 +53,34 @@ type OrderDetailsProps = {
     subtotal?: number;
     paymentDate?: string | null;
     isFromWebForm?: boolean;
-    shippingAddress?: Record<string, any>;
-    customer?: {
-      name: string;
-      id: number;
+    shippingAddress?: {
+      firstName?: string;
+      lastName?: string;
+      name?: string;
       email?: string;
       phone?: string;
-      phoneNumber?: string;
+      document?: string;
+      idNumber?: string;
       street?: string;
+      address?: string;
       city?: string;
       province?: string;
-      idNumber?: string;
+      instructions?: string;
       deliveryInstructions?: string;
-      companyName?: string;
+    };
+    customer?: {
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      document?: string;
+      idNumber?: string;
+      street?: string;
+      address?: string;
+      city?: string;
+      province?: string;
+      deliveryInstructions?: string;
     };
     assignedUser?: {
       id: number;
@@ -96,61 +105,99 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
   const { toast } = useToast();
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
 
-  
-  console.log('OrderDetailsView received order:', JSON.stringify(order, null, 2));
+  console.log('OrderDetailsView - Full order data:', order);
 
   if (!order) {
     return <div>No se encontró información del pedido</div>;
   }
 
-  
+  const getStatusText = (status: string): string => {
+    switch (status) {
+      case "new": return "Nuevo";
+      case "preparing": return "Preparando";
+      case "shipped": return "Enviado";
+      case "completed": return "Completado";
+      case "cancelled": return "Cancelado";
+      case "pendiente_de_completar": return "Pendiente de completar";
+      default: return status;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" | "pending" | "status" | "info" => {
+    switch (status) {
+      case "completed": return "success";
+      case "shipped": return "info";
+      case "preparing": return "pending";
+      case "new": return "status";
+      case "cancelled": return "destructive";
+      case "pendiente_de_completar": return "pending";
+      default: return "outline";
+    }
+  };
+
+  const getPaymentStatusText = (status: string): string => {
+    switch (status) {
+      case "pending": return "Pendiente";
+      case "paid": return "Pagado";
+      case "refunded": return "Reembolsado";
+      default: return status;
+    }
+  };
+
+  const getPaymentStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" => {
+    switch (status) {
+      case "paid": return "success";
+      case "pending": return "secondary";
+      case "refunded": return "destructive";
+      default: return "outline";
+    }
+  };
+
+  const formatCurrency = (amount: number | string | undefined): string => {
+    if (amount === undefined || amount === null) return '$0.00';
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '$0.00';
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(numericAmount);
+  };
+
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return 'N/A';
+    return format(new Date(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
+  };
+
+  const getSourceText = (source: string | null): string => {
+    if (!source) return 'Directo';
+    switch (source) {
+      case "direct": return "Directo";
+      case "woocommerce": return "WooCommerce";
+      case "whatsapp": return "WhatsApp";
+      case "instagram": return "Instagram";
+      case "website": return "Sitio Web";
+      default: return source;
+    }
+  };
+
+  const getBrandText = (brand: string | null): string => {
+    if (!brand) return 'No especificado';
+    switch (brand) {
+      case "sleepwear": return "Civetta Sleepwear";
+      case "bride": return "Civetta Bride";
+      default: return brand;
+    }
+  };
+
   const handleGenerateShippingLabel = async () => {
     try {
       setIsGeneratingLabel(true);
-      console.log('📦 Iniciando generación de etiqueta para pedido:', order.id);
 
-      
       if (!order.id) {
-        console.error('📦 Error: ID de pedido no válido');
         throw new Error('No se puede generar la etiqueta: ID de pedido no válido');
       }
 
-      
-      if (!order.customer) {
-        console.error('📦 Error: No hay datos del cliente para este pedido');
-        console.log('📦 Datos completos de la orden:', order);
-        throw new Error('No se puede generar la etiqueta: Falta información del cliente');
-      }
-
-      
-      const hasShippingAddress = order.shippingAddress && 
-        (order.shippingAddress.street || 
-         order.shippingAddress.address || 
-         order.shippingAddress.direccion);
-
-      const hasCustomerAddress = order.customer && 
-        order.customer.street;
-
-      if (!hasShippingAddress && !hasCustomerAddress) {
-        console.error('📦 Error: No hay dirección de envío');
-        throw new Error('No se puede generar la etiqueta: Falta dirección de envío');
-      }
-
-      
-      console.log('📦 Datos de orden disponibles:', {
-        id: order.id,
-        customerId: order.customerId,
-        orderNumber: order.orderNumber,
-        shippingAddress: order.shippingAddress,
-        customer: order.customer
-      });
-
-      
-      const endpoint = `/api/shipping/label/${order.id}`;
-      console.log('📦 Llamando al NUEVO endpoint de etiquetas:', endpoint);
-
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch(`/api/shipping/label/${order.id}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/pdf',
@@ -158,78 +205,19 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         }
       });
 
-      console.log('📦 Respuesta recibida, status:', response.status);
-      
-      const headersObj: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        headersObj[key] = value;
-      });
-      console.log('📦 Headers:', headersObj);
-
       if (!response.ok) {
-        
-        let errorDetail = '';
-        try {
-          const errorData = await response.text();
-          console.error('📦 Respuesta de error detallada:', errorData);
-          errorDetail = errorData;
-        } catch (e) {
-          console.error('📦 No se pudo leer el detalle del error:', e);
-        }
-
-        throw new Error(`Error al generar la etiqueta de envío (${response.status}): ${errorDetail}`);
+        throw new Error(`Error al generar la etiqueta de envío (${response.status})`);
       }
 
-      
-      const contentType = response.headers.get('Content-Type');
-      console.log('📦 Tipo de contenido:', contentType);
-
-      if (!contentType || !contentType.includes('application/pdf')) {
-        console.warn('📦 Advertencia: El servidor no devolvió un PDF (Content-Type: ' + contentType + ')');
-      }
-
-      
       const blob = await response.blob();
-      console.log('📦 Tamaño del blob recibido:', blob.size, 'bytes');
-
-      if (blob.size < 100) {
-        console.error('📦 Error: El blob recibido es demasiado pequeño para ser un PDF válido');
-        throw new Error('El archivo PDF generado parece estar corrupto o incompleto');
-      }
-
-      
       const url = window.URL.createObjectURL(blob);
-      console.log('📦 URL creada para el blob:', url);
-
-      
       const a = document.createElement('a');
       a.href = url;
-
-      
-      let filename = `etiqueta-envio-${order.orderNumber || order.id}.pdf`;
-      const contentDisposition = response.headers.get('Content-Disposition');
-
-      console.log('📦 Content-Disposition:', contentDisposition);
-
-      if (contentDisposition) {
-        const filenameMatch = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1].replace(/['"]/g, '');
-          console.log('📦 Nombre de archivo extraído de cabeceras:', filename);
-        }
-      }
-
-      a.download = filename;
-      console.log('📦 Iniciando descarga con nombre:', filename);
-
+      a.download = `etiqueta-envio-${order.orderNumber || order.id}.pdf`;
       document.body.appendChild(a);
       a.click();
-
-      
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
-      console.log('📦 Descarga de etiqueta completada con éxito');
 
       toast({
         title: "Etiqueta generada",
@@ -237,7 +225,6 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
       });
 
     } catch (error) {
-      console.error('📦 Error al generar etiqueta:', error);
       toast({
         title: "Error al generar etiqueta",
         description: error instanceof Error ? error.message : "Error al generar la etiqueta de envío",
@@ -248,118 +235,8 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
     }
   };
 
-  
-  const getStatusText = (status: string): string => {
-    switch (status) {
-      case "new": return "Nuevo";
-      case "preparing": return "Preparando";
-      case "shipped": return "Enviado";
-      case "completed": return "Completado";
-      case "cancelled": return "Cancelado";
-      default: return status;
-    }
-  };
-
-  
-  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" | "pending" | "status" | "info" => {
-    switch (status) {
-      case "completed": return "success";
-      case "shipped": return "info";
-      case "preparing": return "pending";
-      case "new": return "status";
-      case "cancelled": return "destructive";
-      default: return "outline";
-    }
-  };
-
-  
-  const getPaymentStatusText = (status: string): string => {
-    switch (status) {
-      case "pending": return "Pendiente";
-      case "paid": return "Pagado";
-      case "refunded": return "Reembolsado";
-      default: return status;
-    }
-  };
-
-  
-  const getPaymentStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "success" | "outline" => {
-    switch (status) {
-      case "paid": return "success";
-      case "pending": return "secondary";
-      case "refunded": return "destructive";
-      default: return "outline";
-    }
-  };
-
-  
-  const formatCurrency = (amount: number | string | undefined): string => {
-    if (amount === undefined || amount === null) return '$0.00';
-    
-    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
-    if (isNaN(numericAmount)) return '$0.00';
-
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(numericAmount);
-  };
-
-  
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'N/A';
-    return format(new Date(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
-  };
-
-  
-  const getPaymentMethodText = (method: string | null): string => {
-    if (!method) return 'No especificado';
-    switch (method) {
-      case "cash": return "Efectivo";
-      case "card": return "Tarjeta";
-      case "transfer": return "Transferencia";
-      case "paypal": return "PayPal";
-      default: return method;
-    }
-  };
-
-  
-  const getShippingMethodText = (method: string | null | undefined): string => {
-    if (!method) return 'No especificado';
-    switch (method) {
-      case "pickup": return "Retiro en tienda";
-      case "standard": return "Envío estándar";
-      case "express": return "Envío express";
-      default: return method;
-    }
-  };
-
-  
-  const getSourceText = (source: string | null): string => {
-    if (!source) return 'Directo';
-    switch (source) {
-      case "direct": return "Directo";
-      case "woocommerce": return "WooCommerce";
-      case "whatsapp": return "WhatsApp";
-      case "instagram": return "Instagram";
-      default: return source;
-    }
-  };
-
-  
-  const getBrandText = (brand: string | null): string => {
-    if (!brand) return 'No especificado';
-    switch (brand) {
-      case "sleepwear": return "Civetta Sleepwear";
-      case "bride": return "Civetta Bride";
-      default: return brand;
-    }
-  };
-
   return (
     <div className="space-y-6">
-      
       <div className="flex flex-col md:flex-row justify-between">
         <div>
           <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -376,22 +253,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
                 </Tooltip>
               </TooltipProvider>
             )}
-            {!order.items?.length && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Orden incompleta - Sin productos</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </h3>
-          <p className="text-muted-foreground">
-            Cliente: {order.customer?.name || (order.customerId ? `Cliente #${order.customerId}` : "Cliente no asignado")}
-          </p>
         </div>
         <div className="flex items-center space-x-2 mt-2 md:mt-0">
           <Badge variant={getStatusBadgeVariant(order.status)}>
@@ -405,7 +267,6 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
 
       <Separator />
 
-      
       {(order.isFromWebForm || (!order.items?.length)) && (
         <div className={cn(
           "p-4 rounded-md flex items-start gap-3 mb-4",
@@ -435,14 +296,13 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             )}>
               {!order.items?.length 
                 ? "Esta orden fue generada desde la web solo con información de envío. Por favor, completa la información del pedido."
-                : "Esta orden fue creada desde el formulario de envío en la web. Por favor complete la información faltante, especialmente los detalles de productos y el valor total."
+                : "Esta orden fue creada desde el formulario de envío en la web. Por favor complete la información faltante."
               }
             </p>
           </div>
         </div>
       )}
 
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -487,97 +347,62 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            
-            {console.log('OrderDetailsView rendering customer data:', {
-              customerData: order.customer,
-              shippingData: order.shippingAddress,
-              customerId: order.customerId
-            })}
-
-            {/* Add debug log */}
-            {console.log('OrderDetailsView rendering customer data:', {
-              customerData: order.customer,
-              shippingData: order.shippingAddress,
-              customerId: order.customerId
-            })}
-            
-            {/* Add debug log */}
-            {console.log('OrderDetailsView rendering customer data:', {
-              customerData: order.customer,
-              shippingData: order.shippingAddress,
-              customerId: order.customerId
-            })}
-            
-            {console.log('OrderDetailsView - Full order data:', order)}
-            
             {(order?.customer || order?.shippingAddress) ? (
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nombre completo:</span>
-                  <span className="font-medium">
-                    {order?.customer?.name || 
-                     `${order?.customer?.firstName || order?.shippingAddress?.firstName || ''} ${order?.customer?.lastName || order?.shippingAddress?.lastName || ''}`.trim() ||
-                     order?.shippingAddress?.name || 
-                     (order?.customerId ? `Cliente #${order.customerId}` : 'No especificado')}
+                  <span className="font-medium text-right">
+                    {`${order.customer?.firstName || order.shippingAddress?.firstName || ""} ${order.customer?.lastName || order.shippingAddress?.lastName || ""}`.trim() || "No especificado"}
                   </span>
                 </div>
-                
-                {(order?.customer?.idNumber || order?.shippingAddress?.idNumber || order?.customer?.document || order?.shippingAddress?.document) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cédula/ID:</span>
-                    <span>{order?.customer?.idNumber || order?.customer?.document || order?.shippingAddress?.idNumber || order?.shippingAddress?.document}</span>
-                  </div>
-                )}
-                
-                {(order?.customer?.email || order?.shippingAddress?.email) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span className="text-right">{order?.customer?.email || order?.shippingAddress?.email}</span>
-                  </div>
-                )}
-                
-                {(order?.customer?.phone || order?.customer?.phoneNumber || order?.shippingAddress?.phone) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Teléfono:</span>
-                    <span>{order?.customer?.phone || order?.customer?.phoneNumber || order?.shippingAddress?.phone}</span>
-                  </div>
-                )}
-                
-                {(order?.customer?.street || order?.customer?.address || order?.shippingAddress?.street || order?.shippingAddress?.address) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Dirección:</span>
-                    <span className="text-right max-w-[60%]">
-                      {order?.customer?.street || order?.customer?.address || order?.shippingAddress?.street || order?.shippingAddress?.address}
-                    </span>
-                  </div>
-                )}
-                
-                {(order?.customer?.city || order?.shippingAddress?.city) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ciudad:</span>
-                    <span>{order?.customer?.city || order?.shippingAddress?.city}</span>
-                  </div>
-                )}
-                
-                {(order?.customer?.province || order?.shippingAddress?.province) && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Provincia:</span>
-                    <span>{order?.customer?.province || order?.shippingAddress?.province}</span>
-                  </div>
-                )}
-                {(order?.customer?.deliveryInstructions || order?.shippingAddress?.instructions) && (
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Documento:</span>
+                  <span className="text-right">
+                    {order.customer?.document || order.customer?.idNumber || order.shippingAddress?.document || order.shippingAddress?.idNumber || "No especificado"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Email:</span>
+                  <span className="text-right">
+                    {order.customer?.email || order.shippingAddress?.email || "No especificado"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Teléfono:</span>
+                  <span className="text-right">
+                    {order.customer?.phone || order.shippingAddress?.phone || "No especificado"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dirección:</span>
+                  <span className="text-right max-w-[60%]">
+                    {order.customer?.address || order.customer?.street || order.shippingAddress?.address || order.shippingAddress?.street || "No especificado"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ciudad:</span>
+                  <span className="text-right">
+                    {order.customer?.city || order.shippingAddress?.city || "No especificado"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Provincia:</span>
+                  <span className="text-right">
+                    {order.customer?.province || order.shippingAddress?.province || "No especificado"}
+                  </span>
+                </div>
+
+                {(order.shippingAddress?.deliveryInstructions || order.customer?.deliveryInstructions) && (
                   <div className="mt-2">
                     <span className="text-muted-foreground block mb-1">Instrucciones de entrega:</span>
                     <p className="bg-muted p-2 rounded text-xs">
-                      {order?.customer?.deliveryInstructions || order?.shippingAddress?.instructions}
-                    </p>
-                  </div>
-                )}
-                {(order.customer?.deliveryInstructions || order.shippingAddress?.instructions) && (
-                  <div className="mt-2">
-                    <span className="text-muted-foreground block mb-1">Instrucciones de entrega:</span>
-                    <p className="bg-muted p-2 rounded text-xs">
-                      {order.customer?.deliveryInstructions || order.shippingAddress?.instructions}
+                      {order.shippingAddress?.deliveryInstructions || order.customer?.deliveryInstructions}
                     </p>
                   </div>
                 )}
@@ -585,7 +410,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             ) : (
               <div className="text-center py-2 text-yellow-600">
                 <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
-                <p>No se encontró información del cliente.</p>
+                <p>❗ No se encontró información del cliente</p>
               </div>
             )}
           </CardContent>
@@ -604,16 +429,6 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
                 {getPaymentStatusText(order.paymentStatus)}
               </Badge>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Método:</span>
-              <span>{getPaymentMethodText(order.paymentMethod)}</span>
-            </div>
-            {order.paymentDate && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Fecha de pago:</span>
-                <span>{formatDate(order.paymentDate)}</span>
-              </div>
-            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal:</span>
               <span>{formatCurrency(order.subtotal || 0)}</span>
@@ -645,7 +460,6 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         </Card>
       </div>
 
-      
       <Card>
         <CardHeader className="pb-2 flex flex-row justify-between items-center">
           <CardTitle className="text-lg flex items-center">
@@ -675,7 +489,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               variant="outline" 
               size="sm" 
               onClick={handleGenerateShippingLabel}
-              disabled={isGeneratingLabel || (!order.shippingAddress?.street && !order.customer?.street)}
+              disabled={isGeneratingLabel}
               className="flex items-center gap-2"
             >
               {isGeneratingLabel ? (
@@ -699,30 +513,21 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             shippingCost={order.shippingCost}
             estimatedDeliveryDate={null}
             status={order.status}
-            shippingAddress={
-              (order.shippingAddress as any) ? {
-                street: (order.shippingAddress as any).street || order.customer?.street || "No disponible",
-                city: (order.shippingAddress as any).city || order.customer?.city || "No disponible",
-                province: (order.shippingAddress as any).province || order.customer?.province || "No disponible",
-                country: "Ecuador",
-                postalCode: ""
-              } : {
-                street: order.customer?.street || "No disponible",
-                city: order.customer?.city || "No disponible",
-                province: order.customer?.province || "No disponible",
-                country: "Ecuador",
-                postalCode: ""
-              }
-            }
+            shippingAddress={{
+              street: order.customer?.address || order.customer?.street || order.shippingAddress?.address || order.shippingAddress?.street || "No disponible",
+              city: order.customer?.city || order.shippingAddress?.city || "No disponible",
+              province: order.customer?.province || order.shippingAddress?.province || "No disponible",
+              country: "Ecuador",
+              postalCode: ""
+            }}
           />
         </CardContent>
       </Card>
 
-      
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center">
-            <ShoppingCart className="w-5 h-5 mr-2" /> Productos
+            <Package className="w-5 h-5 mr-2" /> Productos
           </CardTitle>
         </CardHeader>
         <CardContent>
