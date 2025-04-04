@@ -110,26 +110,30 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
   // Fetch customer data if not present
   useEffect(() => {
     const fetchCustomerData = async () => {
-      // Solo cargar si hay customerId y no hay customer o si el customer está incompleto
-      if (order?.customerId && (!order.customer || !order.customer.email)) {
+      // Verificar si tenemos customerId y si necesitamos cargar el cliente
+      if (order?.customerId && (!order.customer || Object.keys(order.customer).length === 0)) {
         setIsLoadingCustomer(true);
         try {
           const response = await fetch(`/api/customers/${order.customerId}`);
           if (!response.ok) throw new Error('Failed to fetch customer');
           const customerData = await response.json();
           
-          setOrder(prev => ({
-            ...prev,
-            customer: {
-              ...customerData,
-              // Mantener datos del shippingAddress si existen
-              ...(prev.shippingAddress && {
-                address: prev.shippingAddress.street || customerData.address,
-                city: prev.shippingAddress.city || customerData.city,
-                province: prev.shippingAddress.province || customerData.province
-              })
-            }
-          }));
+          const updatedOrder = {
+            ...order,
+            customer: customerData
+          };
+
+          // Mantener datos de envío si existen
+          if (order.shippingAddress) {
+            updatedOrder.customer = {
+              ...updatedOrder.customer,
+              address: order.shippingAddress.street || customerData.address,
+              city: order.shippingAddress.city || customerData.city,
+              province: order.shippingAddress.province || customerData.province
+            };
+          }
+
+          setOrder(updatedOrder);
         } catch (error) {
           console.error('Error fetching customer:', error);
           toast({
