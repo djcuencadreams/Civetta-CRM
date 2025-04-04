@@ -508,46 +508,57 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               customerId: order.customerId
             })}
             
+            {console.log('OrderDetailsView - Full order data:', order)}
+            
             {(order?.customer || order?.shippingAddress) ? (
               <>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Nombre:</span>
+                  <span className="text-muted-foreground">Nombre completo:</span>
                   <span className="font-medium">
-                    {order?.customer?.name || order?.shippingAddress?.name || (order?.customerId ? `Cliente #${order.customerId}` : 'No especificado')}
+                    {order?.customer?.name || 
+                     `${order?.customer?.firstName || order?.shippingAddress?.firstName || ''} ${order?.customer?.lastName || order?.shippingAddress?.lastName || ''}`.trim() ||
+                     order?.shippingAddress?.name || 
+                     (order?.customerId ? `Cliente #${order.customerId}` : 'No especificado')}
                   </span>
                 </div>
-                {(order?.customer?.idNumber || order?.shippingAddress?.idNumber) && (
+                
+                {(order?.customer?.idNumber || order?.shippingAddress?.idNumber || order?.customer?.document || order?.shippingAddress?.document) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Cédula/ID:</span>
-                    <span>{order?.customer?.idNumber || order?.shippingAddress?.idNumber}</span>
+                    <span>{order?.customer?.idNumber || order?.customer?.document || order?.shippingAddress?.idNumber || order?.shippingAddress?.document}</span>
                   </div>
                 )}
+                
                 {(order?.customer?.email || order?.shippingAddress?.email) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
                     <span className="text-right">{order?.customer?.email || order?.shippingAddress?.email}</span>
                   </div>
                 )}
+                
                 {(order?.customer?.phone || order?.customer?.phoneNumber || order?.shippingAddress?.phone) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Teléfono:</span>
                     <span>{order?.customer?.phone || order?.customer?.phoneNumber || order?.shippingAddress?.phone}</span>
                   </div>
                 )}
-                {(order?.customer?.street || order?.shippingAddress?.street) && (
+                
+                {(order?.customer?.street || order?.customer?.address || order?.shippingAddress?.street || order?.shippingAddress?.address) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Dirección:</span>
                     <span className="text-right max-w-[60%]">
-                      {order?.customer?.street || order?.shippingAddress?.street}
+                      {order?.customer?.street || order?.customer?.address || order?.shippingAddress?.street || order?.shippingAddress?.address}
                     </span>
                   </div>
                 )}
+                
                 {(order?.customer?.city || order?.shippingAddress?.city) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ciudad:</span>
                     <span>{order?.customer?.city || order?.shippingAddress?.city}</span>
                   </div>
                 )}
+                
                 {(order?.customer?.province || order?.shippingAddress?.province) && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Provincia:</span>
