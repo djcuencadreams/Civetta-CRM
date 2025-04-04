@@ -101,9 +101,37 @@ type OrderDetailsProps = {
   };
 };
 
-export function OrderDetailsView({ order }: OrderDetailsProps) {
+export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
   const { toast } = useToast();
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
+  const [order, setOrder] = useState(initialOrder);
+
+  // Fetch customer data if not present
+  useEffect(() => {
+    const fetchCustomerData = async () => {
+      if (order?.customerId && !order.customer) {
+        try {
+          const response = await fetch(`/api/customers/${order.customerId}`);
+          if (!response.ok) throw new Error('Failed to fetch customer');
+          const customerData = await response.json();
+          
+          setOrder(prev => ({
+            ...prev,
+            customer: customerData
+          }));
+        } catch (error) {
+          console.error('Error fetching customer:', error);
+          toast({
+            title: "Error",
+            description: "No se pudo cargar la información del cliente",
+            variant: "destructive"
+          });
+        }
+      }
+    };
+
+    fetchCustomerData();
+  }, [order?.customerId]);
 
   console.log('OrderDetailsView - Full order data:', order);
 
@@ -380,7 +408,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Dirección:</span>
                   <span className="text-right max-w-[60%]">
-                    {order.customer?.address || order.customer?.street || order.shippingAddress?.address || order.shippingAddress?.street || "No especificado"}
+                    {order.shippingAddress?.street || order.customer?.street || order.customer?.address || "No especificado"}
                   </span>
                 </div>
 
@@ -465,7 +493,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
           <CardTitle className="text-lg flex items-center">
             <Truck className="w-5 h-5 mr-2" /> Información de Envío
           </CardTitle>
-          {!order.id ? (
+          {!order.id || (!order.shippingAddress && !order.customer) ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -480,7 +508,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Este pedido debe guardarse primero antes de generar una etiqueta</p>
+                  <p>{!order.id ? "Este pedido debe guardarse primero" : "Se requiere información de envío"} antes de generar una etiqueta</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -542,8 +570,18 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {order.items && order.items.length > 0 ? (
-                order.items.map((item) => (
+              {(!order.items || order.items.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2 text-yellow-600 dark:text-yellow-500">
+                      <AlertTriangle className="h-8 w-8" />
+                      <p className="font-medium">Orden pendiente de completar</p>
+                      <p className="text-sm text-muted-foreground">Esta orden no tiene productos agregados</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {order.items && order.items.length > 0 && order.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
                       {item.productName}
