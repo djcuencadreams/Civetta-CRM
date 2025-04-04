@@ -147,11 +147,56 @@ export function registerOrderRoutes(app: Express) {
           eq(orders.id, parseInt(param))
         ),
         with: {
-          customer: true,
-          items: true,
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              idNumber: true,
+              deliveryInstructions: true,
+              companyName: true
+            }
+          },
+          items: {
+            columns: {
+              id: true,
+              productId: true,
+              productName: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              attributes: true
+            }
+          },
           assignedUser: true
         }
       });
+
+      // Ensure order status reflects incomplete state
+      if (order && (!order.items || order.items.length === 0)) {
+        order.status = "pendiente_de_completar";
+      }
+
+      // Handle undefined customer data when shipping address exists
+      if (order && !order.customer && order.shippingAddress) {
+        order.customer = {
+          id: 0,
+          name: order.shippingAddress.name || "Cliente no identificado",
+          email: order.shippingAddress.email,
+          phone: order.shippingAddress.phone,
+          street: order.shippingAddress.street,
+          city: order.shippingAddress.city,
+          province: order.shippingAddress.province,
+          // Include other required fields with default values
+          ...order.shippingAddress
+        };
+      }
 
       // Validar estado de orden incompleta si no tiene productos
       if (order && (!order.items || order.items.length === 0) && order.shippingAddress) {

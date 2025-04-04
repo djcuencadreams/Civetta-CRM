@@ -361,6 +361,18 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
         <div>
           <h3 className="text-2xl font-bold flex items-center gap-2">
             {order.orderNumber || `ORD-${order.id ? order.id.toString().padStart(6, '0') : '000000'}`}
+            {(!order.items || order.items.length === 0) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Orden incompleta - Sin productos</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {!order.items?.length && (
               <TooltipProvider>
                 <Tooltip>
@@ -614,7 +626,7 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
               variant="outline" 
               size="sm" 
               onClick={handleGenerateShippingLabel}
-              disabled={isGeneratingLabel || (!order.shippingAddress && !order.customer?.street)}
+              disabled={isGeneratingLabel || (!order.shippingAddress?.street && !order.customer?.street)}
               className="flex items-center gap-2"
             >
               {isGeneratingLabel ? (

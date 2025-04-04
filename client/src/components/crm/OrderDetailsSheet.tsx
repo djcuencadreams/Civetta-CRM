@@ -71,7 +71,10 @@ export function OrderDetailsSheet({ orderId, onEdit }: OrderDetailsSheetProps) {
   // Cargar los detalles del pedido por ID
   const { data: order, isLoading, error } = useQuery<Order>({
     queryKey: ["/api/orders", orderId],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryFn: getQueryFn({ 
+      on401: "throw",
+      endpoint: `/api/orders/${orderId}`
+    }),
   });
 
   if (isLoading) {
