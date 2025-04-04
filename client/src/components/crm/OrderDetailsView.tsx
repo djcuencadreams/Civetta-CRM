@@ -105,11 +105,14 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
   const { toast } = useToast();
   const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
   const [order, setOrder] = useState(initialOrder);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
 
   // Fetch customer data if not present
   useEffect(() => {
     const fetchCustomerData = async () => {
-      if (order?.customerId && !order.customer) {
+      // Solo cargar si hay customerId y no hay customer o si el customer está incompleto
+      if (order?.customerId && (!order.customer || !order.customer.email)) {
+        setIsLoadingCustomer(true);
         try {
           const response = await fetch(`/api/customers/${order.customerId}`);
           if (!response.ok) throw new Error('Failed to fetch customer');
@@ -117,7 +120,15 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
           
           setOrder(prev => ({
             ...prev,
-            customer: customerData
+            customer: {
+              ...customerData,
+              // Mantener datos del shippingAddress si existen
+              ...(prev.shippingAddress && {
+                address: prev.shippingAddress.street || customerData.address,
+                city: prev.shippingAddress.city || customerData.city,
+                province: prev.shippingAddress.province || customerData.province
+              })
+            }
           }));
         } catch (error) {
           console.error('Error fetching customer:', error);
@@ -126,6 +137,8 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
             description: "No se pudo cargar la información del cliente",
             variant: "destructive"
           });
+        } finally {
+          setIsLoadingCustomer(false);
         }
       }
     };
