@@ -156,11 +156,10 @@ export class OrdersService implements Service {
    */
   async getOrderById(req: Request, res: Response): Promise<void> {
     try {
-      // Req.params ya está validado y transformado por el middleware de validación
       const { id } = req.params;
       const orderId = parseInt(id);
 
-      console.log(`Obteniendo orden con ID: ${orderId}`);
+      console.log(`[OrderService] Iniciando búsqueda de orden ID: ${orderId}`);
 
       // Usar la API de consulta de Drizzle en lugar de SQL directo
       const order = await db.query.orders.findFirst({
@@ -231,20 +230,30 @@ export class OrdersService implements Service {
         return;
       }
 
-      // Log de campos del cliente para depuración
+      // Log detallado de datos del cliente
       if (order.customer) {
-        console.log(`Datos del cliente para orden ${orderId}:`, {
+        console.log(`[OrderService] Datos completos del cliente para orden ${orderId}:`, {
           id: order.customer.id,
           name: order.customer.name,
+          firstName: order.customer.firstName,
+          lastName: order.customer.lastName,
           email: order.customer.email,
           phone: order.customer.phone,
+          phoneCountry: order.customer.phoneCountry,
+          phoneNumber: order.customer.phoneNumber,
           idNumber: order.customer.idNumber,
           street: order.customer.street,
           city: order.customer.city,
-          province: order.customer.province
+          province: order.customer.province,
+          type: order.customer.type,
+          source: order.customer.source,
+          brand: order.customer.brand
         });
       } else {
-        console.warn(`Advertencia: Orden ${orderId} no tiene cliente asociado`);
+        console.warn(`[OrderService] ⚠️ Advertencia: Orden ${orderId} no tiene cliente asociado`);
+        if (order.shippingAddress) {
+          console.log(`[OrderService] Usando datos de envío como fallback:`, order.shippingAddress);
+        }
       }
 
       res.json(order);

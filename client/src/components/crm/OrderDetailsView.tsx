@@ -397,7 +397,7 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nombre completo:</span>
                   <span className="font-medium text-right">
-                    {`${order.customer?.firstName || order.shippingAddress?.firstName || ""} ${order.customer?.lastName || order.shippingAddress?.lastName || ""}`.trim() || "No especificado"}
+                    {order.customer?.name || `${order.customer?.firstName || order.shippingAddress?.firstName || ""} ${order.customer?.lastName || order.shippingAddress?.lastName || ""}`.trim() || "No especificado"}
                   </span>
                 </div>
 
