@@ -331,48 +331,33 @@ export function registerOrderRoutes(app: Express) {
     try {
       const orderData = req.body;
       const { totalAmount, status, paymentStatus, paymentMethod, 
-              source, brand, notes, items, orderNumber, leadId } = orderData;
+              source, brand, notes, items, orderNumber, leadId, shippingAddress } = orderData;
 
-      // Variables for customer lookup/creation
       let customer = null;
-      const shippingData = orderData.shippingAddress || {};
-
-      console.log('🔍 Buscando cliente existente con datos:', {
-        idNumber: shippingData.idNumber,
-        email: shippingData.email,
-        phone: shippingData.phone
-      });
-
-      // Try to find existing customer by multiple fields
+      
+      // Buscar cliente existente por múltiples campos  (Adaptado de los cambios proporcionados)
       if (orderData.customerId) {
         customer = await db.query.customers.findFirst({
           where: eq(customers.id, orderData.customerId)
         });
-      } else if (shippingData) {
+      } else if (shippingAddress) {
         const conditions = [];
-
-        // Check by identification number
-        if (shippingData.idNumber) {
-          conditions.push(eq(customers.idNumber, shippingData.idNumber));
+        if (shippingAddress.idNumber) {
+          conditions.push(eq(customers.idNumber, shippingAddress.idNumber));
         }
-
-        // Check by email
-        if (shippingData.email) {
-          conditions.push(eq(customers.email, shippingData.email));
+        if (shippingAddress.email) {
+          conditions.push(eq(customers.email, shippingAddress.email));
         }
-
-        // Check by phone
-        if (shippingData.phone) {
-          const cleanPhone = shippingData.phone.replace(/\D/g, '');
+        if (shippingAddress.phone) {
+          const cleanPhone = shippingAddress.phone.replace(/\D/g, '');
           conditions.push(
             or(
-              eq(customers.phone, shippingData.phone),
+              eq(customers.phone, shippingAddress.phone),
               eq(customers.phone, cleanPhone),
               eq(customers.phoneNumber, cleanPhone)
             )
           );
         }
-
         if (conditions.length > 0) {
           customer = await db.query.customers.findFirst({
             where: or(...conditions)
@@ -380,20 +365,17 @@ export function registerOrderRoutes(app: Express) {
         }
       }
 
-      // If no existing customer found, create new one
-      if (!customer && shippingData.name) {
+      // Si no existe, crear nuevo cliente (Adaptado de los cambios proporcionados)
+      if (!customer && shippingAddress && shippingAddress.name) {
         console.log('👤 Creando nuevo cliente desde formulario web');
-
         const [newCustomer] = await db.insert(customers).values({
-          name: shippingData.name,
-          email: shippingData.email || null,
-          phone: shippingData.phone || null,
-          phoneNumber: shippingData.phone || null,
-          street: shippingData.street || null,
-          city: shippingData.city || null,
-          province: shippingData.province || null,
-          idNumber: shippingData.idNumber || null,
-          deliveryInstructions: shippingData.instructions || null,
+          name: shippingAddress.name,
+          email: shippingAddress.email || null,
+          phone: shippingAddress.phone || null,
+          idNumber: shippingAddress.idNumber || null,
+          street: shippingAddress.street || null,
+          city: shippingAddress.city || null,
+          province: shippingAddress.province || null,
           source: 'website',
           type: 'person',
           status: 'active',
@@ -401,7 +383,6 @@ export function registerOrderRoutes(app: Express) {
           createdAt: new Date(),
           updatedAt: new Date()
         }).returning();
-
         customer = newCustomer;
         console.log('✅ Nuevo cliente creado:', customer);
       }
@@ -415,7 +396,7 @@ export function registerOrderRoutes(app: Express) {
       const generatedOrderNumber = orderNumber || 
         `ORD-${Math.floor(Date.now() / 1000).toString(36).toUpperCase()}`;
 
-      // Crear el pedido
+      // Crear el pedido (CustomerID is now correctly assigned)
       const [newOrder] = await db.insert(orders).values({
         customerId: customer.id,
         leadId,
@@ -427,7 +408,7 @@ export function registerOrderRoutes(app: Express) {
         source: source || "website", // Default to website
         brand: brand || customer.brand,
         notes,
-        shippingAddress: shippingData,
+        shippingAddress: shippingAddress,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
