@@ -487,6 +487,13 @@ export function OrderDetailsView({ order }: OrderDetailsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            {/* Add temporary debug log */}
+            {console.log('OrderDetailsView rendering customer data:', {
+              customerData: order.customer,
+              shippingData: order.shippingAddress,
+              customerId: order.customerId
+            })}
+            
             {(order.customer || order.shippingAddress) ? (
               <>
                 <div className="flex justify-between">

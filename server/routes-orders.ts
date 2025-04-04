@@ -224,12 +224,51 @@ export function registerOrderRoutes(app: Express) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
 
-      // Log the order details for debugging
-      console.log('GET /api/orders/:id response:', JSON.stringify({
-        id: order?.id,
-        customerInfo: order?.customer,
-        hasCustomer: !!order?.customer
-      }, null, 2));
+      // Log complete order details for debugging
+      console.log('GET /api/orders/:id complete response:', {
+        orderId: order?.id,
+        orderNumber: order?.orderNumber,
+        customerId: order?.customerId,
+        hasCustomer: !!order?.customer,
+        customerFields: order?.customer ? Object.keys(order.customer) : [],
+        customer: order?.customer,
+        shippingAddress: order?.shippingAddress,
+        isWebForm: order?.isFromWebForm
+      });
+
+      // Ensure customer data is properly loaded for web form orders
+      if (order?.isFromWebForm && !order.customer && order.customerId) {
+        // Try to load customer data directly
+        const customer = await db.query.customers.findFirst({
+          where: eq(customers.id, order.customerId),
+          columns: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            phoneNumber: true,
+            street: true,
+            city: true,
+            province: true,
+            idNumber: true,
+            deliveryInstructions: true,
+            companyName: true,
+            type: true,
+            source: true,
+            brand: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        });
+
+        if (customer) {
+          order.customer = customer;
+          console.log('Loaded missing customer data for web form order:', customer);
+        }
+      }
 
       res.json(order);
     } catch (error) {
