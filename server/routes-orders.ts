@@ -151,6 +151,8 @@ export function registerOrderRoutes(app: Express) {
             columns: {
               id: true,
               name: true,
+              firstName: true,
+              lastName: true,
               email: true,
               phone: true,
               phoneNumber: true,
@@ -159,7 +161,22 @@ export function registerOrderRoutes(app: Express) {
               province: true,
               idNumber: true,
               deliveryInstructions: true,
-              companyName: true
+              companyName: true,
+              createdAt: true,
+              updatedAt: true,
+              type: true,
+              status: true,
+              source: true,
+              brand: true,
+              notes: true,
+              address: true,
+              ruc: true,
+              secondaryPhone: true,
+              tags: true,
+              totalValue: true,
+              wooCommerceId: true,
+              assignedUserId: true,
+              lastPurchase: true
             }
           },
           items: {
