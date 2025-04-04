@@ -177,118 +177,20 @@ export function registerOrderRoutes(app: Express) {
         }
       });
 
-      // Ensure order status reflects incomplete state
-      if (order && (!order.items || order.items.length === 0)) {
-        order.status = "pendiente_de_completar";
-      }
-
-      // Si no hay cliente pero hay datos de envío, crear objeto customer
-      if (order && !order.customer && order.shippingAddress) {
-        console.log('📦 Creating customer object from shipping data:', order.shippingAddress);
-
-        order.customer = {
-          id: 0,
-          name: order.shippingAddress.name || "Cliente no identificado",
-          idNumber: order.shippingAddress.idNumber || null,
-          email: order.shippingAddress.email || null,
-          phone: order.shippingAddress.phone || null,
-          phoneNumber: order.shippingAddress.phone || null,
-          street: order.shippingAddress.street || null,
-          city: order.shippingAddress.city || null,
-          province: order.shippingAddress.province || null,
-          deliveryInstructions: order.shippingAddress.instructions || null,
-          type: "person",
-          status: "active",
-          source: order.source || "website",
-          brand: order.brand || "sleepwear",
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        console.log('📦 Created customer object:', order.customer);
-      }
-
-      console.log('🔍 Order response:', {
-        orderId: order?.id,
-        orderNumber: order?.orderNumber,
-        hasCustomer: !!order?.customer,
-        customerData: order?.customer,
-        shippingData: order?.shippingAddress,
-        isWebForm: order?.isFromWebForm
-      });
-
-      // Manejar caso donde no hay cliente pero sí hay datos de envío
-      if (order && order.customerId && !order.customer) {
-        console.log(`⚠️ Orden ${order.id} tiene customerId ${order.customerId} pero no se encontró el cliente`);
-
-        // Intentar obtener el cliente directamente
-        const customer = await db.query.customers.findFirst({
-          where: eq(customers.id, order.customerId)
-        });
-
-        if (customer) {
-          console.log(`✅ Cliente ${customer.id} recuperado exitosamente`);
-          order.customer = customer;
-        }
-      }
-
-      // Si aún no hay cliente, usar datos de envío
-      if (order && !order.customer && order.shippingAddress) {
-        console.log(`📦 Usando datos de envío como información del cliente para orden ${order.id}`);
-
-        // Crear objeto cliente desde shippingAddress con todos los campos posibles
-        order.customer = {
-          id: 0,
-          name: order.shippingAddress.name || "Cliente no identificado",
-          firstName: order.shippingAddress.firstName || null,
-          lastName: order.shippingAddress.lastName || null,
-          email: order.shippingAddress.email || null,
-          phone: order.shippingAddress.phone || null,
-          phoneNumber: order.shippingAddress.phone || null,
-          street: order.shippingAddress.street || null,
-          city: order.shippingAddress.city || null,
-          province: order.shippingAddress.province || null,
-          deliveryInstructions: order.shippingAddress.instructions || null,
-          idNumber: order.shippingAddress.idNumber || null,
-          companyName: order.shippingAddress.companyName || null,
-          type: "person",
-          status: "active",
-          source: order.source || "website",
-          brand: order.brand || "sleepwear",
-          notes: null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        // Log para debug
-        console.log('📦 Cliente creado desde shippingAddress:', order.customer);
-      }
-
-      // Validar estado de orden incompleta si no tiene productos
-      if (order && (!order.items || order.items.length === 0) && order.shippingAddress) {
-        order.status = "pendiente_de_completar";
-      }
-
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
 
-      // Log completo para debugging
-      console.log('GET /api/orders/:id complete response:', {
-        orderId: order?.id,
-        orderNumber: order?.orderNumber,
-        customerId: order?.customerId,
-        hasCustomer: !!order?.customer,
-        customerFields: order?.customer ? Object.keys(order.customer) : [],
-        customer: order?.customer,
-        shippingAddress: order?.shippingAddress,
-        isWebForm: order?.isFromWebForm
-      });
+      // Ensure order status reflects incomplete state
+      if (!order.items || order.items.length === 0) {
+        order.status = "pendiente_de_completar";
+      }
 
-      // Ensure customer data is properly loaded for web form orders
-      if (order?.isFromWebForm && !order.customer && order.customerId) {
-        // Try to load customer data directly
-        const customer = await db.query.customers.findFirst({
+      // If order has customerId but no customer data, force fetch it
+      if (order.customerId && !order.customer) {
+        console.log(`⚠️ Order ${order.id} has customerId ${order.customerId} but no customer data, fetching...`);
+        
+        order.customer = await db.query.customers.findFirst({
           where: eq(customers.id, order.customerId),
           columns: {
             id: true,
@@ -302,7 +204,7 @@ export function registerOrderRoutes(app: Express) {
             city: true,
             province: true,
             idNumber: true,
-            deliveryInstructions: true,
+            deliveryInstructions: true, 
             companyName: true,
             type: true,
             source: true,
@@ -313,13 +215,29 @@ export function registerOrderRoutes(app: Express) {
           }
         });
 
-        if (customer) {
-          order.customer = customer;
-          console.log('Loaded missing customer data for web form order:', customer);
+        if (order.customer) {
+          console.log(`✅ Customer ${order.customer.id} data retrieved successfully`);
         }
       }
 
-      res.json(order);
+      // Remove any fake customer data from shippingAddress
+      if (!order.customerId) {
+        order.customer = null;
+      }
+
+      console.log('GET /api/orders/:id response:', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.customerId,
+        hasCustomer: !!order.customer,
+        shippingAddress: order.shippingAddress,
+        isWebForm: order.isFromWebForm
+      });
+
+      res.json({
+        ...order,
+        customer: order.customer || null
+      });
     } catch (error) {
       console.error("Error fetching order:", error);
       res.status(500).json({ error: "Error al obtener el pedido" });
