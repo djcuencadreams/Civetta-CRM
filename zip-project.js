@@ -1,4 +1,3 @@
-
 /**
  * Civetta-CRM Extended Backup Script
  * 
@@ -35,7 +34,7 @@ function getGitCommitInfo() {
     const authorName = execSync('git log -1 --pretty=%an').toString().trim();
     const authorEmail = execSync('git log -1 --pretty=%ae').toString().trim();
     const date = execSync('git log -1 --pretty=%cd --date=iso').toString().trim();
-    
+
     return {
       hash,
       shortHash,
@@ -61,14 +60,14 @@ function ensureBackupDirectory() {
 function deleteOldBackups() {
   const files = fs.readdirSync(BACKUP_DIR);
   let deletedCount = 0;
-  
+
   for (const file of files) {
     if (file.endsWith('.zip')) {
       fs.unlinkSync(path.join(BACKUP_DIR, file));
       deletedCount++;
     }
   }
-  
+
   if (deletedCount > 0) {
     console.log(`Deleted ${deletedCount} previous backup file(s)`);
   }
@@ -78,7 +77,7 @@ function deleteOldBackups() {
 function createProjectInfoFile(commitInfo) {
   const now = new Date();
   const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  
+
   const content = `CIVETTA-CRM PROJECT BACKUP
 
 PROJECT INFORMATION
@@ -117,7 +116,7 @@ Backup generated: ${ecuadorTime.toISOString()} (Ecuador Time)
 // Function to check if a file/directory should be excluded from the backup
 function shouldExclude(filePath) {
   const fileName = path.basename(filePath);
-  
+
   // Critical directories to exclude
   const excludedDirs = [
     'node_modules',
@@ -173,17 +172,17 @@ function shouldExclude(filePath) {
 // Function to add a directory to the zip archive
 function addDirectoryToZip(archive, dirPath, parentPath = '') {
   const items = fs.readdirSync(dirPath);
-  
+
   for (const item of items) {
     const fullPath = path.join(dirPath, item);
     const zipPath = path.join(parentPath, item);
-    
+
     if (shouldExclude(fullPath)) {
       continue;
     }
-    
+
     const stat = fs.statSync(fullPath);
-    
+
     if (stat.isDirectory()) {
       // Recursively add subdirectories
       addDirectoryToZip(archive, fullPath, zipPath);
@@ -194,43 +193,51 @@ function addDirectoryToZip(archive, dirPath, parentPath = '') {
   }
 }
 
+// Function to create documentation (placeholder -  needs implementation)
+function createProjectDocs() {
+  // Add your documentation generation logic here.  This is a placeholder.
+  console.log('Generating project documentation...');
+  // Example:  fs.writeFileSync('docs/README.md', '# Project Documentation');
+}
+
+
 // Main function to create the backup
 async function createProjectBackup() {
   try {
     console.log('Starting comprehensive project backup...');
-    
+
     // Get git commit information
     const commitInfo = getGitCommitInfo();
-    
+
     // Ensure backup directory exists
     ensureBackupDirectory();
-    
+
     // Delete old backups
     deleteOldBackups();
-    
+
     // Generate backup filename with date and commit hash (Ecuador timezone UTC-5)
     const now = new Date();
     const ecuadorTime = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-    
+
     const year = ecuadorTime.getUTCFullYear();
     const month = String(ecuadorTime.getUTCMonth() + 1).padStart(2, '0');
     const day = String(ecuadorTime.getUTCDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
-    
+
     const hours = String(ecuadorTime.getUTCHours()).padStart(2, '0');
     const minutes = String(ecuadorTime.getUTCMinutes()).padStart(2, '0');
     const seconds = String(ecuadorTime.getUTCSeconds()).padStart(2, '0');
     const timeStr = `${hours}-${minutes}-${seconds}`;
-    
+
     const backupFileName = `backup_${dateStr}_${timeStr}_${commitInfo.shortHash}.zip`;
     const backupFilePath = path.join(BACKUP_DIR, backupFileName);
-    
+
     // Create a file stream for the backup file
     const output = fs.createWriteStream(backupFilePath);
     const archive = archiver('zip', {
       zlib: { level: 9 } // Maximum compression
     });
-    
+
     // Listen for archive warnings
     archive.on('warning', (err) => {
       if (err.code === 'ENOENT') {
@@ -239,26 +246,57 @@ async function createProjectBackup() {
         throw err;
       }
     });
-    
+
     // Listen for archive errors
     archive.on('error', (err) => {
       throw err;
     });
-    
+
     // Pipe archive data to the file
     archive.pipe(output);
-    
+
     // Create and add project info file
     const projectInfoPath = createProjectInfoFile(commitInfo);
     archive.file(projectInfoPath, { name: 'project-info.txt' });
-    
+
+    // Create documentation
+    createProjectDocs();
+
+    // Add source maps and TypeScript config
+    const additionalFiles = [
+      '.env.example',
+      'tsconfig.json',
+      'drizzle.config.ts',
+      'jest.config.js',
+      'tailwind.config.ts',
+      'docs/**/*',
+      'migrations/**/*',
+      '__tests__/**/*',
+      'scripts/**/*'
+    ];
+
+    additionalFiles.forEach(file => {
+      try {
+        const fullPath = path.resolve(file);
+        const stats = fs.statSync(fullPath);
+        if(stats.isFile()){
+          archive.file(fullPath, { name: file });
+        } else if (stats.isDirectory()){
+          addDirectoryToZip(archive, fullPath, file);
+        }
+      } catch (error) {
+          console.warn(`Warning: Could not add file or directory "${file}" to backup:`, error);
+      }
+    });
+
+
     // Add all project files to the archive
     console.log('Adding project files to backup...');
     addDirectoryToZip(archive, '.');
-    
+
     // Finalize the archive
     await archive.finalize();
-    
+
     // Wait for the output stream to finish
     await new Promise((resolve, reject) => {
       output.on('close', () => {
@@ -266,16 +304,16 @@ async function createProjectBackup() {
         if (fs.existsSync(projectInfoPath)) {
           fs.unlinkSync(projectInfoPath);
         }
-        
+
         const finalSize = (archive.pointer() / 1024 / 1024).toFixed(2);
         console.log(`✅ Backup completo generado: ${BACKUP_DIR}/${backupFileName} (${finalSize} MB)`);
-        
+
         resolve();
       });
-      
+
       output.on('error', reject);
     });
-    
+
   } catch (error) {
     console.error('Error creating backup:', error);
     process.exit(1);
