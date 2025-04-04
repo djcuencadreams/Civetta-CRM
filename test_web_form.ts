@@ -16,7 +16,8 @@ async function testWebFormOrder() {
         province: "Guayas",
         instructions: "Edificio WTC piso 8, oficina 802",
         phone: "0987654321",
-        email: "mprueba@test.com"
+        email: "mprueba@test.com",
+        idNumber: "0923456789"
       },
       source: "website",
       brand: "sleepwear",
