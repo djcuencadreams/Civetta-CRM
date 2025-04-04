@@ -10,7 +10,7 @@ import { z } from "zod";
 
 // Schema de validación para creación/actualización de pedidos
 const orderSchema = z.object({
-  customerId: z.number().min(1, { message: "El ID del cliente es requerido" }),
+  customerId: z.number().min(1, { message: "El ID del cliente es requerido" }).optional(),
   leadId: z.number().nullable().optional(),
   orderNumber: z.string().nullable().optional(),
   totalAmount: z.number().min(0),
@@ -31,6 +31,19 @@ const orderSchema = z.object({
       subtotal: z.number().min(0),
     })
   ),
+  shippingAddress: z.object({
+    name: z.string().optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().optional(),
+    province: z.string().optional(),
+    idNumber: z.string().optional(),
+    instructions: z.string().optional(),
+    companyName: z.string().optional()
+  }).optional()
 });
 
 // Schema para actualización de estado
@@ -172,7 +185,7 @@ export function registerOrderRoutes(app: Express) {
       // Si no hay cliente pero hay datos de envío, crear objeto customer
       if (order && !order.customer && order.shippingAddress) {
         console.log('📦 Creating customer object from shipping data:', order.shippingAddress);
-        
+
         order.customer = {
           id: 0,
           name: order.shippingAddress.name || "Cliente no identificado",
@@ -316,16 +329,86 @@ export function registerOrderRoutes(app: Express) {
   // Crear un nuevo pedido
   app.post("/api/orders", validateBody(orderSchema), async (req: Request, res: Response) => {
     try {
-      const { customerId, totalAmount, status, paymentStatus, paymentMethod, 
-              source, brand, notes, items, orderNumber, leadId } = req.body;
+      const orderData = req.body;
+      const { totalAmount, status, paymentStatus, paymentMethod, 
+              source, brand, notes, items, orderNumber, leadId } = orderData;
 
-      // Verificar que el cliente existe
-      const customer = await db.query.customers.findFirst({
-        where: eq(customers.id, customerId),
+      // Variables for customer lookup/creation
+      let customer = null;
+      const shippingData = orderData.shippingAddress || {};
+
+      console.log('🔍 Buscando cliente existente con datos:', {
+        idNumber: shippingData.idNumber,
+        email: shippingData.email,
+        phone: shippingData.phone
       });
 
+      // Try to find existing customer by multiple fields
+      if (orderData.customerId) {
+        customer = await db.query.customers.findFirst({
+          where: eq(customers.id, orderData.customerId)
+        });
+      } else if (shippingData) {
+        const conditions = [];
+
+        // Check by identification number
+        if (shippingData.idNumber) {
+          conditions.push(eq(customers.idNumber, shippingData.idNumber));
+        }
+
+        // Check by email
+        if (shippingData.email) {
+          conditions.push(eq(customers.email, shippingData.email));
+        }
+
+        // Check by phone
+        if (shippingData.phone) {
+          const cleanPhone = shippingData.phone.replace(/\D/g, '');
+          conditions.push(
+            or(
+              eq(customers.phone, shippingData.phone),
+              eq(customers.phone, cleanPhone),
+              eq(customers.phoneNumber, cleanPhone)
+            )
+          );
+        }
+
+        if (conditions.length > 0) {
+          customer = await db.query.customers.findFirst({
+            where: or(...conditions)
+          });
+        }
+      }
+
+      // If no existing customer found, create new one
+      if (!customer && shippingData.name) {
+        console.log('👤 Creando nuevo cliente desde formulario web');
+
+        const [newCustomer] = await db.insert(customers).values({
+          name: shippingData.name,
+          email: shippingData.email || null,
+          phone: shippingData.phone || null,
+          phoneNumber: shippingData.phone || null,
+          street: shippingData.street || null,
+          city: shippingData.city || null,
+          province: shippingData.province || null,
+          idNumber: shippingData.idNumber || null,
+          deliveryInstructions: shippingData.instructions || null,
+          source: 'website',
+          type: 'person',
+          status: 'active',
+          brand: orderData.brand || 'sleepwear',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).returning();
+
+        customer = newCustomer;
+        console.log('✅ Nuevo cliente creado:', customer);
+      }
+
       if (!customer) {
-        return res.status(400).json({ error: "El cliente especificado no existe" });
+        res.status(400).json({ error: "No se pudo encontrar o crear el cliente" });
+        return;
       }
 
       // Generar número de pedido si no se proporcionó
@@ -334,16 +417,17 @@ export function registerOrderRoutes(app: Express) {
 
       // Crear el pedido
       const [newOrder] = await db.insert(orders).values({
-        customerId,
+        customerId: customer.id,
         leadId,
         orderNumber: generatedOrderNumber,
         totalAmount,
-        status,
+        status: status || "pendiente_de_completar", // Default to pending
         paymentStatus,
         paymentMethod,
-        source: source || "direct",
+        source: source || "website", // Default to website
         brand: brand || customer.brand,
         notes,
+        shippingAddress: shippingData,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
