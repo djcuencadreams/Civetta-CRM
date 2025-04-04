@@ -165,7 +165,6 @@ export function registerOrderRoutes(app: Express) {
               createdAt: true,
               updatedAt: true,
               type: true,
-              status: true,
               source: true,
               brand: true,
               notes: true,
@@ -252,7 +251,7 @@ export function registerOrderRoutes(app: Express) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
 
-      // Log complete order details for debugging
+      // Log completo para debugging
       console.log('GET /api/orders/:id complete response:', {
         orderId: order?.id,
         orderNumber: order?.orderNumber,
@@ -462,7 +461,29 @@ export function registerOrderRoutes(app: Express) {
       const updatedOrder = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: true,
+          customer: {
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              phoneNumber: true,
+              street: true,
+              city: true,
+              province: true,
+              idNumber: true,
+              deliveryInstructions: true,
+              companyName: true,
+              type: true,
+              source: true,
+              brand: true,
+              notes: true,
+              createdAt: true,  
+              updatedAt: true
+            }
+          },
           items: true,
         },
       });
