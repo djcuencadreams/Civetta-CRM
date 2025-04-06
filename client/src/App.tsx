@@ -1,7 +1,8 @@
 import React from 'react'
 import { useState } from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
+import { PublicShell } from './components/layout/PublicShell'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -19,13 +20,37 @@ import OpportunitiesNew from './pages/opportunities/new'
 import OpportunityDetail from './pages/opportunities/[id]'
 import Interactions from './pages/interactions'
 import Activities from './pages/activities'
-import ShippingForm from './pages/shipping-form'
 import NotFound from './pages/not-found'
+import ShippingFormLegacy from './pages/shipping-form'
+
+// Public pages
+import PublicEtiqueta from './pages/etiqueta'
 
 function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
 
+  // Check if the route is a public route
+  const [location] = useLocation();
+  const isPublicRoute = location === '/etiqueta';
+
+  // For public routes, use PublicShell without sidebar
+  if (isPublicRoute) {
+    return (
+      <PublicShell>
+        <Switch>
+          <Route path="/etiqueta">
+            <PublicEtiqueta />
+          </Route>
+          <Route>
+            <NotFound />
+          </Route>
+        </Switch>
+      </PublicShell>
+    );
+  }
+
+  // For CRM routes, use regular Shell with sidebar
   return (
     <Shell>
       <Switch>
@@ -75,7 +100,7 @@ function App() {
           <Activities />
         </Route>
         <Route path="/shipping-form">
-          <ShippingForm />
+          <ShippingFormLegacy />
         </Route>
         <Route>
           <NotFound />

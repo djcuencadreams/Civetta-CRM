@@ -43,7 +43,7 @@ export function ShippingLabelForm() {
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchIdentifier, setSearchIdentifier] = useState("");
-  const [searchType, setSearchType] = useState<"idNumber" | "email" | "phone">("idNumber");
+  const [searchType, setSearchType] = useState<"identification" | "email" | "phone">("identification");
 
   // Definir el formulario con valores por defecto
   const form = useForm<ShippingFormValues>({
@@ -85,7 +85,7 @@ export function ShippingLabelForm() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          identifier: searchIdentifier,
+          query: searchIdentifier,
           type: searchType
         })
       });
@@ -93,17 +93,19 @@ export function ShippingLabelForm() {
       const data = await response.json();
       console.log("Resultado búsqueda:", data);
 
-      if (data.success && data.exists && data.customer) {
+      if (data.found && data.customer) {
+        // Extraer nombre completo y dividirlo en primer nombre y apellidos
+        const nameParts = data.customer.name.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ');
+        
         // Llenar el formulario con los datos del cliente
-        form.setValue('firstName', data.customer.firstName);
-        form.setValue('lastName', data.customer.lastName);
+        form.setValue('firstName', firstName);
+        form.setValue('lastName', lastName);
         form.setValue('phone', data.customer.phone || '');
         form.setValue('email', data.customer.email || '');
-        form.setValue('street', data.customer.street || '');
-        form.setValue('city', data.customer.city || '');
-        form.setValue('province', data.customer.province || '');
         form.setValue('idNumber', data.customer.idNumber || '');
-
+        
         toast({
           title: "Cliente encontrado",
           description: "Los datos del cliente han sido cargados automáticamente",
@@ -217,13 +219,13 @@ export function ShippingLabelForm() {
             <div className="flex flex-col md:flex-row gap-2">
               <Select
                 value={searchType}
-                onValueChange={(value) => setSearchType(value as "idNumber" | "email" | "phone")}
+                onValueChange={(value) => setSearchType(value as "identification" | "email" | "phone")}
               >
                 <SelectTrigger className="w-full md:w-[180px]">
                   <SelectValue placeholder="Buscar por" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="idNumber">Cédula/Pasaporte</SelectItem>
+                  <SelectItem value="identification">Cédula/Pasaporte</SelectItem>
                   <SelectItem value="email">Email</SelectItem>
                   <SelectItem value="phone">Teléfono</SelectItem>
                 </SelectContent>

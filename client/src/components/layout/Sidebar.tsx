@@ -1,5 +1,5 @@
 import { FileDown, LayoutDashboard, Users, DollarSign, Settings, Menu, BarChart, 
-  PieChart, LineChart, TrendingUp, ShoppingCart, Package, Kanban, MessageSquare, CalendarDays, PackageCheck } from "lucide-react";
+  PieChart, LineChart, TrendingUp, ShoppingCart, Package, Kanban, MessageSquare, CalendarDays } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "../../hooks/use-is-mobile";
@@ -46,11 +46,7 @@ const navigation = [
     label: "Calendario",
     icon: CalendarDays
   },
-  {
-    href: "/shipping-form",
-    label: "Etiquetas de Envío",
-    icon: PackageCheck
-  },
+
   {
     href: "/products",
     label: "Productos",
