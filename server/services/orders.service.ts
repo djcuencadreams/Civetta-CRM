@@ -5,6 +5,7 @@ import {
   orderItems, 
   customers, 
   products, 
+  leads,
   orderStatusEnum, 
   paymentStatusEnum, 
   paymentMethodEnum, 
@@ -161,12 +162,15 @@ export class OrdersService implements Service {
 
       console.log(`[OrderService] Iniciando búsqueda de orden ID: ${orderId}`);
 
-      // Usar la API de consulta de Drizzle en lugar de SQL directo
+      // Usar la API de consulta de Drizzle para obtener el pedido con sus relaciones
+      // Según el flujo de negocio, un pedido solo debe asociarse a un cliente (no a un lead)
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          // Incluir TODOS los campos del cliente
+          // Incluir todos los campos del cliente
           customer: true, 
+          // No incluimos lead si ya existe un cliente asociado
+          // lead: true, (Comentado intencionalmente) 
           items: {
             columns: {
               id: true,
@@ -183,54 +187,101 @@ export class OrdersService implements Service {
         }
       });
 
-      // Log completo de la orden para depuración
-      console.log(`Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
-
-      // Handle undefined customer
-      if (order && !order.customer && order.shippingAddress) {
-        // Crear un objeto cliente con todos los campos requeridos con valores predeterminados
-        order.customer = {
-          id: 0,
-          name: "Cliente no identificado",
-          firstName: null,
-          lastName: null,
-          email: null,
-          phone: null,
-          phoneCountry: null,
-          phoneNumber: null,
-          street: null,
-          city: null,
-          province: null,
-          deliveryInstructions: null,
-          idNumber: null,
-          type: null,
-          status: null,
-          source: null,
-          brand: null,
-          notes: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          address: null,
-          ruc: null,
-          secondaryPhone: null,
-          billingAddress: {},
-          tags: [],
-          totalValue: "0",
-          assignedUserId: null,
-          wooCommerceId: null,
-          lastPurchase: null,
-          // Agregar datos de shippingAddress
-          ...(typeof order.shippingAddress === 'object' ? order.shippingAddress : {})
-        };
-      }
-
       if (!order) {
         console.error(`No se encontró la orden con ID ${orderId}`);
         res.status(404).json({ error: "Order not found" });
         return;
       }
 
-      // Log detallado de datos del cliente
+      // Log completo de la orden para depuración
+      console.log(`[OrderService] Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
+
+      // Verificamos si la orden tiene la propiedad leadId pero NO tiene cliente asociado
+      // Esto no debería suceder según la lógica de negocio, pero lo manejamos por si acaso
+      if (order.leadId && !order.customer) {
+        console.warn(`[OrderService] ⚠️ Advertencia: Orden ${orderId} tiene leadId pero no customerId. Buscando datos del lead...`);
+        
+        // Buscamos el lead para obtener información
+        const lead = await db.query.leads.findFirst({
+          where: eq(leads.id, order.leadId)
+        });
+        
+        if (lead) {
+          console.log(`[OrderService] ⚠️ Encontrado lead ID ${lead.id} para orden sin cliente. Este es un caso excepcional.`);
+          // No creamos un cliente falso, porque esto contradice la lógica de negocio
+          // En su lugar, registramos esta situación anómala
+        }
+      }
+
+      // Si la orden tiene customerId y leadId, priorizamos los datos del cliente
+      // y eliminamos cualquier referencia al lead para evitar confusiones
+      if (order.customerId && order.leadId) {
+        console.log(`[OrderService] Orden ${orderId} tiene tanto customerId (${order.customerId}) como leadId (${order.leadId}). Priorizando datos del cliente.`);
+        
+        // Eliminar la referencia al lead, ya que según la lógica de negocio
+        // los pedidos deben asociarse únicamente a clientes
+        order.leadId = null;
+      }
+
+      // Handle undefined customer (caso improbable pero manejado por completitud)
+      if (order && !order.customer && order.shippingAddress) {
+        console.warn(`[OrderService] ⚠️ Advertencia crítica: Orden ${orderId} no tiene cliente asociado a pesar de tener customerId ${order.customerId}`);
+        
+        // Obtener el cliente directamente
+        if (order.customerId) {
+          const customer = await db.query.customers.findFirst({
+            where: eq(customers.id, order.customerId)
+          });
+          
+          if (customer) {
+            console.log(`[OrderService] Recuperado cliente ID ${customer.id} directamente de la tabla customers`);
+            order.customer = customer;
+          } else {
+            console.error(`[OrderService] 🚨 Error: No se encontró cliente con ID ${order.customerId} en la base de datos`);
+          }
+        }
+        
+        // Si aún no tenemos cliente, usamos los datos de envío como última opción
+        if (!order.customer) {
+          console.warn(`[OrderService] Usando datos de shippingAddress como último recurso para orden ${orderId}`);
+          // Crear un objeto cliente con datos mínimos
+          order.customer = {
+            id: 0,
+            name: "Cliente no identificado",
+            firstName: null,
+            lastName: null,
+            email: null,
+            phone: null,
+            phoneCountry: null,
+            phoneNumber: null,
+            street: null,
+            city: null,
+            province: null,
+            deliveryInstructions: null,
+            idNumber: null,
+            type: null,
+            status: null,
+            source: null,
+            brand: null,
+            notes: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            address: null,
+            ruc: null,
+            secondaryPhone: null,
+            billingAddress: {},
+            tags: [],
+            totalValue: "0",
+            assignedUserId: null,
+            wooCommerceId: null,
+            lastPurchase: null,
+            // Agregar datos de shippingAddress
+            ...(typeof order.shippingAddress === 'object' ? order.shippingAddress : {})
+          };
+        }
+      }
+
+      // Log detallado de datos del cliente para verificar que los datos sean correctos
       if (order.customer) {
         console.log(`[OrderService] Datos completos del cliente para orden ${orderId}:`, {
           id: order.customer.id,
@@ -250,10 +301,7 @@ export class OrdersService implements Service {
           brand: order.customer.brand
         });
       } else {
-        console.warn(`[OrderService] ⚠️ Advertencia: Orden ${orderId} no tiene cliente asociado`);
-        if (order.shippingAddress) {
-          console.log(`[OrderService] Usando datos de envío como fallback:`, order.shippingAddress);
-        }
+        console.error(`[OrderService] 🚨 Error crítico: Orden ${orderId} no tiene cliente asociado después de intentar recuperarlo`);
       }
 
       res.json(order);
@@ -319,10 +367,14 @@ export class OrdersService implements Service {
       const orderNumber = orderDetails.orderNumber || this.generateOrderNumber();
       console.log(`Creating order with number: ${orderNumber} for customer ID: ${customerId}`);
 
-      // Create the order
+      // Create the order - Nunca guardar leadId si existe customerId (lógica de negocio)
+      const leadIdValue = orderDetails.leadId && !customerId ? orderDetails.leadId : null;
+      
+      console.log(`[OrderService] Creando orden con número ${orderNumber}: customerId=${customerId}, leadId establecido a ${leadIdValue} (valor proporcionado: ${orderDetails.leadId || 'null'})`);
+      
       const [order] = await db.insert(orders).values({
         customerId,
-        leadId: orderDetails.leadId || null,
+        leadId: leadIdValue, // Null si hay customerId
         orderNumber: orderNumber,
         totalAmount,
         status: orderDetails.status || 'new',
@@ -468,10 +520,16 @@ export class OrdersService implements Service {
       }
 
       // Actualizar el pedido usando Drizzle ORM
+      // Si tenemos customerId, establecemos leadId a null según la lógica de negocio
+      // Los pedidos deben asociarse únicamente a clientes (no a leads)
+      const leadIdValue = customerId ? null : (orderDetails.leadId ?? existingOrder.leadId);
+      
+      console.log(`[OrderService] Actualizando orden ${orderId}: customerId=${customerId}, leadId establecido a ${leadIdValue} (valor original: ${existingOrder.leadId})`);
+      
       const [updatedOrder] = await db.update(orders)
         .set({
           customerId,
-          leadId: orderDetails.leadId ?? existingOrder.leadId,
+          leadId: leadIdValue, // Si hay cliente, no debe haber lead
           orderNumber: orderDetails.orderNumber ?? existingOrder.orderNumber,
           totalAmount,
           status: orderDetails.status ?? existingOrder.status,
