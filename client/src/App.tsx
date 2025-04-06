@@ -2,7 +2,7 @@ import React from 'react'
 import { useState } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
-import { PublicShell } from './components/layout/PublicShell'
+import { EmbedShell } from './components/layout/EmbedShell'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -21,32 +21,31 @@ import OpportunityDetail from './pages/opportunities/[id]'
 import Interactions from './pages/interactions'
 import Activities from './pages/activities'
 import NotFound from './pages/not-found'
-import ShippingFormLegacy from './pages/shipping-form'
 
-// Public pages
-import PublicEtiqueta from './pages/etiqueta'
+// Embed pages
+import EmbedShippingForm from './pages/embed/shipping-form'
 
 function App() {
   // Simple state to test useState initialization
   const [count, setCount] = useState(0)
 
-  // Check if the route is a public route
+  // Check if the route is an embeddable route
   const [location] = useLocation();
-  const isPublicRoute = location === '/etiqueta';
+  const isEmbedRoute = location.startsWith('/embed/');
 
-  // For public routes, use PublicShell without sidebar
-  if (isPublicRoute) {
+  // For embeddable routes, use EmbedShell without any chrome
+  if (isEmbedRoute) {
     return (
-      <PublicShell>
+      <EmbedShell>
         <Switch>
-          <Route path="/etiqueta">
-            <PublicEtiqueta />
+          <Route path="/embed/shipping-form">
+            <EmbedShippingForm />
           </Route>
           <Route>
             <NotFound />
           </Route>
         </Switch>
-      </PublicShell>
+      </EmbedShell>
     );
   }
 
@@ -98,9 +97,6 @@ function App() {
         </Route>
         <Route path="/activities">
           <Activities />
-        </Route>
-        <Route path="/shipping-form">
-          <ShippingFormLegacy />
         </Route>
         <Route>
           <NotFound />

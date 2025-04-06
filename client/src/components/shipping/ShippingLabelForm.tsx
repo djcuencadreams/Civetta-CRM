@@ -19,6 +19,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+// Lista de provincias de Ecuador
+const provinciasEcuador = [
+  "Azuay",
+  "Bolívar",
+  "Cañar",
+  "Carchi",
+  "Chimborazo",
+  "Cotopaxi",
+  "El Oro",
+  "Esmeraldas",
+  "Galápagos",
+  "Guayas",
+  "Imbabura",
+  "Loja",
+  "Los Ríos",
+  "Manabí",
+  "Morona Santiago",
+  "Napo",
+  "Orellana",
+  "Pastaza",
+  "Pichincha",
+  "Santa Elena",
+  "Santo Domingo de los Tsáchilas",
+  "Sucumbíos",
+  "Tungurahua",
+  "Zamora Chinchipe"
+];
 
 // Esquema para validar el formulario
 const shippingFormSchema = z.object({
@@ -30,9 +59,7 @@ const shippingFormSchema = z.object({
   province: z.string().min(2, { message: "La provincia es requerida" }),
   phone: z.string().min(5, { message: "El teléfono es requerido" }),
   email: z.string().email({ message: "Correo electrónico inválido" }).optional().nullable(),
-  companyName: z.string().optional(),
   deliveryInstructions: z.string().optional(),
-  orderNumber: z.string().optional(),
   saveToDatabase: z.boolean().default(false)
 });
 
@@ -44,6 +71,7 @@ export function ShippingLabelForm() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchIdentifier, setSearchIdentifier] = useState("");
   const [searchType, setSearchType] = useState<"identification" | "email" | "phone">("identification");
+  const [customerType, setCustomerType] = useState<"existing" | "new">("new");
 
   // Definir el formulario con valores por defecto
   const form = useForm<ShippingFormValues>({
@@ -57,9 +85,7 @@ export function ShippingLabelForm() {
       province: "",
       phone: "",
       email: "",
-      companyName: "Civetta",
       deliveryInstructions: "",
-      orderNumber: "",
       saveToDatabase: true
     }
   });
@@ -144,9 +170,9 @@ export function ShippingLabelForm() {
         city: data.city,
         province: data.province,
         idNumber: data.idNumber,
-        companyName: data.companyName,
+        companyName: "Civetta", // Valor predeterminado
         deliveryInstructions: data.deliveryInstructions,
-        orderNumber: data.orderNumber,
+        orderNumber: "", // Valor vacío predeterminado
         saveToDatabase: data.saveToDatabase
       };
 
@@ -209,48 +235,68 @@ export function ShippingLabelForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Buscador de cliente */}
+        {/* Selección de tipo de cliente */}
         <Card className="mb-6 bg-muted/40">
           <CardContent className="p-4">
-            <h3 className="font-medium mb-2 text-primary">Buscar cliente existente</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Si el cliente ya existe, puede buscar sus datos para completar el formulario automáticamente.
-            </p>
-            <div className="flex flex-col md:flex-row gap-2">
-              <Select
-                value={searchType}
-                onValueChange={(value) => setSearchType(value as "identification" | "email" | "phone")}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Buscar por" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="identification">Cédula/Pasaporte</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="phone">Teléfono</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex-1 flex gap-2">
-                <Input
-                  placeholder="Ingrese valor de búsqueda"
-                  value={searchIdentifier}
-                  onChange={(e) => setSearchIdentifier(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={searchCustomer}
-                  disabled={isSearching}
-                >
-                  {isSearching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4 mr-2" />
-                  )}
-                  <span>Verificar</span>
-                </Button>
+            <h3 className="font-medium mb-2 text-primary">Tipo de Cliente</h3>
+            <RadioGroup 
+              value={customerType} 
+              onValueChange={(value) => setCustomerType(value as "existing" | "new")}
+              className="space-y-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="existing" id="r-existing" />
+                <label htmlFor="r-existing" className="font-medium cursor-pointer">Cliente Existente</label>
               </div>
-            </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="new" id="r-new" />
+                <label htmlFor="r-new" className="font-medium cursor-pointer">Cliente Nuevo</label>
+              </div>
+            </RadioGroup>
+            
+            {/* Mostrar buscador solo cuando se selecciona Cliente Existente */}
+            {customerType === "existing" && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Busque sus datos para completar el formulario automáticamente.
+                </p>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <Select
+                    value={searchType}
+                    onValueChange={(value) => setSearchType(value as "identification" | "email" | "phone")}
+                  >
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Buscar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="identification">Cédula/Pasaporte</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="phone">Teléfono</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex-1 flex gap-2">
+                    <Input
+                      placeholder="Ingrese valor de búsqueda"
+                      value={searchIdentifier}
+                      onChange={(e) => setSearchIdentifier(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={searchCustomer}
+                      disabled={isSearching}
+                    >
+                      {isSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4 mr-2" />
+                      )}
+                      <span>Verificar</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -369,7 +415,21 @@ export function ShippingLabelForm() {
                   <FormItem>
                     <FormLabel>Provincia *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Provincia" {...field} />
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione una provincia" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {provinciasEcuador.map((provincia) => (
+                            <SelectItem key={provincia} value={provincia}>
+                              {provincia}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -379,34 +439,7 @@ export function ShippingLabelForm() {
 
             <Separator />
 
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="companyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Empresa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre de empresa (opcional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="orderNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de pedido</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Número de pedido (opcional)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Los campos de Empresa y Número de Pedido han sido eliminados */}
 
             <FormField
               control={form.control}
@@ -455,10 +488,10 @@ export function ShippingLabelForm() {
                 {isPdfGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generando...
+                    Enviando...
                   </>
                 ) : (
-                  'Generar etiqueta de envío'
+                  'Enviar formulario'
                 )}
               </Button>
             </CardFooter>
