@@ -540,6 +540,8 @@ export default function OrdersPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => {
+                // Establecer el ID y abrir el panel de detalles
+                console.log(`Abriendo detalles para pedido ID: ${order.id}`, order);
                 setDetailsOrderId(order.id);
                 setDetailsSheetOpen(true);
               }}>

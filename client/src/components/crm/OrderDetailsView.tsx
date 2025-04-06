@@ -110,13 +110,17 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
   // Fetch customer data if not present
   useEffect(() => {
     const fetchCustomerData = async () => {
+      console.log("Verificando datos del cliente para orden:", order);
       // Verificar si tenemos customerId y si necesitamos cargar el cliente
       if (order?.customerId && (!order.customer || Object.keys(order.customer).length === 0)) {
+        console.log(`Pedido ${order.id} tiene customerId ${order.customerId} pero sin datos de cliente, cargando...`);
         setIsLoadingCustomer(true);
         try {
           const response = await fetch(`/api/customers/${order.customerId}`);
           if (!response.ok) throw new Error('Failed to fetch customer');
           const customerData = await response.json();
+          
+          console.log("Datos del cliente cargados:", customerData);
           
           const updatedOrder = {
             ...order,
@@ -144,6 +148,8 @@ export function OrderDetailsView({ order: initialOrder }: OrderDetailsProps) {
         } finally {
           setIsLoadingCustomer(false);
         }
+      } else if (order?.customer) {
+        console.log(`Pedido ${order.id} ya tiene datos del cliente:`, order.customer);
       }
     };
 

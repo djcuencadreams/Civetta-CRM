@@ -71,11 +71,18 @@ export function OrderDetailsSheet({ orderId, onEdit }: OrderDetailsSheetProps) {
   // Cargar los detalles del pedido por ID
   const { data: order, isLoading, error } = useQuery<Order>({
     queryKey: ["/api/orders", orderId],
-    queryFn: getQueryFn({ 
-      on401: "throw",
-      endpoint: `/api/orders/${orderId}`
-    }),
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/${orderId}`);
+      if (!response.ok) {
+        throw new Error(`Error al cargar el pedido: ${response.status}`);
+      }
+      return response.json();
+    },
+    retry: 2, // Intentar hasta 2 veces si falla
+    refetchOnWindowFocus: false, // No recargar al enfocar la ventana
   });
+  
+  console.log(`OrderDetailsSheet - Loading order ID: ${orderId}`, { order, isLoading, error });
 
   if (isLoading) {
     return (
@@ -97,12 +104,19 @@ export function OrderDetailsSheet({ orderId, onEdit }: OrderDetailsSheetProps) {
     );
   }
 
+  // Preparar los datos del pedido con la conversión de tipos correcta
+  const processedOrder = {
+    ...order,
+    totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount,
+    shippingCost: typeof order.shippingCost === 'string' ? parseFloat(order.shippingCost) : order.shippingCost,
+    tax: typeof order.tax === 'string' ? parseFloat(order.tax) : order.tax,
+    discount: typeof order.discount === 'string' ? parseFloat(order.discount) : order.discount,
+    subtotal: typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : order.subtotal,
+  };
+
   return (
     <div>
-      <OrderDetailsView order={{
-        ...order,
-        totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount
-      }} />
+      <OrderDetailsView order={processedOrder} />
       
       {onEdit && (
         <div className="mt-8 flex justify-end">
