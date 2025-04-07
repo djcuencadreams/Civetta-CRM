@@ -8,7 +8,7 @@ import { registerEmailRoutes } from "./routes-email";
 import { registerConfigurationRoutes } from "./routes-configuration";
 import { registerShippingRoutes } from "./routes-shipping-fixed";
 import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
-import { registerImprovedShippingRoutes } from "./routes-shipping-improved"; // Sistema mejorado con creación automática de clientes
+import { registerImprovedShippingRoutes } from "./routes-shipping-improved-fixed"; // Sistema mejorado con creación automática de clientes y soporte firstName/lastName
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer"; // Endpoint mejorado para verificación de clientes
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";

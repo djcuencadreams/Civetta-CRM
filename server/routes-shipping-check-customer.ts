@@ -76,6 +76,8 @@ export function registerCustomerCheckEndpoint(app: Express) {
           columns: {
             id: true,
             name: true,
+            firstName: true,
+            lastName: true,
             email: true,
             phone: true,
             idNumber: true,
@@ -104,6 +106,8 @@ export function registerCustomerCheckEndpoint(app: Express) {
             // Información básica del cliente
             id: customer.id,
             name: customer.name,
+            firstName: customer.firstName || '',
+            lastName: customer.lastName || '',
             email: customer.email,
             phone: customer.phone,
             
@@ -116,12 +120,9 @@ export function registerCustomerCheckEndpoint(app: Express) {
             
             // Campos en formato snake_case (para compatibilidad)
             id_number: customer.idNumber || '',
-            delivery_instructions: customer.deliveryInstructions || '',
-            
-            // Campos alternativos (para compatibilidad con versiones antiguas del sistema)
-            street_address: customer.street || '',
-            city_name: customer.city || '',
-            province_name: customer.province || ''
+            first_name: customer.firstName || '',
+            last_name: customer.lastName || '',
+            delivery_instructions: customer.deliveryInstructions || ''
           };
           
           // Verificar que la respuesta incluya los campos de dirección
@@ -195,6 +196,8 @@ export function registerCustomerCheckEndpoint(app: Express) {
           columns: {
             id: true,
             name: true,
+            firstName: true,
+            lastName: true,
             email: true,
             phone: true,
             idNumber: true,
@@ -218,6 +221,8 @@ export function registerCustomerCheckEndpoint(app: Express) {
           // Información básica
           id: customer.id,
           name: customer.name,
+          firstName: customer.firstName || '',
+          lastName: customer.lastName || '',
           email: customer.email,
           phone: customer.phone,
           
@@ -230,12 +235,9 @@ export function registerCustomerCheckEndpoint(app: Express) {
           
           // Campos en formato snake_case (para compatibilidad)
           id_number: customer.idNumber || '',
-          delivery_instructions: customer.deliveryInstructions || '',
-          
-          // Campos alternativos (para compatibilidad con versiones antiguas)
-          street_address: customer.street || '',
-          city_name: customer.city || '',
-          province_name: customer.province || ''
+          first_name: customer.firstName || '',
+          last_name: customer.lastName || '',
+          delivery_instructions: customer.deliveryInstructions || ''
         };
         
         return res.json({

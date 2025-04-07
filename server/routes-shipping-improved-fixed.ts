@@ -5,6 +5,7 @@
  * 2. Guardar la información de envío en el perfil del cliente
  * 3. Generación de etiquetas basadas en los datos actualizados del cliente
  * 4. Integración con sitios externos vía CORS
+ * 5. Soporte para campos estandarizados firstName y lastName
  */
 
 import { Express, Request, Response, NextFunction } from 'express';
@@ -146,7 +147,7 @@ export function registerImprovedShippingRoutes(app: Express) {
 
         // Construir la consulta SQL para debugging - incluimos explícitamente todos los campos relevantes
         const sqlQuery = `
-          SELECT id, name, email, phone, id_number, 
+          SELECT id, name, first_name, last_name, email, phone, id_number, 
                  street, city, province, delivery_instructions,
                  created_at, updated_at
           FROM customers 
@@ -179,6 +180,8 @@ export function registerImprovedShippingRoutes(app: Express) {
           const responseCustomer = {
             id: dbCustomer.id,
             name: dbCustomer.name,
+            firstName: dbCustomer.first_name, // Incluimos los nuevos campos estandarizados
+            lastName: dbCustomer.last_name,
             email: dbCustomer.email,
             phone: dbCustomer.phone,
             idNumber: dbCustomer.id_number,
@@ -249,8 +252,8 @@ export function registerImprovedShippingRoutes(app: Express) {
           const [newCustomer] = await db.insert(customers)
             .values({
               name: formData.name,
-              firstName: formData.name.split(' ')[0],
-              lastName: formData.name.split(' ').slice(1).join(' '),
+              firstName: formData.firstName || formData.name.split(' ')[0],
+              lastName: formData.lastName || formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
               phone: formData.phone,
               idNumber: formData.idNumber || null,
@@ -318,6 +321,8 @@ export function registerImprovedShippingRoutes(app: Express) {
               console.log(`[DEBUG-SAVE] Cliente después de actualizar:`, JSON.stringify({
                 id: customer.id,
                 name: customer.name,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
                 deliveryInstructions: customer.deliveryInstructions
               }, null, 2));
             } else {
@@ -374,6 +379,186 @@ export function registerImprovedShippingRoutes(app: Express) {
         });
       }
     });
+    
+  /**
+   * Endpoint mejorado para guardar los datos del formulario de envío
+   * - Utiliza campos firstName y lastName estandarizados
+   * - Garantiza la consistencia de los datos
+   * - Proporciona respuesta en JSON estándar
+   */
+  app.post('/api/shipping/save-data-improved',
+    cors(corsOptions),
+    validateBody(shippingFormSchema),
+    async (req: Request, res: Response) => {
+      try {
+        const formData: ShippingFormData = req.body;
+        console.log('[IMPROVED] 📩 Datos recibidos:', JSON.stringify(req.body, null, 2));
+        let customerId: number | undefined;
+        let orderId: number | undefined;
+
+        // Asegurarnos de que firstName y lastName estén definidos correctamente
+        const firstName = formData.firstName || formData.name.split(' ')[0];
+        const lastName = formData.lastName || formData.name.split(' ').slice(1).join(' ');
+        
+        // Verificar si el cliente ya existe (por teléfono, cédula o email)
+        let customer = null;
+        const searchQueries = [];
+
+        if (formData.idNumber) {
+          searchQueries.push(eq(customers.idNumber, formData.idNumber));
+        }
+
+        if (formData.phone) {
+          const phoneQueries = createPhoneQueries(formData.phone);
+          searchQueries.push(...phoneQueries);
+        }
+
+        if (formData.email) {
+          searchQueries.push(eq(customers.email, formData.email));
+        }
+
+        if (searchQueries.length > 0) {
+          customer = await db.query.customers.findFirst({
+            where: or(...searchQueries)
+          });
+        }
+
+        // Si no se encontró el cliente, crear uno nuevo con firstName y lastName
+        if (!customer) {
+          const [newCustomer] = await db.insert(customers)
+            .values({
+              name: `${firstName} ${lastName}`, // Nombre compuesto a partir de firstName y lastName
+              firstName: firstName,
+              lastName: lastName,
+              email: formData.email || null,
+              phone: formData.phone,
+              idNumber: formData.idNumber || null,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              deliveryInstructions: formData.deliveryInstructions || null,
+              source: 'web_form',
+              type: 'person',
+              status: 'active',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            })
+            .returning();
+
+          customer = newCustomer;
+          console.log('[IMPROVED] Nuevo cliente creado con ID:', newCustomer.id);
+        } 
+        // Si se encontró el cliente, actualizar su información priorizando firstName y lastName
+        else {
+          console.log(`[IMPROVED] Actualizando cliente existente ID: ${customer.id}`);
+          console.log(`[IMPROVED] Datos anteriores: firstName='${customer.firstName}', lastName='${customer.lastName}'`);
+          console.log(`[IMPROVED] Nuevos datos: firstName='${firstName}', lastName='${lastName}'`);
+
+          try {
+            // PASO 1: Actualizar instrucciones de entrega con función especializada
+            const updateSuccessful = await forceUpdateDeliveryInstructions(
+              customer.id, 
+              formData.deliveryInstructions || null
+            );
+
+            if (!updateSuccessful) {
+              console.log('[IMPROVED] No se pudieron actualizar las instrucciones de entrega');
+            }
+
+            // PASO 2: Actualizar el resto de los campos usando firstName y lastName como base
+            await db.update(customers)
+              .set({
+                street: formData.street,
+                city: formData.city,
+                province: formData.province,
+                idNumber: formData.idNumber || customer.idNumber || null,
+                // Siempre usamos los valores proporcionados para firstName y lastName
+                firstName: firstName,
+                lastName: lastName,
+                // Reconstruimos el campo name a partir de firstName y lastName
+                name: `${firstName} ${lastName}`,
+                // Actualizamos los campos de contacto si se proporcionan nuevos o si no existen
+                phone: formData.phone || customer.phone,
+                email: formData.email || customer.email || null,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, customer.id));
+
+            // PASO 3: Verificar la actualización
+            const updatedCustomer = await db.query.customers.findFirst({
+              where: eq(customers.id, customer.id)
+            });
+
+            if (updatedCustomer) {
+              customer = updatedCustomer;
+              console.log(`[IMPROVED] Cliente actualizado:`, JSON.stringify({
+                id: customer.id,
+                name: customer.name,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                deliveryInstructions: customer.deliveryInstructions
+              }, null, 2));
+            } else {
+              console.error(`[IMPROVED] No se pudo encontrar el cliente actualizado con ID ${customer.id}`);
+            }
+          } catch (updateError) {
+            console.error(`[IMPROVED] Error al actualizar el cliente:`, updateError);
+            throw updateError;
+          }
+        }
+
+        customerId = customer.id;
+
+        // Si tenemos un cliente, crear una orden pendiente
+        if (customerId) {
+          try {
+            const orderResult = await ordersService.createOrderFromShippingForm({
+              customerId,
+              customerName: `${firstName} ${lastName}`, // Usar nombre completo de los campos firstName y lastName
+              source: sourceEnum.WEBSITE,
+              status: 'pendiente_de_completar',
+              paymentStatus: 'pending'
+            });
+
+            orderId = orderResult.id;
+
+            // Generar número de orden si no existe
+            if (!orderResult.orderNumber) {
+              await db.update(orders)
+                .set({
+                  orderNumber: `WEB-${orderResult.id.toString().padStart(6, '0')}`,
+                  updatedAt: new Date()
+                })
+                .where(eq(orders.id, orderResult.id));
+            }
+          } catch (orderError) {
+            console.error('[IMPROVED] Error al crear orden:', orderError);
+          }
+        }
+
+        return res.json({
+          success: true,
+          message: "Datos guardados correctamente",
+          customerId,
+          orderId,
+          customer: {
+            id: customer.id,
+            name: customer.name,
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            email: customer.email,
+            phone: customer.phone,
+            idNumber: customer.idNumber
+          }
+        });
+      } catch (error) {
+        console.error('[IMPROVED] Error al guardar datos de envío:', error);
+        res.status(500).json({ 
+          error: 'Error al guardar los datos de envío',
+          details: error instanceof Error ? error.message : 'Error desconocido'
+        });
+      }
+    });
 
   /**
    * Endpoint que genera etiquetas de envío utilizando la información actualizada del cliente
@@ -415,8 +600,8 @@ export function registerImprovedShippingRoutes(app: Express) {
           const [newCustomer] = await db.insert(customers)
             .values({
               name: formData.name,
-              firstName: formData.name.split(' ')[0],
-              lastName: formData.name.split(' ').slice(1).join(' '),
+              firstName: formData.firstName || formData.name.split(' ')[0],
+              lastName: formData.lastName || formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
               phone: formData.phone,
               idNumber: formData.idNumber || null,
@@ -488,6 +673,8 @@ export function registerImprovedShippingRoutes(app: Express) {
               console.log(`[DEBUG-LABEL] Datos actualizados del cliente:`, JSON.stringify({
                 id: customer.id,
                 name: customer.name,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
                 deliveryInstructions: customer.deliveryInstructions
               }, null, 2));
             }
@@ -669,5 +856,5 @@ export function registerImprovedShippingRoutes(app: Express) {
     }
   });
 
-  console.log('[shipping-service-improved] Improved shipping routes registered');
+  console.log('[shipping-service-improved] Improved shipping routes registered with firstName/lastName support');
 }

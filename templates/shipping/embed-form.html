@@ -817,10 +817,26 @@
                         // Log de depuración para ver exactamente qué datos llegan
                         console.log('DATOS CLIENTE ENCONTRADO:', data.customer);
                         
-                        // Extraer nombre completo y dividirlo en primer nombre y apellidos
-                        const nameParts = data.customer.name.split(' ');
-                        const firstName = nameParts[0];
-                        const lastName = nameParts.slice(1).join(' ');
+                        // Usar los campos de firstName y lastName si están disponibles, o dividir el nombre si es necesario
+                        let firstName, lastName;
+                        
+                        if (data.customer.firstName && data.customer.lastName) {
+                            // Usar los campos estandarizados
+                            firstName = data.customer.firstName;
+                            lastName = data.customer.lastName;
+                            console.log('Usando campos firstName y lastName del API:', firstName, lastName);
+                        } else if (data.customer.first_name && data.customer.last_name) {
+                            // Usar los campos en formato snake_case para compatibilidad
+                            firstName = data.customer.first_name;
+                            lastName = data.customer.last_name;
+                            console.log('Usando campos first_name y last_name del API:', firstName, lastName);
+                        } else if (data.customer.name) {
+                            // Dividir nombre como respaldo
+                            const nameParts = data.customer.name.split(' ');
+                            firstName = nameParts[0];
+                            lastName = nameParts.slice(1).join(' ');
+                            console.log('Dividiendo campo name del API:', firstName, lastName);
+                        }
                         
                         // Completar formulario con datos del cliente - Información personal
                         document.getElementById('firstName').value = firstName || '';
