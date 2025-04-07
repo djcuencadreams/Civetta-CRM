@@ -142,12 +142,25 @@ export function ShippingLabelForm() {
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ');
         
-        // Llenar el formulario con los datos del cliente
+        // Llenar el formulario con los datos del cliente (información personal)
         form.setValue('firstName', firstName);
         form.setValue('lastName', lastName);
         form.setValue('phone', data.customer.phone || '');
         form.setValue('email', data.customer.email || '');
         form.setValue('idNumber', data.customer.idNumber || '');
+        
+        // Llenar información de dirección de envío
+        form.setValue('street', data.customer.street || '');
+        form.setValue('city', data.customer.city || '');
+        form.setValue('province', data.customer.province || '');
+        form.setValue('deliveryInstructions', data.customer.deliveryInstructions || '');
+        
+        console.log('Datos de dirección cargados:', {
+          street: data.customer.street,
+          city: data.customer.city,
+          province: data.customer.province,
+          deliveryInstructions: data.customer.deliveryInstructions
+        });
         
         setCustomerFound(true);
         
@@ -241,7 +254,9 @@ export function ShippingLabelForm() {
         companyName: "Civetta", // Valor predeterminado
         deliveryInstructions: data.deliveryInstructions,
         orderNumber: "", // Valor vacío predeterminado
-        saveToDatabase: data.saveToDatabase
+        saveToDatabase: data.saveToDatabase,
+        updateCustomerInfo: true, // Indicamos que queremos actualizar la información de envío del cliente
+        alwaysUpdateCustomer: customerType === "existing" // Si es cliente existente, siempre actualizamos
       };
 
       // Realizar solicitud al servidor para generar el PDF
@@ -481,6 +496,14 @@ export function ShippingLabelForm() {
         <h3 className="text-lg font-semibold">Dirección de Envío</h3>
         <p className="text-sm text-muted-foreground">Ingrese los datos de entrega del pedido</p>
       </div>
+      
+      {/* Mensaje cuando es cliente existente y se cargaron datos de dirección */}
+      {customerType === "existing" && customerFound && (form.getValues("street") || form.getValues("city") || form.getValues("province")) && (
+        <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="text-sm">Se ha cargado la dirección guardada en su perfil. Puede editarla si necesita actualizarla.</span>
+        </div>
+      )}
       
       <Form {...form}>
         <div className="space-y-6">

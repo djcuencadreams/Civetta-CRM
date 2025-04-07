@@ -1028,8 +1028,9 @@ export class OrdersService implements Service {
       };
 
 
-      // Create order with appropriate status
-      // If no products, set status to 'pendiente_de_completar'
+      // Ahora usamos directamente los datos del cliente como referencia para crear la orden
+      // Cuando se deba imprimir el PDF, se utilizará la información directamente del cliente
+      // No se almacena una copia de los datos de envío por cada pedido, solo se guarda una referencia
       const [newOrder] = await db.insert(orders).values({
         customerId,
         leadId: orderDetails.leadId || null,
@@ -1043,11 +1044,13 @@ export class OrdersService implements Service {
         isFromWebForm: true,
         brand: orderDetails.brand || customer.brand || brandEnum.SLEEPWEAR,
         shippingAddress: {
-          ...shippingInfo,
-          // Asegurar que los datos específicos de envío se preserven
+          // Guardamos un identificador que indique que se debe usar la dirección del cliente
+          useCustomerAddress: true,
+          // Guardamos una caché de los datos para tener un histórico, pero no se usará para la generación de etiquetas
+          customerId: customer.id,
+          customerName: customer.name,
           source: orderDetails.source || 'web_form',
-          createdAt: new Date().toISOString(),
-          formattedAddress: `${shippingInfo.street}, ${shippingInfo.city}, ${shippingInfo.province}`.trim()
+          createdAt: new Date().toISOString()
         },
         notes: orderDetails.notes || (hasProducts ? null : "Orden creada sin productos - Pendiente de completar"),
         createdAt: new Date(),

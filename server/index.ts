@@ -6,6 +6,7 @@ import { registerConfigurationRoutes } from "./routes-configuration";
 import { registerShippingRoutes } from "./routes-shipping-fixed";
 import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
 import { registerImprovedShippingRoutes } from "./routes-shipping-improved"; // Sistema mejorado con creación automática de clientes
+import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer"; // Endpoint mejorado para verificación de clientes
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
@@ -110,6 +111,10 @@ app.use((req, res, next) => {
   // Registrar sistema MEJORADO de etiquetas con creación automática de clientes
   registerImprovedShippingRoutes(app);
   log("Sistema mejorado de etiquetas registrado");
+  
+  // Registrar endpoint mejorado para verificación de clientes
+  registerCustomerCheckEndpoint(app);
+  log("Endpoint mejorado para verificación de clientes registrado");
   
   // Ensure shipping label template directories exist
   ensureShippingLabelTemplateDirectories();

@@ -55,7 +55,9 @@ export const shippingFormSchema = z.object({
   idNumber: z.string().optional(),
   deliveryInstructions: z.string().optional(),
   email: z.string().email("Email inválido").optional().nullish(),
-  saveCustomer: z.boolean().optional().default(true)
+  saveCustomer: z.boolean().optional().default(true),
+  updateCustomerInfo: z.boolean().optional().default(true), // Actualizar información del cliente
+  alwaysUpdateCustomer: z.boolean().optional().default(false) // Forzar actualización aunque no haya cambios
 });
 
 // Validación para la búsqueda de clientes
@@ -422,6 +424,7 @@ export function registerShippingRoutes(app: Express) {
               street: formData.street,
               city: formData.city,
               province: formData.province,
+              deliveryInstructions: formData.deliveryInstructions || null,
               source: 'web_form',
               type: 'person',
               status: 'active',
@@ -431,6 +434,34 @@ export function registerShippingRoutes(app: Express) {
             .returning();
 
           customer = newCustomer;
+          console.log('Nuevo cliente creado con ID:', newCustomer.id);
+        } 
+        // Si se encontró el cliente, actualizar su información de dirección si se requiere
+        else if (formData.updateCustomerInfo) {
+          // Solo actualizar si se requiere (campo updateCustomerInfo es true)
+          // o si alwaysUpdateCustomer es true (forzar actualización)
+          // o si el cliente no tiene alguno de los campos de dirección
+          const shouldUpdate = formData.alwaysUpdateCustomer || 
+                              !customer.street || 
+                              !customer.city || 
+                              !customer.province;
+          
+          if (shouldUpdate) {
+            await db.update(customers)
+              .set({
+                street: formData.street,
+                city: formData.city,
+                province: formData.province,
+                deliveryInstructions: formData.deliveryInstructions || customer.deliveryInstructions,
+                // Actualizamos también los campos de contacto si el cliente no los tiene
+                phone: customer.phone || formData.phone,
+                email: customer.email || formData.email || null,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, customer.id));
+            
+            console.log(`Actualizada información de envío para cliente ID: ${customer.id}`);
+          }
         }
 
         customerId = customer.id;
@@ -581,83 +612,38 @@ export function registerShippingRoutes(app: Express) {
         return res.status(404).json({ error: 'Orden no encontrada' });
       }
 
+      // Verificar que exista el cliente
+      if (!order.customer) {
+        console.error('[ETIQUETA] Error: Cliente no encontrado para orden ID:', orderId, 'customerId:', order.customerId);
+        return res.status(404).json({ error: 'Cliente no encontrado para esta orden' });
+      }
+
       console.log('[ETIQUETA] Orden encontrada:', { 
         id: order.id, 
         orderNumber: order.orderNumber,
         customerId: order.customerId,
-        customerName: order.customer?.name,
-        hasShippingAddress: !!order.shippingAddress
+        customerName: order.customer?.name
       });
-
-      // Extraer información de envío (incluso si está incompleta)
-      let shippingInfo: any = {};
-
-      if (order.shippingAddress) {
-        try {
-          // Si es un objeto JSON almacenado como string
-          if (typeof order.shippingAddress === 'string') {
-            console.log('[ETIQUETA] Parseando shippingAddress de string a objeto');
-            shippingInfo = JSON.parse(order.shippingAddress);
-          } else {
-            // Si ya es un objeto
-            console.log('[ETIQUETA] shippingAddress ya es un objeto');
-            shippingInfo = order.shippingAddress;
-          }
-          console.log('[ETIQUETA] Datos de shipping extraídos:', shippingInfo);
-        } catch (e) {
-          console.error('[ETIQUETA] Error al parsear shippingAddress:', e, 'Valor recibido:', order.shippingAddress);
-          // Si hay error al parsear, usar un objeto vacío
-          shippingInfo = {};
-        }
-      } else {
-        console.log('[ETIQUETA] No hay información de envío específica, usando datos del cliente');
-      }
-
-      // Obtener nombre del cliente o usar ID como fallback
-      const customerName = 
-        shippingInfo.name || 
-        order.customer?.name || 
-        `Cliente #${order.customerId}`;
-
-      // Obtener número de teléfono
-      const customerPhone = 
-        shippingInfo.phone || 
-        order.customer?.phone || 
-        'No disponible';
-
-      // Obtener dirección o usar placeholders que indican que falta información
-      const streetAddress = 
-        shippingInfo.street || 
-        order.customer?.street || 
-        '[INFORMACIÓN PENDIENTE]';
-
-      const cityName = 
-        shippingInfo.city || 
-        order.customer?.city || 
-        '[CIUDAD]';
-
-      const provinceName = 
-        shippingInfo.province || 
-        order.customer?.province || 
-        '[PROVINCIA]';
+      
+      console.log('[ETIQUETA] Usando datos del cliente ID:', order.customer.id);
 
       // Crear número de orden formateado si no existe
       const formattedOrderNumber = 
         order.orderNumber || 
         `ORD-${order.id.toString().padStart(6, '0')}`;
 
-      // Preparar datos para el PDF (con datos de fallback para casos incompletos)
+      // Preparar datos para el PDF directamente desde los datos del cliente
       const pdfData = {
-        name: customerName,
-        phone: customerPhone,
-        street: streetAddress,
-        city: cityName,
-        province: provinceName,
-        idNumber: order.customer?.idNumber || shippingInfo.idNumber || 'N/A',
-        deliveryInstructions: shippingInfo.instructions || '',
+        name: order.customer.name,
+        phone: order.customer.phone || 'No disponible',
+        street: order.customer.street || 'Dirección no especificada',
+        city: order.customer.city || 'Ciudad no especificada',
+        province: order.customer.province || 'Provincia no especificada',
+        idNumber: order.customer.idNumber || 'N/A',
+        // Instrucciones especiales tomadas directamente de la ficha del cliente
+        deliveryInstructions: order.customer.deliveryInstructions || 'Sin instrucciones especiales',
         orderNumber: formattedOrderNumber,
-        // Usado companyName solo si existe en el cliente o en shipping info
-        companyName: shippingInfo.companyName || (order.customer && 'companyName' in order.customer ? order.customer.companyName : '') 
+        companyName: order.customer.type === 'company' ? order.customer.name : ''
       };
 
       console.log('[ETIQUETA] Datos preparados para generar PDF:', pdfData);

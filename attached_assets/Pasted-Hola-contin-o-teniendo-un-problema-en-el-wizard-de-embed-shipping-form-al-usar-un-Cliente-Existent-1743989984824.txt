@@ -1,0 +1,24 @@
+Hola, continúo teniendo un problema en el wizard de /embed/shipping-form al usar un Cliente Existente:
+	1.	Contexto Actual:
+	•	En el primer paso del wizard (Datos Personales), sí se recuperan los campos básicos del cliente (nombre, teléfono, etc.).
+	•	Sin embargo, en el segundo paso (Dirección de Envío), los campos aparecen vacíos, a pesar de que en la ficha del cliente en el CRM sí existe una dirección de envío.
+	•	Esto sugiere que el wizard no está leyendo los campos de dirección (Dirección de Entrega, Ciudad, Provincia, Referencia o Instrucciones Especiales para la Entrega, etc.) del registro existente del cliente.
+	2.	Objetivo Deseado (Mejores Prácticas tipo Amazon):
+	•	Cuando el usuario selecciona “Cliente Existente” y verifica su cédula/teléfono/pasaporte, el wizard debe recuperar toda la información de envío (dirección, ciudad, provincia, instrucciones especiales) que ya está en la ficha del cliente en el CRM.
+	•	Si el usuario modifica algo en ese segundo paso, esos cambios deben actualizarse en la ficha del cliente (no se debe crear una dirección nueva en un pedido).
+	•	De esta forma, la dirección de envío permanece centralizada en el registro del cliente.
+	3.	Pasos a Corregir:
+	•	Lectura de Dirección de Envío: Asegúrate de que, al identificar un “Cliente Existente”, el wizard consulte la API o el modelo de customers y obtenga los campos de dirección (address, city, province, deliveryInstructions o como estén nombrados).
+	•	Visualización en el Wizard: En el segundo paso “Dirección de Envío”, mostrar esos campos con los valores recuperados.
+	•	Actualización en el CRM: Si el usuario edita la dirección en el wizard y presiona “Siguiente” o “Enviar”, se debe actualizar el registro del cliente en esos mismos campos (no crear un nuevo registro de dirección ni guardarlo en la tabla de pedidos).
+	•	Sin Dirección por Pedido: Evita cualquier lógica que asigne direcciones a un pedido específico. Queremos que el wizard siempre lea y escriba en la ficha del cliente.
+	4.	Resultado Esperado:
+	•	El wizard muestra la dirección existente del cliente (si la tiene) en el paso “Dirección de Envío”.
+	•	Al terminar, el CRM refleja los cambios en la ficha del cliente.
+	•	No se crea una dirección de envío nueva por pedido.
+	•	El PDF (etiqueta de envío) tomará esos datos desde la ficha del cliente (como se acordó en prompts anteriores).
+	5.	Reporte Final:
+	•	Indica en qué archivos se modificó la lógica del wizard y la API que obtiene/actualiza la información del cliente.
+	•	Verifica con capturas que, al elegir un cliente existente con dirección en el CRM, el wizard muestre la dirección en el paso 2 y, tras guardar, esa dirección aparezca actualizada en la ficha del cliente.
+
+Por favor, revisa detenidamente las imágenes adjuntas para entender que el problema es que el wizard no recupera los campos de dirección ya existentes en la ficha del cliente. Necesito que se solucione de modo que la dirección se cargue y se actualice correctamente en el cliente. ¡Gracias!
