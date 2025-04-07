@@ -55,8 +55,21 @@ export function registerCustomerCheckEndpoint(app: Express) {
         }
         
         // Buscar el cliente utilizando Drizzle ORM
+        // Especificamos explícitamente los campos para asegurar que se recuperen todos los campos necesarios
         const customer = await db.query.customers.findFirst({
-          where: whereCondition
+          where: whereCondition,
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            idNumber: true,
+            // Campos explícitos de dirección
+            street: true,
+            city: true,
+            province: true,
+            deliveryInstructions: true
+          }
         });
         
         if (customer) {
@@ -69,19 +82,26 @@ export function registerCustomerCheckEndpoint(app: Express) {
           });
           
           // Construir la respuesta incluyendo todos los campos necesarios
+          // Asegurándonos de incluir TODOS los campos de dirección necesarios
           const customerResponse = {
             id: customer.id,
             name: customer.name,
             email: customer.email,
             phone: customer.phone,
             idNumber: customer.idNumber,
-            // Información de dirección - estos son los campos que necesitamos incluir
+            
+            // Campos explícitos de dirección con valores por defecto para evitar valores undefined
             street: customer.street || '',
             city: customer.city || '',
             province: customer.province || '',
             deliveryInstructions: customer.deliveryInstructions || '',
-            // También incluimos nombres alternativos para mantener compatibilidad
-            delivery_instructions: customer.deliveryInstructions || ''
+            
+            // Incluimos también formato con snake_case para compatibilidad
+            delivery_instructions: customer.deliveryInstructions || '',
+            // Agregamos otros campos en snake_case para compatibilidad total
+            street_address: customer.street || '',
+            city_name: customer.city || '',
+            province_name: customer.province || ''
           };
           
           // Verificar que la respuesta incluya los campos de dirección

@@ -151,20 +151,40 @@ export function ShippingLabelForm() {
         
         // Llenar información de dirección de envío
         // Manejar tanto formato camelCase como snake_case en los campos
-        form.setValue('street', data.customer.street || '');
-        form.setValue('city', data.customer.city || '');
-        form.setValue('province', data.customer.province || '');
-        // Para el campo deliveryInstructions, usar cualquiera de las dos formas disponibles
-        form.setValue('deliveryInstructions', 
-          data.customer.deliveryInstructions || 
-          data.customer.delivery_instructions || 
-          '');
+        // Agregamos comprobaciones explícitas para asegurar que los campos se carguen correctamente
         
-        console.log('Datos de dirección cargados:', {
-          street: data.customer.street,
-          city: data.customer.city,
-          province: data.customer.province,
-          deliveryInstructions: data.customer.deliveryInstructions || data.customer.delivery_instructions
+        // Street (calle)
+        const street = data.customer.street || '';
+        form.setValue('street', street);
+        console.log('📍 Cargando calle:', street);
+        
+        // City (ciudad)  
+        const city = data.customer.city || '';
+        form.setValue('city', city);
+        console.log('🏙️ Cargando ciudad:', city);
+        
+        // Province (provincia)
+        const province = data.customer.province || '';
+        form.setValue('province', province);
+        console.log('🏞️ Cargando provincia:', province);
+        
+        // Para el campo deliveryInstructions, verificar ambos formatos camelCase y snake_case
+        const instructions = data.customer.deliveryInstructions || data.customer.delivery_instructions || '';
+        form.setValue('deliveryInstructions', instructions);
+        console.log('📝 Cargando instrucciones de entrega:', instructions);
+        
+        // Log para verificar que todos los campos fueron cargados correctamente
+        console.log('🚚 Datos de dirección completos cargados:', {
+          street,
+          city,
+          province,
+          deliveryInstructions: instructions,
+          // Verificación de campos en la respuesta
+          street_exists: data.customer.hasOwnProperty('street'),
+          city_exists: data.customer.hasOwnProperty('city'),
+          province_exists: data.customer.hasOwnProperty('province'),
+          deliveryInstructions_exists: data.customer.hasOwnProperty('deliveryInstructions'),
+          delivery_instructions_exists: data.customer.hasOwnProperty('delivery_instructions')
         });
         
         setCustomerFound(true);

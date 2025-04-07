@@ -11,7 +11,7 @@ import { Express, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { customers, orders, orderStatusEnum, paymentStatusEnum, sourceEnum, paymentMethodEnum, brandEnum } from '../db/schema';
-import { eq, or, and, like, ilike } from 'drizzle-orm';
+import { eq, or, and, like, ilike, sql } from 'drizzle-orm';
 import cors from 'cors';
 import { appEvents, EventTypes } from './lib/event-emitter';
 import { generateShippingLabelPdf } from './lib/shipping-label.service';
@@ -20,6 +20,38 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import { ordersService } from './services/orders.service';
+
+/**
+ * Función crítica para forzar la actualización del campo delivery_instructions
+ * Esta función utiliza SQL nativo para asegurar que la actualización se realice correctamente
+ * 
+ * @param customerId ID del cliente a actualizar
+ * @param instructions Instrucciones de entrega (valor que se establecerá)
+ * @returns Promise<boolean> - true si la actualización fue exitosa
+ */
+async function forceUpdateDeliveryInstructions(customerId: number, instructions: string | null): Promise<boolean> {
+  console.log(`[FORCE-UPDATE] Forzando actualización de instrucciones para cliente ${customerId}`);
+  console.log(`[FORCE-UPDATE] Valor a establecer: '${instructions}' (${typeof instructions})`);
+  
+  try {
+    // Establecer un valor por defecto de cadena vacía si es null
+    const finalValue = instructions || '';
+    
+    // Usar SQL nativo para garantizar la actualización
+    const result = await db.$client.query(
+      `UPDATE customers SET delivery_instructions = $1 WHERE id = $2 RETURNING id`,
+      [finalValue, customerId]
+    );
+    
+    const success = result.rowCount === 1;
+    console.log(`[FORCE-UPDATE] Actualización ${success ? 'exitosa' : 'fallida'}`);
+    
+    return success;
+  } catch (error) {
+    console.error(`[FORCE-UPDATE] Error en actualización:`, error);
+    return false;
+  }
+}
 
 /**
  * Función para generar consultas de búsqueda por teléfono
@@ -234,41 +266,56 @@ export function registerImprovedShippingRoutes(app: Express) {
           customer = newCustomer;
           console.log('Nuevo cliente creado con ID:', newCustomer.id);
         } 
-        // Si se encontró el cliente, actualizar su información de dirección
+        // Si se encontró el cliente, actualizar su información independientemente de cualquier condición
         else {
-          // FORZAR ACTUALIZACIÓN - NO VERIFICAR UpdateCustomerInfo
-          console.log(`[DEBUG-FIXED] FORZANDO ACTUALIZACIÓN DEL CLIENTE ID ${customer.id}`);
-          console.log(`[DEBUG-FIXED] Cliente actual:`, JSON.stringify(customer, null, 2));
-          console.log(`[DEBUG-FIXED] Datos del formulario:`, JSON.stringify(formData, null, 2));
+          // VERSIÓN 3: MISMO ENFOQUE QUE EN LABEL - Usar nuestra función especializada
+          console.log(`[DEBUG-SAVE] FORZANDO ACTUALIZACIÓN DEL CLIENTE ${customer.id}`);
+          console.log(`[DEBUG-SAVE] Instrucciones actuales: '${customer.deliveryInstructions}'`);
+          console.log(`[DEBUG-SAVE] Nuevas instrucciones: '${formData.deliveryInstructions}'`);
           
           try {
-            // ARREGLO CRÍTICO: Actualizar directamente, sin condiciones
-            const updateResult = await db.update(customers)
+            // PASO 1: PRIMERO actualizar las instrucciones de entrega con nuestra función especializada
+            const updateSuccessful = await forceUpdateDeliveryInstructions(
+              customer.id, 
+              formData.deliveryInstructions || null
+            );
+            
+            if (!updateSuccessful) {
+              console.error(`[DEBUG-SAVE] ⚠️ Advertencia: No se pudo actualizar las instrucciones de entrega`);
+            }
+            
+            // PASO 2: Actualizar el resto de los campos de la dirección siempre
+            console.log(`[DEBUG-SAVE] Actualizando todos los campos de dirección`);
+            
+            await db.update(customers)
               .set({
                 street: formData.street,
                 city: formData.city,
                 province: formData.province,
-                // PUNTO CRÍTICO: Establecer explícitamente las instrucciones de entrega
-                deliveryInstructions: formData.deliveryInstructions,
                 // Actualizamos también los campos de contacto si el cliente no los tiene
                 phone: customer.phone || formData.phone,
                 email: customer.email || formData.email || null,
                 updatedAt: new Date()
               })
-              .where(eq(customers.id, customer.id))
-              .returning();
-              
-            console.log(`[DEBUG-FIXED] Resultado de actualización:`, JSON.stringify(updateResult, null, 2));
+              .where(eq(customers.id, customer.id));
             
-            // Verificar explícitamente que se actualizó
+            // PASO 3: Verificar explícitamente que todo se actualizó correctamente
             const updatedCustomer = await db.query.customers.findFirst({
               where: eq(customers.id, customer.id)
             });
             
-            console.log(`[DEBUG-FIXED] Cliente después de actualizar:`, JSON.stringify(updatedCustomer, null, 2));
-            customer = updatedCustomer;
+            if (updatedCustomer) {
+              customer = updatedCustomer;
+              console.log(`[DEBUG-SAVE] Cliente después de actualizar:`, JSON.stringify({
+                id: customer.id,
+                name: customer.name,
+                deliveryInstructions: customer.deliveryInstructions
+              }, null, 2));
+            } else {
+              console.error(`[ERROR-SAVE] No se pudo encontrar el cliente actualizado con ID ${customer.id}`);
+            }
           } catch (updateError) {
-            console.error(`[ERROR-FIXED] Error al actualizar el cliente:`, updateError);
+            console.error(`[ERROR-SAVE] Error al actualizar el cliente:`, updateError);
             throw updateError;
           }
         }
@@ -379,53 +426,58 @@ export function registerImprovedShippingRoutes(app: Express) {
           customer = newCustomer;
           console.log('Nuevo cliente creado con ID:', newCustomer.id);
         } 
-        // Si se encontró el cliente, actualizar su información de dirección si se requiere
-        else if (formData.updateCustomerInfo) {
-          const shouldUpdate = formData.alwaysUpdateCustomer || 
-                              !customer.street || 
-                              !customer.city || 
-                              !customer.province;
+        // Si se encontró el cliente, actualizar su información de dirección independientemente de cualquier condición
+        else {
+          // VERSIÓN 3: Usar la función especializada para actualizar instrucciones de entrega
+          console.log(`[DEBUG-LABEL] Actualizando datos del cliente ID: ${customer.id}`);
           
-          // Log de depuración para valor de instrucciones
-          console.log(`[DEBUG-LABEL] Valores recibidos en el formulario:`, {
-            deliveryInstructions: formData.deliveryInstructions,
-            deliveryInstructionsType: typeof formData.deliveryInstructions,
-            formUpdateCustomerInfo: formData.updateCustomerInfo,
-            formAlwaysUpdateCustomer: formData.alwaysUpdateCustomer,
-            shouldUpdate: shouldUpdate
-          });
+          // 1. PRIMERO: Forzar actualización de instrucciones de entrega con nuestra función especializada
+          await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions || null);
           
-          if (shouldUpdate) {
-            // SIEMPRE actualizar las instrucciones si se proporciona un valor (aunque sea vacío)
-            const updateData = {
-              street: formData.street,
-              city: formData.city,
-              province: formData.province,
-              // Siempre establecer el valor si existe, incluso si es cadena vacía
-              deliveryInstructions: formData.deliveryInstructions,
-              // Actualizamos también los campos de contacto si el cliente no los tiene
-              phone: customer.phone || formData.phone,
-              email: customer.email || formData.email || null,
-              updatedAt: new Date()
-            };
-            
-            console.log(`[DEBUG-LABEL] Actualizando cliente ${customer.id} con datos:`, JSON.stringify(updateData, null, 2));
-            
-            await db.update(customers)
-              .set(updateData)
-              .where(eq(customers.id, customer.id));
-            
-            // Refrescar los datos del cliente
+          // 2. SEGUNDO: Actualizar el resto de los campos si corresponde 
+          const shouldUpdateAddress = formData.updateCustomerInfo && (
+              formData.alwaysUpdateCustomer || 
+              !customer.street || 
+              !customer.city || 
+              !customer.province);
+              
+          console.log(`[DEBUG-LABEL] ¿Actualizar resto de la dirección?`, shouldUpdateAddress);
+          
+          if (shouldUpdateAddress) {
+            console.log(`[DEBUG-LABEL] Actualizando campos de dirección`);
+            try {
+              await db.update(customers)
+                .set({
+                  street: formData.street,
+                  city: formData.city,
+                  province: formData.province,
+                  phone: customer.phone || formData.phone,
+                  email: customer.email || formData.email || null,
+                  updatedAt: new Date()
+                })
+                .where(eq(customers.id, customer.id));
+            } catch (error) {
+              console.error(`[ERROR-LABEL] Error al actualizar dirección:`, error);
+              // Continuar aunque falle esta parte
+            }
+          }
+          
+          // 3. Refrescar los datos del cliente para asegurar que tenemos la información actualizada
+          try {
             const updatedCustomer = await db.query.customers.findFirst({
               where: eq(customers.id, customer.id)
             });
             
             if (updatedCustomer) {
               customer = updatedCustomer;
-              console.log(`Actualizada información de envío para cliente ID: ${customer.id}`);
-            } else {
-              console.error(`Error: No se pudo encontrar el cliente actualizado con ID: ${customer.id}`);
+              console.log(`[DEBUG-LABEL] Datos actualizados del cliente:`, JSON.stringify({
+                id: customer.id,
+                name: customer.name,
+                deliveryInstructions: customer.deliveryInstructions
+              }, null, 2));
             }
+          } catch (error) {
+            console.error(`[ERROR-LABEL] Error al refrescar datos del cliente:`, error);
           }
         }
 
