@@ -54,9 +54,6 @@ function createPhoneQueries(phoneNumber: string) {
 // Validación del formulario de envío
 export const shippingFormSchema = z.object({
   name: z.string().min(2, "El nombre es obligatorio"),
-  // Se incluyen firstName y lastName como campos opcionales ya que pueden no estar presentes en formularios antiguos
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
   phone: z.string().min(7, "El teléfono es obligatorio"),
   street: z.string().min(3, "La dirección es obligatoria"),
   city: z.string().min(2, "La ciudad es obligatoria"),
@@ -129,8 +126,6 @@ export function registerShippingRoutes(app: Express) {
             customer: {
               id: customer.id,
               name: customer.name,
-              firstName: customer.firstName || customer.name.split(' ')[0] || '',
-              lastName: customer.lastName || customer.name.split(' ').slice(1).join(' ') || '',
               email: customer.email,
               phone: customer.phone,
               idNumber: customer.idNumber

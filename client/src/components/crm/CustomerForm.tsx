@@ -260,8 +260,8 @@ export function CustomerForm({
       // Reset del formulario con los datos actualizados del cliente
       form.reset({
         // Use separate first/last name fields if available, otherwise split from name
-        firstName: customer.firstName || customer.name?.split(' ')[0] || '',
-        lastName: customer.lastName || customer.name?.split(' ').slice(1).join(' ') || '',
+        firstName: customer.firstName || (customer.name?.split(' ')[0] || ''),
+        lastName: customer.lastName || (customer.name?.split(' ').slice(1).join(' ') || ''),
         idNumber: customer.idNumber || '',
         email: customer.email || '',
         // Use dedicated phone fields if available, otherwise parse from combined phone field
@@ -343,6 +343,7 @@ export function CustomerForm({
             return;
           }
           const formattedData = {
+            // Generar un nombre completo consistente a partir de firstName y lastName
             name: `${data.firstName.trim()} ${data.lastName.trim()}`,
             firstName: data.firstName.trim(),
             lastName: data.lastName.trim(),

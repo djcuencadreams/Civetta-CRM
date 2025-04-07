@@ -602,19 +602,11 @@ export function registerImprovedShippingRoutes(app: Express) {
 
         // Si no se encontró el cliente, crear uno nuevo
         if (!customer) {
-          // Extraer firstName y lastName del formulario o dividir desde el campo name
-          const firstName = formData.firstName?.trim() || formData.name.split(' ')[0];
-          const lastName = formData.lastName?.trim() || formData.name.split(' ').slice(1).join(' ');
-          
-          // Crear un nombre completo consistente
-          const fullName = `${firstName} ${lastName}`;
-          console.log(`[FIXED-LABEL] Nombre completo generado para nuevo cliente: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
-          
           const [newCustomer] = await db.insert(customers)
             .values({
-              name: fullName,
-              firstName: firstName,
-              lastName: lastName,
+              name: formData.name,
+              firstName: formData.firstName || formData.name.split(' ')[0],
+              lastName: formData.lastName || formData.name.split(' ').slice(1).join(' '),
               email: formData.email || null,
               phone: formData.phone,
               idNumber: formData.idNumber || null,
@@ -651,14 +643,6 @@ export function registerImprovedShippingRoutes(app: Express) {
           console.log(`[DEBUG-LABEL] ¿Actualizar resto de la dirección?`, shouldUpdateAddress);
 
           if (shouldUpdateAddress) {
-            // Garantizar que firstName y lastName sean válidos antes de actualizar
-            const firstName = formData.firstName?.trim() || customer.firstName || formData.name?.split(' ')[0] || '';
-            const lastName = formData.lastName?.trim() || customer.lastName || formData.name?.split(' ').slice(1).join(' ') || '';
-            
-            // Crear un nombre completo consistente
-            const fullName = `${firstName} ${lastName}`.trim();
-            console.log(`[FIXED-LABEL] Nombre completo generado para cliente actualizado: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
-            
             console.log(`[DEBUG-LABEL] Actualizando campos de dirección`);
             try {
               await db.update(customers)
@@ -666,12 +650,12 @@ export function registerImprovedShippingRoutes(app: Express) {
                   street: formData.street,
                   city: formData.city,
                   province: formData.province,
-                  idNumber: formData.idNumber || customer.idNumber || null,
-                  // Actualizar firstName y lastName con valores normalizados
-                  firstName: firstName,
-                  lastName: lastName,
+                  idNumber: formData.idNumber || null, // Added idNumber update
+                  // Actualizar firstName y lastName
+                  firstName: formData.firstName || customer.firstName,
+                  lastName: formData.lastName || customer.lastName,
                   // Reconstruir el nombre completo
-                  name: fullName,
+                  name: `${formData.firstName || customer.firstName} ${formData.lastName || customer.lastName}`,
                   phone: customer.phone || formData.phone,
                   email: customer.email || formData.email || null,
                   updatedAt: new Date()

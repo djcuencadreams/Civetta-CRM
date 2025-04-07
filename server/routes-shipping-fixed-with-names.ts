@@ -1,9 +1,10 @@
 /**
- * Rutas para el manejo de etiquetas de envío
+ * Rutas para el manejo de etiquetas de envío (versión mejorada con firstName/lastName)
  * Este módulo gestiona:
  * 1. Verificación de clientes existentes por cédula, email o teléfono
  * 2. Guardar formularios de envío con o sin generación de PDF
  * 3. Integración con sitios externos vía CORS
+ * 4. Soporte para firstName y lastName en todos los flujos
  */
 
 import { Express, Request, Response, NextFunction } from 'express';
@@ -81,7 +82,7 @@ type CustomerCheckData = z.infer<typeof customerCheckSchema>;
  * Registra las rutas para el manejo de etiquetas de envío
  * @param app Aplicación Express
  */
-export function registerShippingRoutes(app: Express) {
+export function registerShippingRoutesWithNames(app: Express) {
   // Configuración CORS para permitir acceso desde sitios WordPress
   const corsOptions = {
     origin: '*', // Permitir cualquier origen para facilitar la integración
@@ -124,13 +125,17 @@ export function registerShippingRoutes(app: Express) {
         });
         
         if (customer) {
+          // Asegurar que firstName y lastName estén definidos
+          const firstName = customer.firstName || customer.name.split(' ')[0] || '';
+          const lastName = customer.lastName || customer.name.split(' ').slice(1).join(' ') || '';
+          
           res.json({
             found: true,
             customer: {
               id: customer.id,
               name: customer.name,
-              firstName: customer.firstName || customer.name.split(' ')[0] || '',
-              lastName: customer.lastName || customer.name.split(' ').slice(1).join(' ') || '',
+              firstName: firstName,
+              lastName: lastName,
               email: customer.email,
               phone: customer.phone,
               idNumber: customer.idNumber
@@ -146,10 +151,6 @@ export function registerShippingRoutes(app: Express) {
     });
   
   /**
-   * Genera una etiqueta de envío y opcionalmente guarda el cliente en la base de datos
-   * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
-   */
-  /**
    * Guarda los datos del formulario de envío en el CRM sin generar PDF inmediatamente
    * Este endpoint acepta solicitudes CORS para integrarse con el sitio web de Civetta
    */
@@ -163,6 +164,13 @@ export function registerShippingRoutes(app: Express) {
         const formData: ShippingFormData = req.body;
         let customerId: number | undefined;
         let orderId: number | undefined;
+        
+        // Extraer firstName y lastName del nombre o usar los campos directos si están disponibles
+        const firstName = formData.firstName || formData.name.split(' ')[0] || '';
+        const lastName = formData.lastName || formData.name.split(' ').slice(1).join(' ') || '';
+        
+        // Asegurar que name sea consistente con firstName y lastName
+        const fullName = `${firstName} ${lastName}`.trim();
         
         // Verificar si el cliente ya existe (por teléfono o cédula)
         let customer = null;
@@ -190,10 +198,14 @@ export function registerShippingRoutes(app: Express) {
           
           // Actualizar sus datos si es necesario
           if (formData.saveCustomer !== false) {
+            console.log(`[FIXED-SHIPPING] Actualizando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+            
             await db
               .update(customers)
               .set({
-                name: formData.name,
+                name: fullName,
+                firstName: firstName,
+                lastName: lastName,
                 phone: formData.phone,
                 email: formData.email || customer.email,
                 street: formData.street || customer.street,
@@ -204,11 +216,15 @@ export function registerShippingRoutes(app: Express) {
               .where(eq(customers.id, customer.id));
           }
         } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+          // Crear nuevo cliente con firstName y lastName
+          console.log(`[FIXED-SHIPPING] Creando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+          
           const insertedCustomer = await db
             .insert(customers)
             .values({
-              name: formData.name,
+              name: fullName,
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               email: formData.email || null,
               idNumber: formData.idNumber || null,
@@ -227,7 +243,9 @@ export function registerShippingRoutes(app: Express) {
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              name: fullName, // Usar el nombre normalizado
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
@@ -306,6 +324,13 @@ export function registerShippingRoutes(app: Express) {
         let customerId: number | undefined;
         let orderId: number | undefined;
         
+        // Extraer firstName y lastName del nombre o usar los campos directos si están disponibles
+        const firstName = formData.firstName || formData.name.split(' ')[0] || '';
+        const lastName = formData.lastName || formData.name.split(' ').slice(1).join(' ') || '';
+        
+        // Asegurar que name sea consistente con firstName y lastName
+        const fullName = `${firstName} ${lastName}`.trim();
+        
         // Verificar si el cliente ya existe (por teléfono, cédula o email)
         let customer = null;
         if (formData.idNumber) {
@@ -332,10 +357,14 @@ export function registerShippingRoutes(app: Express) {
           
           // Actualizar sus datos si es necesario
           if (formData.saveCustomer !== false) {
+            console.log(`[FIXED-SHIPPING] Actualizando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+            
             await db
               .update(customers)
               .set({
-                name: formData.name,
+                name: fullName,
+                firstName: firstName,
+                lastName: lastName,
                 phone: formData.phone,
                 email: formData.email || customer.email,
                 street: formData.street || customer.street,
@@ -346,11 +375,15 @@ export function registerShippingRoutes(app: Express) {
               .where(eq(customers.id, customer.id));
           }
         } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+          // Crear nuevo cliente con firstName y lastName
+          console.log(`[FIXED-SHIPPING] Creando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+          
           const insertedCustomer = await db
             .insert(customers)
             .values({
-              name: formData.name,
+              name: fullName,
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               email: formData.email || null,
               idNumber: formData.idNumber || null,
@@ -369,7 +402,9 @@ export function registerShippingRoutes(app: Express) {
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              name: fullName, // Usar el nombre normalizado
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
@@ -445,6 +480,13 @@ export function registerShippingRoutes(app: Express) {
         let customerId: number | undefined;
         let orderId: number | undefined;
         
+        // Extraer firstName y lastName del nombre o usar los campos directos si están disponibles
+        const firstName = formData.firstName || formData.name.split(' ')[0] || '';
+        const lastName = formData.lastName || formData.name.split(' ').slice(1).join(' ') || '';
+        
+        // Asegurar que name sea consistente con firstName y lastName
+        const fullName = `${firstName} ${lastName}`.trim();
+        
         // Verificar si el cliente ya existe
         let customer = null;
         if (formData.idNumber) {
@@ -471,10 +513,14 @@ export function registerShippingRoutes(app: Express) {
           
           // Actualizar los datos del cliente si es necesario
           if (formData.saveCustomer !== false) {
+            console.log(`[FIXED-SHIPPING] Actualizando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+            
             await db
               .update(customers)
               .set({
-                name: formData.name,
+                name: fullName,
+                firstName: firstName,
+                lastName: lastName,
                 phone: formData.phone,
                 email: formData.email || customer.email,
                 street: formData.street || customer.street,
@@ -485,11 +531,15 @@ export function registerShippingRoutes(app: Express) {
               .where(eq(customers.id, customer.id));
           }
         } else if (formData.saveCustomer !== false) {
-          // Crear nuevo cliente
+          // Crear nuevo cliente con firstName y lastName
+          console.log(`[FIXED-SHIPPING] Creando cliente con nombre: "${fullName}" (firstName: "${firstName}", lastName: "${lastName}")`);
+          
           const insertedCustomer = await db
             .insert(customers)
             .values({
-              name: formData.name,
+              name: fullName,
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               email: formData.email || null,
               idNumber: formData.idNumber || null,
@@ -510,7 +560,7 @@ export function registerShippingRoutes(app: Express) {
         
         // Preparar datos para el PDF
         const pdfData = {
-          name: formData.name,
+          name: fullName, // Usar el nombre normalizado
           phone: formData.phone || 'N/A',
           street: formData.street,
           city: formData.city,
@@ -528,7 +578,9 @@ export function registerShippingRoutes(app: Express) {
         if (customerId) {
           // Crear objeto con los datos de envío
           const shippingInfo = {
-              name: formData.name,
+              name: fullName, // Usar el nombre normalizado
+              firstName: firstName,
+              lastName: lastName,
               phone: formData.phone,
               street: formData.street,
               city: formData.city,
@@ -572,18 +624,16 @@ export function registerShippingRoutes(app: Express) {
               orderNumber,
               status: orderStatusEnum.NEW,
               paymentStatus: paymentStatusEnum.PENDING,
-              source: sourceEnum.WEBSITE,
-              shippingInfo
+              source: sourceEnum.WEBSITE
             });
           }
         }
         
-        // Configurar cabeceras para enviar el PDF
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=etiqueta-${formOrderNumber}.pdf`);
-        
         // Enviar el PDF como respuesta
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="etiqueta-${formOrderNumber}.pdf"`);
         res.send(pdfBuffer);
+        
       } catch (error) {
         console.error('Error al generar etiqueta de envío:', error);
         res.status(500).json({ 
@@ -594,63 +644,18 @@ export function registerShippingRoutes(app: Express) {
     });
   
   /**
-   * Servir el formulario HTML independiente para integrarlo en sitios externos
-   * Se proporciona en múltiples rutas para mayor compatibilidad
-   * 
-   * IMPORTANTE: Esta función sirve el mismo archivo HTML en varias rutas
-   * para garantizar consistencia en la integración con WordPress
-   */
-  const serveShippingForm = (req: Request, res: Response) => {
-    try {
-      const formPath = path.join(__dirname, '../templates/shipping/wordpress-embed-modern.html');
-      res.setHeader('Content-Type', 'text/html');
-      res.sendFile(formPath);
-    } catch (error) {
-      console.error('Error al servir formulario de envío:', error);
-      res.status(500).send('Error al cargar el formulario de envío');
-    }
-  };
-  
-  // Rutas para el formulario de envío
-  app.get('/shipping-form', cors(corsOptions), serveShippingForm);
-  app.get('/shipping', cors(corsOptions), serveShippingForm);
-  app.get('/etiqueta', cors(corsOptions), serveShippingForm);
-  app.get('/etiqueta-de-envio', cors(corsOptions), serveShippingForm);
-  
-  app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
-    try {
-      const guidePath = path.join(__dirname, '../templates/shipping/wordpress-integration-guide.html');
-      res.setHeader('Content-Type', 'text/html');
-      res.sendFile(guidePath);
-    } catch (error) {
-      console.error('Error al servir guía de WordPress:', error);
-      res.status(500).send('Error al cargar la guía de integración');
-    }
-  });
-  
-  app.get('/wordpress-examples-advanced', cors(corsOptions), (req: Request, res: Response) => {
-    try {
-      const examplesPath = path.join(__dirname, '../templates/shipping/wordpress-advanced-examples.html');
-      res.setHeader('Content-Type', 'text/html');
-      res.sendFile(examplesPath);
-    } catch (error) {
-      console.error('Error al servir ejemplos avanzados:', error);
-      res.status(500).send('Error al cargar los ejemplos avanzados');
-    }
-  });
-  
-  /**
    * Endpoint para que el personal genere etiquetas de envío para órdenes existentes
-   * Este endpoint no tiene CORS habilitado ya que es solo para uso interno del CRM
+   * siempre usando los datos actualizados del cliente
    */
   app.get('/api/shipping/generate-label-internal/:orderId', async (req: Request, res: Response) => {
     try {
       const orderId = parseInt(req.params.orderId);
+      
       if (isNaN(orderId)) {
         return res.status(400).json({ error: 'ID de orden inválido' });
       }
       
-      // Obtener los datos de la orden
+      // Buscar la orden junto con los datos del cliente
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
@@ -666,49 +671,51 @@ export function registerShippingRoutes(app: Express) {
         return res.status(404).json({ error: 'Cliente no encontrado para esta orden' });
       }
       
-      const shippingInfo = typeof order.shippingAddress === 'string' 
-        ? JSON.parse(order.shippingAddress) 
-        : order.shippingAddress;
+      // Extraer firstName y lastName para asegurar consistencia
+      const customer = order.customer;
+      const firstName = customer.firstName || customer.name.split(' ')[0] || '';
+      const lastName = customer.lastName || customer.name.split(' ').slice(1).join(' ') || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      
+      // Usar la dirección de envío de la orden si existe, o los datos del cliente
+      const shippingAddress = order.shippingAddress ? order.shippingAddress : {
+        name: fullName,
+        firstName: firstName,
+        lastName: lastName,
+        phone: customer.phone || '',
+        street: customer.street || '',
+        city: customer.city || '',
+        province: customer.province || '',
+        instructions: ''
+      };
       
       // Preparar datos para el PDF
       const pdfData = {
-        name: shippingInfo?.name || order.customer.name || 'N/A',
-        phone: shippingInfo?.phone || order.customer.phone || 'N/A',
-        street: shippingInfo?.street || order.customer.street || 'N/A',
-        city: shippingInfo?.city || order.customer.city || 'N/A',
-        province: shippingInfo?.province || order.customer.province || 'N/A',
-        idNumber: order.customer.idNumber || 'N/A',
-        deliveryInstructions: shippingInfo?.instructions || 'N/A',
-        companyName: '',
-        orderNumber: order.orderNumber || ''
+        name: shippingAddress.name || fullName,
+        phone: shippingAddress.phone || customer.phone || 'N/A',
+        street: shippingAddress.street || customer.street || 'N/A',
+        city: shippingAddress.city || customer.city || 'N/A',
+        province: shippingAddress.province || customer.province || 'N/A',
+        idNumber: customer.idNumber || 'N/A',
+        deliveryInstructions: shippingAddress.instructions || 'N/A',
+        companyName: customer.companyName || '',
+        orderNumber: order.orderNumber
       };
       
       // Generar el PDF
       const pdfBuffer = await generateShippingLabelPdf(pdfData);
       
-      // Configurar cabeceras para enviar el PDF
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=etiqueta-${order.orderNumber}.pdf`);
-      
       // Enviar el PDF como respuesta
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="etiqueta-${order.orderNumber}.pdf"`);
       res.send(pdfBuffer);
+      
     } catch (error) {
       console.error('Error al generar etiqueta interna:', error);
       res.status(500).json({ 
-        error: 'Error al generar la etiqueta de envío',
+        error: 'Error al generar la etiqueta',
         details: error instanceof Error ? error.message : 'Error desconocido'
       });
-    }
-  });
-  
-  app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
-    try {
-      const loaderPath = path.join(__dirname, '../templates/shipping/shipping-form-loader.js');
-      res.setHeader('Content-Type', 'application/javascript');
-      res.sendFile(loaderPath);
-    } catch (error) {
-      console.error('Error al servir el script de formulario:', error);
-      res.status(500).send('console.error("Error al cargar el script de formulario");');
     }
   });
 }

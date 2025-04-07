@@ -6,7 +6,9 @@ import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
 import { registerEmailRoutes } from "./routes-email";
 import { registerConfigurationRoutes } from "./routes-configuration";
-import { registerShippingRoutes } from "./routes-shipping-fixed";
+// Importamos las implementaciones de shipping con soporte adecuado para firstName/lastName
+import { registerShippingRoutesWithNames } from "./routes-shipping-fixed-with-names";
+import { registerShippingRoutes } from "./routes-shipping-fixed"; // Importamos la implementación original por compatibilidad
 import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
 import { registerImprovedShippingRoutes } from "./routes-shipping-improved-fixed"; // Sistema mejorado con creación automática de clientes y soporte firstName/lastName
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer"; // Endpoint mejorado para verificación de clientes
@@ -107,9 +109,9 @@ app.use((req, res, next) => {
   registerEmailEventHandlers();
   log("Email event handlers registered");
   
-  // Register shipping routes
-  registerShippingRoutes(app);
-  log("Shipping routes registered");
+  // Register shipping routes with firstName/lastName support
+  registerShippingRoutesWithNames(app);
+  log("Shipping routes registered with firstName/lastName support");
   
   // Registrar NUEVO sistema de etiquetas
   registerNewShippingRoutes(app);
