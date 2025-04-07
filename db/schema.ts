@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, timestamp, decimal, boolean, varchar, jsonb } from "drizzle-orm/pg-core";
+import { sql } from 'drizzle-orm';
+import { text, integer, serial, timestamp, boolean, pgTable, pgEnum } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import * as z from 'zod';
@@ -6,8 +7,8 @@ import * as z from 'zod';
 // Tabla para almacenar configuraciones de servicios
 export const serviceConfigurations = pgTable("service_configurations", {
   id: serial("id").primaryKey(),
-  service: varchar("service", { length: 50 }).notNull().unique(),
-  config: jsonb("config").notNull().default({}),
+  service: text("service").notNull().unique(),
+  config: text("config").notNull().default({}),
   enabled: boolean("enabled").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -132,7 +133,6 @@ export const opportunityStatusEnum = {
 } as const;
 
 
-
 // Define activity type enum values
 export const activityTypeEnum = {
   CALL: 'call',
@@ -158,36 +158,36 @@ export const webhooks = pgTable("webhooks", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
-export const customers = pgTable("customers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  type: varchar("type", { length: 20 }).default(customerTypeEnum.PERSON), // Tipo de cliente (Persona o Empresa)
-  idNumber: text("id_number"), // Cédula/Pasaporte for invoicing and shipping
-  ruc: text("ruc"), // RUC (Registro Único de Contribuyentes) para empresas
-  email: text("email"),
-  phone: text("phone"),
-  phoneCountry: text("phone_country"),
-  phoneNumber: text("phone_number"), // Store the phone number without country code
-  secondaryPhone: text("secondary_phone"), // Teléfono secundario
-  street: text("street"),
-  city: text("city"),
-  province: text("province"),
-  deliveryInstructions: text("delivery_instructions"),
-  address: text("address"), // Keeping for backward compatibility
-  billingAddress: jsonb("billing_address").default({}), // Dirección de facturación separada
-  source: varchar("source", { length: 50 }).default('instagram'),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  status: varchar("status", { length: 20 }).default(customerStatusEnum.ACTIVE), // Estado del cliente (Activo, Inactivo, VIP)
-  tags: jsonb("tags").default([]), // Etiquetas del cliente
-  totalValue: decimal("total_value", { precision: 10, scale: 2 }).default("0"), // Valor histórico comprado
-  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
-  lastPurchase: timestamp("last_purchase"), // Fecha de última compra
-  wooCommerceId: integer("wooCommerceId"), // ID del cliente en WooCommerce para sincronización
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull()
+export const customers = pgTable('customers', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  firstName: text('first_name'),
+  lastName: text('last_name'), 
+  type: text('type').default('person'),
+  idNumber: text('id_number'),
+  ruc: text('ruc'),
+  email: text('email'),
+  phone: text('phone'),
+  phoneCountry: text('phone_country'),
+  phoneNumber: text('phone_number'),
+  secondaryPhone: text('secondary_phone'),
+  street: text('street'),
+  city: text('city'),
+  province: text('province'),
+  deliveryInstructions: text('delivery_instructions'),
+  address: text('address'),
+  billingAddress: text('billing_address'),
+  source: text('source').default('manual'),
+  brand: text('brand'),
+  status: text('status').default('active'),
+  tags: text('tags').array(),
+  totalValue: text('total_value').default('0.00'),
+  assignedUserId: integer('assigned_user_id'),
+  lastPurchase: timestamp('last_purchase'),
+  wooCommerceId: integer('woo_commerce_id'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
 });
 
 export const leads = pgTable("leads", {
@@ -195,28 +195,28 @@ export const leads = pgTable("leads", {
   name: text("name").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  idNumber: text("id_number"), // Agregamos idNumber para mantener consistencia con customers
+  idNumber: text("id_number"), 
   email: text("email"),
   phone: text("phone"),
   phoneCountry: text("phone_country"),
-  phoneNumber: text("phone_number"), // Store the phone number without country code
+  phoneNumber: text("phone_number"), 
   street: text("street"),
   city: text("city"),
   province: text("province"),
   deliveryInstructions: text("delivery_instructions"),
-  status: varchar("status", { length: 50 }).notNull().default(leadStatusEnum.NEW),
-  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM), // Prioridad del lead (Alta, Media, Baja)
-  source: varchar("source", { length: 50 }).notNull().default(sourceEnum.INSTAGRAM),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  brandInterest: varchar("brand_interest", { length: 50 }), // Marca específica de interés
+  status: text("status").notNull().default(leadStatusEnum.NEW),
+  priority: text("priority").default(priorityEnum.MEDIUM), 
+  source: text("source").notNull().default(sourceEnum.INSTAGRAM),
+  brand: text("brand").default(brandEnum.SLEEPWEAR),
+  brandInterest: text("brand_interest"), 
   notes: text("notes"),
-  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario responsable del seguimiento
-  communicationPreference: varchar("communication_preference", { length: 20 }), // Preferencia de comunicación
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), 
+  communicationPreference: text("communication_preference"), 
   convertedToCustomer: boolean("converted_to_customer").default(false),
   convertedCustomerId: integer("converted_customer_id").references(() => customers.id),
   lastContact: timestamp("last_contact"),
   nextFollowUp: timestamp("next_follow_up"),
-  customerLifecycleStage: varchar("customer_lifecycle_stage", { length: 50 }),
+  customerLifecycleStage: text("customer_lifecycle_stage"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -224,15 +224,15 @@ export const leads = pgTable("leads", {
 export const leadActivities = pgTable("lead_activities", {
   id: serial("id").primaryKey(),
   leadId: integer("lead_id").notNull().references(() => leads.id),
-  type: varchar("type", { length: 50 }).notNull(),
-  title: text("title"), // Título o resumen de la actividad
+  type: text("type").notNull(),
+  title: text("title"), 
   notes: text("notes"),
-  status: varchar("status", { length: 20 }).default(activityStatusEnum.PENDING), // Estado de la actividad
-  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM), // Prioridad 
-  dueDate: timestamp("due_date"), // Fecha límite
-  completedDate: timestamp("completed_date"), // Fecha de completado
-  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario asignado
-  result: text("result"), // Resultado de la actividad
+  status: text("status").default(activityStatusEnum.PENDING), 
+  priority: text("priority").default(priorityEnum.MEDIUM), 
+  dueDate: timestamp("due_date"), 
+  completedDate: timestamp("completed_date"), 
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), 
+  result: text("result"), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -243,9 +243,9 @@ export const productCategories = pgTable("product_categories", {
   name: text("name").notNull(),
   description: text("description"),
   slug: text("slug").notNull().unique(),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  wooCommerceCategoryId: integer("wooCommerceCategoryId"), // ID de la categoría en WooCommerce
-  parentCategoryId: integer("parent_category_id"), // Se establecerá la relación en las relaciones
+  brand: text("brand").default(brandEnum.SLEEPWEAR),
+  wooCommerceCategoryId: integer("wooCommerceCategoryId"), 
+  parentCategoryId: integer("parent_category_id"), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -264,22 +264,22 @@ export const products = pgTable("products", {
   sku: text("sku").notNull().unique(),
   description: text("description"),
   categoryId: integer("category_id").references(() => productCategories.id),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  priceDiscount: decimal("price_discount", { precision: 10, scale: 2 }), // Precio de oferta
+  price: text("price").notNull(),
+  priceDiscount: text("price_discount"), 
   stock: integer("stock").default(0),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  wooCommerceId: integer("wooCommerceId"), // ID del producto en WooCommerce para sincronización
-  wooCommerceParentId: integer("wooCommerceParentId"), // ID del producto padre en WooCommerce (para variaciones)
-  wooCommerceUrl: text("wooCommerceUrl"), // URL del producto en WooCommerce
+  brand: text("brand").default(brandEnum.SLEEPWEAR),
+  wooCommerceId: integer("wooCommerceId"), 
+  wooCommerceParentId: integer("wooCommerceParentId"), 
+  wooCommerceUrl: text("wooCommerceUrl"), 
   active: boolean("active").default(true),
-  status: varchar("status", { length: 20 }).default(productStatusEnum.ACTIVE), // Estado del producto (Activo, Borrador, Descontinuado)
-  productType: varchar("product_type", { length: 50 }).default('simple'), // Tipo de producto (simple, variable, variation)
-  weight: decimal("weight", { precision: 10, scale: 2 }), // Peso del producto en kg
-  dimensions: jsonb("dimensions").default({}), // Dimensiones como objeto JSON (height, width, length)
-  images: jsonb("images").default([]), // URLs de imágenes como array JSON
-  attributes: jsonb("attributes").default({}), // Atributos como objeto JSON (color, talla, etc.)
-  variants: jsonb("variants").default([]), // Variaciones del producto
-  relatedProducts: jsonb("related_products").default([]), // Productos relacionados (upsell, cross-sell)
+  status: text("status").default(productStatusEnum.ACTIVE), 
+  productType: text("product_type").default('simple'), 
+  weight: text("weight"), 
+  dimensions: text("dimensions").default({}), 
+  images: text("images").default([]), 
+  attributes: text("attributes").default({}), 
+  variants: text("variants").default([]), 
+  relatedProducts: text("related_products").default([]), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -288,28 +288,28 @@ export const products = pgTable("products", {
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id),
-  leadId: integer("lead_id").references(() => leads.id), // Opcional: si el pedido viene de un lead que aún no es cliente
-  orderNumber: text("order_number").unique(), // Número de pedido único (puede ser generado o externo)
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }), // Subtotal antes de impuestos y descuentos
-  tax: decimal("tax", { precision: 10, scale: 2 }).default("0"), // Impuesto aplicado
-  discount: decimal("discount", { precision: 10, scale: 2 }).default("0"), // Descuento total aplicado
-  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }).default("0"), // Costo de envío
-  status: varchar("status", { length: 50 }).default(orderStatusEnum.NEW),
-  paymentStatus: varchar("payment_status", { length: 50 }).default(paymentStatusEnum.PENDING),
-  paymentMethod: varchar("payment_method", { length: 50 }),
-  paymentDetails: jsonb("payment_details").default({}), // Detalles de pago (números de transacción, etc)
-  paymentDate: timestamp("payment_date"), // Fecha de pago
-  source: varchar("source", { length: 50 }).default(sourceEnum.WEBSITE),
-  isFromWebForm: boolean("is_from_web_form").default(false), // Indica si el pedido fue creado desde el formulario web
-  wooCommerceId: integer("wooCommerceId"), // ID del pedido en WooCommerce para sincronización
-  trackingNumber: text("tracking_number"), // Número de seguimiento de envío
-  shippingMethod: varchar("shipping_method", { length: 50 }), // Método de envío seleccionado
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
-  shippingAddress: jsonb("shipping_address").default({}), // Dirección de envío como objeto JSON
-  billingAddress: jsonb("billing_address").default({}), // Dirección de facturación como objeto JSON
-  couponCode: text("coupon_code"), // Código de cupón aplicado
-  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), // Usuario que maneja el pedido
+  leadId: integer("lead_id").references(() => leads.id), 
+  orderNumber: text("order_number").unique(), 
+  totalAmount: text("total_amount").notNull(),
+  subtotal: text("subtotal"), 
+  tax: text("tax").default("0"), 
+  discount: text("discount").default("0"), 
+  shippingCost: text("shipping_cost").default("0"), 
+  status: text("status").default(orderStatusEnum.NEW),
+  paymentStatus: text("payment_status").default(paymentStatusEnum.PENDING),
+  paymentMethod: text("payment_method"),
+  paymentDetails: text("payment_details").default({}), 
+  paymentDate: timestamp("payment_date"), 
+  source: text("source").default(sourceEnum.WEBSITE),
+  isFromWebForm: boolean("is_from_web_form").default(false), 
+  wooCommerceId: integer("wooCommerceId"), 
+  trackingNumber: text("tracking_number"), 
+  shippingMethod: text("shipping_method"), 
+  brand: text("brand").default(brandEnum.SLEEPWEAR),
+  shippingAddress: text("shipping_address").default({}), 
+  billingAddress: text("billing_address").default({}), 
+  couponCode: text("coupon_code"), 
+  assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), 
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -320,23 +320,23 @@ export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id").notNull().references(() => orders.id),
   productId: integer("product_id").references(() => products.id),
-  productName: text("product_name").notNull(), // Guardamos el nombre por si el producto se elimina
+  productName: text("product_name").notNull(), 
   quantity: integer("quantity").notNull().default(1),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  discount: decimal("discount", { precision: 10, scale: 2 }).default("0"),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
-  attributes: jsonb("attributes").default({}), // Atributos del producto como objeto JSON (color, talla, etc.)
+  unitPrice: text("unit_price").notNull(),
+  discount: text("discount").default("0"),
+  subtotal: text("subtotal").notNull(),
+  attributes: text("attributes").default({}), 
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").notNull().references(() => customers.id),
-  orderId: integer("order_id").references(() => orders.id), // Referencia a la orden que generó esta venta
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  orderId: integer("order_id").references(() => orders.id), 
+  amount: text("amount").notNull(),
   status: text("status").notNull(),
   paymentMethod: text("payment_method"),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR),
+  brand: text("brand").default(brandEnum.SLEEPWEAR),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -345,15 +345,15 @@ export const sales = pgTable("sales", {
 // WhatsApp message table for storing message interactions
 export const whatsappMessages = pgTable("whatsapp_messages", {
   id: serial("id").primaryKey(),
-  messageSid: text("message_sid"), // Twilio message SID
-  fromNumber: text("from_number").notNull(), // Phone number that sent the message
-  toNumber: text("to_number").notNull(), // Phone number that received the message
-  messageBody: text("message_body").notNull(), // Content of the message
-  direction: varchar("direction", { length: 10 }).notNull(), // 'incoming' or 'outgoing'
-  customerId: integer("customer_id").references(() => customers.id), // Associated customer if any
-  leadId: integer("lead_id").references(() => leads.id), // Associated lead if any
-  mediaUrl: text("media_url"), // URL of any media attached to the message
-  status: varchar("status", { length: 20 }).default("delivered"), // Message status: delivered, failed, etc.
+  messageSid: text("message_sid"), 
+  fromNumber: text("from_number").notNull(), 
+  toNumber: text("to_number").notNull(), 
+  messageBody: text("message_body").notNull(), 
+  direction: text("direction").notNull(), 
+  customerId: integer("customer_id").references(() => customers.id), 
+  leadId: integer("lead_id").references(() => leads.id), 
+  mediaUrl: text("media_url"), 
+  status: text("status").default("delivered"), 
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -362,8 +362,8 @@ export const crmUsers = pgTable("crm_users", {
   id: serial("id").primaryKey(),
   fullName: text("full_name").notNull(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(), // Se almacenará encriptada
-  role: varchar("role", { length: 20 }).notNull().default(userRoleEnum.SALES),
+  password: text("password").notNull(), 
+  role: text("role").notNull().default(userRoleEnum.SALES),
   active: boolean("active").default(true).notNull(),
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -376,18 +376,18 @@ export const opportunities = pgTable("opportunities", {
   name: text("name").notNull(),
   customerId: integer("customer_id").references(() => customers.id),
   leadId: integer("lead_id").references(() => leads.id),
-  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }).notNull(),
-  probability: integer("probability"), // porcentaje de probabilidad
-  status: varchar("status", { length: 50 }).notNull().default(opportunityStatusEnum.NEGOTIATION),
-  stage: varchar("stage", { length: 50 }).notNull(), // Etapa personalizada del pipeline
+  estimatedValue: text("estimated_value").notNull(),
+  probability: integer("probability"), 
+  status: text("status").notNull().default(opportunityStatusEnum.NEGOTIATION),
+  stage: text("stage").notNull(), 
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
-  brand: varchar("brand", { length: 20 }).default(brandEnum.SLEEPWEAR), // Marca (Sleepwear o Bride)
+  brand: text("brand").default(brandEnum.SLEEPWEAR), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   estimatedCloseDate: timestamp("estimated_close_date"),
   notes: text("notes"),
-  productsInterested: jsonb("products_interested").default([]), // Productos en los que está interesado
-  nextActionDate: timestamp("next_action_date") // Fecha próxima acción
+  productsInterested: text("products_interested").default([]), 
+  nextActionDate: timestamp("next_action_date") 
 });
 
 // Nueva tabla para Interacciones (comunicaciones con clientes/leads)
@@ -396,10 +396,10 @@ export const interactions = pgTable("interactions", {
   customerId: integer("customer_id").references(() => customers.id),
   leadId: integer("lead_id").references(() => leads.id),
   opportunityId: integer("opportunity_id").references(() => opportunities.id),
-  type: varchar("type", { length: 50 }).notNull().default(interactionTypeEnum.QUERY),
-  channel: varchar("channel", { length: 50 }).notNull().default(interactionChannelEnum.WHATSAPP),
-  content: text("content").notNull(), // Contenido de la interacción
-  attachments: jsonb("attachments").default([]), // URLs o datos de archivos adjuntos
+  type: text("type").notNull().default(interactionTypeEnum.QUERY),
+  channel: text("channel").notNull().default(interactionChannelEnum.WHATSAPP),
+  content: text("content").notNull(), 
+  attachments: text("attachments").default([]), 
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   isResolved: boolean("is_resolved").default(false),
@@ -409,7 +409,7 @@ export const interactions = pgTable("interactions", {
 // Nueva tabla para Actividades (Calendario CRM)
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
-  type: varchar("type", { length: 50 }).notNull().default(activityTypeEnum.TASK),
+  type: text("type").notNull().default(activityTypeEnum.TASK),
   title: text("title").notNull(),
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
@@ -418,8 +418,8 @@ export const activities = pgTable("activities", {
   leadId: integer("lead_id").references(() => leads.id),
   opportunityId: integer("opportunity_id").references(() => opportunities.id),
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id).notNull(),
-  status: varchar("status", { length: 20 }).notNull().default(activityStatusEnum.PENDING),
-  priority: varchar("priority", { length: 10 }).default(priorityEnum.MEDIUM),
+  status: text("status").notNull().default(activityStatusEnum.PENDING),
+  priority: text("priority").default(priorityEnum.MEDIUM),
   reminderTime: timestamp("reminder_time"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
