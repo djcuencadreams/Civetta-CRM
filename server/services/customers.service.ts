@@ -232,9 +232,6 @@ export class CustomersService implements Service {
         return;
       }
       
-      // Crear una copia del resultado para evitar modificar el objeto original
-      const enhancedCustomer = { ...result };
-      
       // Crear objeto de respuesta limpio con solo los campos necesarios
       const enhancedCustomer = {
         id: result.id,
