@@ -53,6 +53,9 @@ export class CustomersService implements Service {
     
     // Convert customer to lead
     app.post("/api/customers/:id/convert-to-lead", validateParams(customerIdSchema), this.convertCustomerToLead.bind(this));
+    
+    // Service status endpoint
+    app.get("/api/customers-service/status", this.getServiceStatus.bind(this));
   }
 
   /**
@@ -384,13 +387,19 @@ export class CustomersService implements Service {
         status, type, tags // Campos de clasificación
       } = req.body;
 
+      console.log("[DEBUG] updateCustomer - Datos recibidos:", {
+        firstName, lastName, email, source,
+        tagsType: typeof tags,
+        tagsValue: tags
+      });
+
       // Validar que se proporcionaron firstName y lastName
-      if (!firstName?.trim()) {
+      if (!firstName || !firstName.trim()) {
         res.status(400).json({ error: "El nombre (firstName) es requerido" });
         return;
       }
 
-      if (!lastName?.trim()) {
+      if (!lastName || !lastName.trim()) {
         res.status(400).json({ error: "El apellido (lastName) es requerido" });
         return;
       }
@@ -424,47 +433,74 @@ export class CustomersService implements Service {
       // Creamos un objeto de actualización sin el campo tags para evitar errores
       const updateData = {
         name: customerData.name, // Usar el nombre completo generado con ensureNameField
-        firstName,
-        lastName,
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        phoneCountry: phoneCountry || existingCustomer.phoneCountry,
-        phoneNumber: phoneNumber || existingCustomer.phoneNumber,
-        secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone,
-        street: street?.trim() || null,
-        city: city?.trim() || existingCustomer.city || null,
-        province: province || existingCustomer.province || null,
-        deliveryInstructions: deliveryInstructions !== undefined ? deliveryInstructions?.trim() || null : existingCustomer.deliveryInstructions,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email?.trim() || existingCustomer.email || null,
+        phone: phone?.trim() || existingCustomer.phone || null,
+        phoneCountry: phoneCountry || existingCustomer.phoneCountry || null,
+        phoneNumber: phoneNumber || existingCustomer.phoneNumber || null,
+        secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone || null,
+        street: street !== undefined ? (street?.trim() || null) : existingCustomer.street,
+        city: city !== undefined ? (city?.trim() || null) : existingCustomer.city,
+        province: province !== undefined ? province || null : existingCustomer.province,
+        deliveryInstructions: deliveryInstructions !== undefined ? (deliveryInstructions?.trim() || null) : existingCustomer.deliveryInstructions,
         idNumber: updatedIdNumber,
         // Actualizar la dirección de facturación y preservar los campos no proporcionados
         billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
         status: status || existingStatus,
         type: type || existingType,
-        source: source || existingCustomer.source,
-        brand: brand || existingCustomer.brand,
-        notes: notes?.trim() || null,
+        source: source || existingCustomer.source || 'direct',
+        brand: brand || existingCustomer.brand || 'sleepwear',
+        notes: notes !== undefined ? (notes?.trim() || null) : existingCustomer.notes,
         updatedAt: new Date()
       };
 
-      // Si se proporcionaron tags nuevos, los actualizamos usando SQL nativo
-      // para asegurar compatibilidad con el tipo JSONB de la BD
-      if (tags) {
-        try {
-          // Actualizar el campo tags como JSONB usando SQL nativo
-          await db.$client.query(
-            `UPDATE customers SET tags = $1::jsonb WHERE id = $2`,
-            [JSON.stringify(tags), customerId]
-          );
-          console.log(`[TAGS] Actualizado campo tags para cliente ${customerId}`);
-        } catch (tagsError) {
-          console.error('[TAGS] Error actualizando tags:', tagsError);
-        }
-      }
+      console.log("[DEBUG] updateCustomer - Datos preparados para actualización:", {
+        name: updateData.name,
+        firstName: updateData.firstName,
+        lastName: updateData.lastName,
+        email: updateData.email
+      });
 
+      // Actualizar primero los datos principales del cliente
       const [updatedCustomer] = await db.update(customers)
         .set(updateData)
         .where(eq(customers.id, customerId))
         .returning();
+
+      // Actualizamos los tags utilizando el enfoque que vimos funcionar en SQL directo
+      if (tags !== undefined) {
+        try {
+          // Preparamos los tags como un array filtrado de cadenas
+          const formattedTags = Array.isArray(tags) 
+            ? tags.filter(tag => typeof tag === 'string') 
+            : (typeof tags === 'string' ? [tags] : []);
+          
+          console.log(`[TAGS] Intentando actualizar tags para cliente ${customerId}:`, 
+            JSON.stringify(formattedTags, null, 2));
+          
+          // Creamos un string con formato de array JSON válido: '["tag1", "tag2"]'
+          // Al usar JSON.stringify obtenemos el formato exacto que PostgreSQL espera
+          const jsonArrayString = JSON.stringify(formattedTags);
+          
+          // Ejecutamos la actualización con la sintaxis correcta
+          await db.$client.query(
+            `UPDATE customers SET tags = $1::jsonb WHERE id = $2`,
+            [jsonArrayString, customerId]
+          );
+          
+          console.log(`[TAGS] Tags actualizados exitosamente para cliente ${customerId}`);
+          
+          // Agregamos los tags al objeto de respuesta
+          updatedCustomer.tags = formattedTags;
+        } catch (tagsError: any) {
+          console.error('[TAGS] Error actualizando tags:', tagsError);
+          console.error('[TAGS] Error detallado:', tagsError.message);
+          console.error('[TAGS] Input tags:', JSON.stringify(tags));
+          // No fallamos la operación completa si hay un error con los tags
+          // pero registramos el error para depuración
+        }
+      }
 
       // Emit customer updated event
       appEvents.emit(EventTypes.CUSTOMER_UPDATED, updatedCustomer);
@@ -597,6 +633,45 @@ export class CustomersService implements Service {
     } catch (error) {
       console.error('Error converting customer to lead:', error);
       res.status(500).json({ error: "Failed to convert customer to lead" });
+    }
+  }
+  
+  /**
+   * Get service status
+   */
+  async getServiceStatus(_req: Request, res: Response): Promise<void> {
+    try {
+      // Get basic statistics from the customers table
+      const { rows } = await pool.query(`
+        SELECT 
+          COUNT(*) as total_customers,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active_customers,
+          COUNT(CASE WHEN source = 'instagram' THEN 1 END) as instagram_customers,
+          COUNT(CASE WHEN source = 'facebook' THEN 1 END) as facebook_customers,
+          COUNT(CASE WHEN source = 'direct' THEN 1 END) as direct_customers,
+          COUNT(CASE WHEN source = 'referral' THEN 1 END) as referral_customers,
+          COUNT(CASE WHEN brand = 'sleepwear' THEN 1 END) as sleepwear_customers,
+          COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as new_customers_30d
+        FROM customers
+      `);
+      
+      const stats = rows[0];
+      
+      res.json({
+        status: 'active',
+        serviceName: this.name,
+        statistics: stats,
+        version: '1.0.0',
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error getting service status:', error);
+      res.status(500).json({ 
+        status: 'error',
+        error: "Failed to retrieve service status",
+        serviceName: this.name,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 }

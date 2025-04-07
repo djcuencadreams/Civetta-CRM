@@ -144,10 +144,14 @@ export function registerRoutes(app: Express): Server {
       if (!req.body.name?.trim()) {
         return res.status(400).json({ error: "Name is required" });
       }
-
+      
+      // Extraemos tags del body para manejarlos separadamente
+      const { tags, ...updateData } = req.body;
+      
+      // Primero actualizamos los datos básicos del cliente sin tags
       const customer = await db.update(customers)
         .set({
-          ...req.body,
+          ...updateData,
           updatedAt: new Date()
         })
         .where(eq(customers.id, parseInt(req.params.id)))
@@ -155,6 +159,36 @@ export function registerRoutes(app: Express): Server {
 
       if (!customer.length) {
         return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Si se proporcionaron tags, los actualizamos por separado
+      if (tags !== undefined) {
+        try {
+          // Preparamos los tags como un array filtrado de cadenas
+          const formattedTags = Array.isArray(tags) 
+            ? tags.filter(tag => typeof tag === 'string') 
+            : (typeof tags === 'string' ? [tags] : []);
+          
+          console.log(`[TAGS] Actualizando tags para cliente ${req.params.id}:`, 
+            JSON.stringify(formattedTags, null, 2));
+          
+          // Creamos un string con formato de array JSON válido: '["tag1", "tag2"]'
+          const jsonArrayString = JSON.stringify(formattedTags);
+          
+          // Ejecutamos la actualización con la sintaxis correcta
+          await db.$client.query(
+            `UPDATE customers SET tags = $1::jsonb WHERE id = $2`,
+            [jsonArrayString, parseInt(req.params.id)]
+          );
+          
+          console.log(`[TAGS] Tags actualizados exitosamente para cliente ${req.params.id}`);
+          
+          // Actualizamos el objeto a retornar
+          customer[0].tags = formattedTags;
+        } catch (tagsError) {
+          console.error('[TAGS] Error actualizando tags:', tagsError);
+          // No fallamos la operación completa si hay un error con los tags
+        }
       }
 
       res.json(customer[0]);

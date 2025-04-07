@@ -98,14 +98,18 @@ const brandOptions = [
 
 export function CustomerForm({
   customerId,
-  onComplete
+  onComplete,
+  initialMode = 'view'
 }: {
   customerId?: number;
   onComplete: (customer?: any) => void;
+  initialMode?: 'view' | 'edit';
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isViewMode, setIsViewMode] = useState(!!customerId);
+  // Si se proporciona un ID de cliente pero no se especifica modo, defaultea a "view" (solo ver)
+  // Si no hay ID de cliente (nuevo cliente), siempre es modo edición
+  const [isViewMode, setIsViewMode] = useState(!!customerId && initialMode === 'view');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 

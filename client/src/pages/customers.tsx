@@ -50,14 +50,21 @@ export default function CustomersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {selectedCustomer ? t("common.edit") : t("customers.newCustomer")}
+              {selectedCustomer ? (
+                selectedCustomer.mode === 'edit' ? "Editar Cliente" : "Detalles del Cliente"
+              ) : t("customers.newCustomer")}
             </DialogTitle>
             <DialogDescription>
-              {selectedCustomer ? "Modifique la información del cliente" : "Ingrese la información del nuevo cliente"}
+              {selectedCustomer ? (
+                selectedCustomer.mode === 'edit' ? 
+                "Modifique la información del cliente" : 
+                "Información detallada del cliente"
+              ) : "Ingrese la información del nuevo cliente"}
             </DialogDescription>
           </DialogHeader>
           <CustomerForm
             customerId={selectedCustomer?.id}
+            initialMode={selectedCustomer?.mode || 'view'}
             onComplete={() => {
               setDialogOpen(false);
               setSelectedCustomer(undefined);

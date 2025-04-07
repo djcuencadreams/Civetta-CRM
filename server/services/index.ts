@@ -13,6 +13,7 @@ import { socialService } from './social.service';
 import { opportunitiesService } from './opportunities.service';
 import { interactionsService } from './interactions.service';
 import { activitiesService } from './activities.service';
+import { healthService } from './health.service';
 
 // Register all services
 serviceRegistry.register(leadsService);
@@ -25,6 +26,7 @@ serviceRegistry.register(socialService);
 serviceRegistry.register(opportunitiesService);
 serviceRegistry.register(interactionsService);
 serviceRegistry.register(activitiesService);
+serviceRegistry.register(healthService);
 
 // Export all services and registry
 export {
@@ -38,5 +40,6 @@ export {
   socialService,
   opportunitiesService,
   interactionsService,
-  activitiesService
+  activitiesService,
+  healthService
 };

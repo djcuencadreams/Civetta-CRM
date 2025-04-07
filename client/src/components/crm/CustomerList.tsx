@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { SearchFilterBar, type FilterState } from "./SearchFilterBar";
 
 // Extended Customer type with optional mode for view/edit
+// Extendemos el tipo Customer para incluir el modo de visualización/edición
 type CustomerWithMode = Customer & {
   mode?: 'view' | 'edit';
 };
@@ -283,7 +284,7 @@ export function CustomerList({
                     className="flex-1"
                     onClick={() => onSelect({...customer, mode: 'view'})}
                   >
-                    Ver
+                    Ver detalles
                   </Button>
                   <Button
                     variant="default"
