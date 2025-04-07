@@ -1,0 +1,30 @@
+Hola, necesito resolver definitivamente el problema de los campos de dirección en el wizard. Tras aplicar los cambios anteriores, aún ocurre lo siguiente: el campo ‘Ciudad’ muestra la cédula, ‘Provincia’ sale vacía (en lugar de Azuay), y ‘Comentarios o Instrucciones Especiales para la Entrega’ muestra un valor que no corresponde (o está vacío cuando debería mostrar algo, o viceversa). Por favor:
+	1.	En el Endpoint de Verificación (por ejemplo, /api/shipping/check-customer-v2):
+	•	Agrega un log antes de enviar la respuesta final, para imprimir el objeto que se devolverá al frontend. Algo como:
+console.log(“CHECK-CUSTOMER RESPONSE:”, customerResponse);
+	•	Asegúrate de que en customerResponse aparezcan exactamente estos campos con los valores correctos:
+street (calle)
+city (ciudad)
+province (provincia)
+deliveryInstructions (o delivery_instructions)
+	•	Confirma que el campo ‘city’ no contenga la cédula ni otro dato incorrecto.
+	2.	En el Componente del Wizard (ShippingLabelForm.tsx):
+	•	Justo al recibir la respuesta del endpoint (por ejemplo, en searchCustomer), añade un log para imprimir data.customer, algo como:
+console.log(“DATOS RECIBIDOS DEL ENDPOINT:”, data.customer);
+	•	Revisa con cuidado qué propiedades aparecen realmente en data.customer.
+	•	Ajusta el mapeo a los campos del formulario de este modo (ejemplo):
+form.setValue(‘street’, data.customer.street || ‘’);
+form.setValue(‘city’, data.customer.city || ‘’);
+form.setValue(‘province’, data.customer.province || ‘’);
+form.setValue(‘deliveryInstructions’, data.customer.deliveryInstructions || data.customer.delivery_instructions || ‘’);
+	•	El objetivo es que ‘city’ reciba el valor real de city, y no la cédula, y que ‘province’ reciba el valor real de province.
+	3.	Verificación y Corrección:
+	•	Después de agregar estos logs, verifica en la consola qué datos salen en “CHECK-CUSTOMER RESPONSE” y en “DATOS RECIBIDOS DEL ENDPOINT:”.
+	•	Si el log del endpoint ya muestra city: “Azuay” pero en el wizard sigue apareciendo algo distinto, significa que en la respuesta final del backend se llama a esa propiedad con otro nombre, o que en el wizard se está leyendo otra propiedad.
+	•	Corrige cualquier discrepancia hasta que el log de data.customer coincida con lo que se ve en el wizard.
+	•	Al final, cuando el wizard muestra la dirección, debe aparecer ‘Casa 4, Pasaje 1ro mayo y Av. 1ro de mayo’ en Dirección, ‘Cuenca’ en Ciudad, ‘Azuay’ en Provincia, y las instrucciones (si existen) en el campo de ‘Comentarios o Instrucciones Especiales para la Entrega’.
+
+Por favor, tras realizar estos ajustes, proporciona un reporte final con:
+	•	El log exacto que imprime el endpoint (CHECK-CUSTOMER RESPONSE).
+	•	El log exacto que imprime el wizard (DATOS RECIBIDOS DEL ENDPOINT).
+	•	Cómo se corrigió el mapeo en ShippingLabelForm.tsx para que ‘Ciudad’ no reciba la cédula y ‘Provincia’ no salga vacía.
