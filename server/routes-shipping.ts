@@ -447,12 +447,17 @@ export function registerShippingRoutes(app: Express) {
                               !customer.province;
           
           if (shouldUpdate) {
+            console.log(`Actualizando información para cliente ID: ${customer.id}`);
+            console.log(`Instrucciones de entrega actuales: "${customer.deliveryInstructions}"`);
+            console.log(`Instrucciones de entrega nuevas: "${formData.deliveryInstructions}"`);
+            
             await db.update(customers)
               .set({
                 street: formData.street,
                 city: formData.city,
                 province: formData.province,
-                deliveryInstructions: formData.deliveryInstructions || customer.deliveryInstructions,
+                // CAMBIADO: Siempre usamos las instrucciones de entrega del formulario, sin mantener las anteriores
+                deliveryInstructions: formData.deliveryInstructions,
                 // Actualizamos también los campos de contacto si el cliente no los tiene
                 phone: customer.phone || formData.phone,
                 email: customer.email || formData.email || null,
@@ -461,6 +466,23 @@ export function registerShippingRoutes(app: Express) {
               .where(eq(customers.id, customer.id));
             
             console.log(`Actualizada información de envío para cliente ID: ${customer.id}`);
+          } else {
+            // AÑADIDO: Incluso si no se actualizan otros campos, actualizamos las instrucciones de entrega
+            // si han cambiado respecto a las almacenadas
+            if (formData.deliveryInstructions !== customer.deliveryInstructions) {
+              console.log(`Solo actualizando instrucciones de entrega para cliente ID: ${customer.id}`);
+              console.log(`Instrucciones anteriores: "${customer.deliveryInstructions}"`);
+              console.log(`Nuevas instrucciones: "${formData.deliveryInstructions}"`);
+              
+              await db.update(customers)
+                .set({
+                  deliveryInstructions: formData.deliveryInstructions,
+                  updatedAt: new Date()
+                })
+                .where(eq(customers.id, customer.id));
+                
+              console.log(`Instrucciones de entrega actualizadas correctamente`);
+            }
           }
         }
 
