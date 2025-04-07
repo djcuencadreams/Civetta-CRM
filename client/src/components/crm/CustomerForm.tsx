@@ -1,10 +1,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema, type Customer, brandEnum, customerTypeEnum, customerStatusEnum } from "@db/schema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 // Definición de interfaz para dirección de facturación
 interface BillingAddress {
@@ -96,75 +97,40 @@ const brandOptions = [
 ];
 
 export function CustomerForm({
-  customer,
+  customerId,
   onComplete
 }: {
-  customer?: Customer;
+  customerId?: number;
   onComplete: (customer?: any) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isViewMode, setIsViewMode] = useState(!!customer);
+  const [isViewMode, setIsViewMode] = useState(!!customerId);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Usar useQuery para obtener los datos actualizados del cliente directamente de la base de datos
+  const { data: customer, isLoading, error } = useQuery<Customer>({
+    queryKey: ['/api/customers', customerId],
+    queryFn: async () => {
+      if (!customerId) return undefined;
+      const res = await fetch(`/api/customers/${customerId}`);
+      if (!res.ok) {
+        throw new Error(`Error al cargar datos del cliente: ${res.status}`);
+      }
+      return res.json();
+    },
+    enabled: !!customerId, // Solo ejecuta la consulta si hay un ID de cliente
+    refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
+    staleTime: 0, // Siempre obtener datos frescos
+  });
   
-  // Log de los datos recibidos al inicio
-  if (customer) {
-    console.log("CustomerForm - Cliente recibido:", customer);
-    // Utilizar una aserción de tipo para acceder a propiedades en snake_case
-    const customerAny = customer as any;
-    
-    // Manejo de campo de identificación
-    if (!customer.idNumber && customerAny.id_number) {
-      customer.idNumber = customerAny.id_number;
-      console.log("CustomerForm - idNumber mapeado correctamente:", customer.idNumber);
+  // Log de los datos recibidos desde la API
+  useEffect(() => {
+    if (customer) {
+      console.log("CustomerForm - Cliente cargado desde API:", customer);
     }
-    
-    // Manejo de campos de dirección (por si acaso hay más inconsistencias)
-    if (!customer.deliveryInstructions && customerAny.delivery_instructions) {
-      customer.deliveryInstructions = customerAny.delivery_instructions;
-    }
-    
-    // Otros campos que podrían tener el mismo problema
-    if (!customer.firstName && customerAny.first_name) {
-      customer.firstName = customerAny.first_name;
-    }
-    
-    if (!customer.lastName && customerAny.last_name) {
-      customer.lastName = customerAny.last_name;
-    }
-    
-    if (!customer.phoneNumber && customerAny.phone_number) {
-      customer.phoneNumber = customerAny.phone_number;
-    }
-    
-    if (!customer.phoneCountry && customerAny.phone_country) {
-      customer.phoneCountry = customerAny.phone_country;
-    }
-    
-    if (!customer.secondaryPhone && customerAny.secondary_phone) {
-      customer.secondaryPhone = customerAny.secondary_phone;
-    }
-    
-    if (!customer.billingAddress && customerAny.billing_address) {
-      customer.billingAddress = customerAny.billing_address;
-    }
-    
-    // Campo adicional: assigned_user_id
-    if (!customer.assignedUserId && customerAny.assigned_user_id) {
-      customer.assignedUserId = customerAny.assigned_user_id;
-    }
-    
-    // Otros campos posibles
-    if (!customer.totalValue && customerAny.total_value) {
-      customer.totalValue = customerAny.total_value;
-    }
-    
-    // brandInterest podría no existir en el tipo Customer, pero queremos mapearlo igual
-    if (customerAny.brand_interest) {
-      (customer as any).brandInterest = customerAny.brand_interest;
-    }
-  }
+  }, [customer]);
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
@@ -261,36 +227,9 @@ export function CustomerForm({
   );
   const [currentTag, setCurrentTag] = useState("");
 
+  // Inicializamos el formulario con valores por defecto básicos
   const form = useForm({
-    defaultValues: customer ? {
-      // Use separate first/last name fields if available, otherwise split from name
-      firstName: customer.firstName || customer.name?.split(' ')[0] || '',
-      lastName: customer.lastName || customer.name?.split(' ').slice(1).join(' ') || '',
-      idNumber: customer.idNumber || '',
-      email: customer.email || '',
-      // Use dedicated phone fields if available, otherwise parse from combined phone field
-      phoneCountry: customer.phoneCountry || customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
-      phoneNumber: customer.phoneNumber || customer.phone?.replace(/^\+\d+/, '') || '',
-      secondaryPhone: customer.secondaryPhone || '',
-      // Use structured address fields if available, otherwise parse from legacy address field
-      street: customer.street || customer.address?.split(',')[0]?.trim() || '',
-      city: customer.city || customer.address?.split(',')[1]?.trim() || '',
-      province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
-      deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
-      // Billing address fields
-      billingStreet: (customer.billingAddress as BillingAddress)?.street || customer.street || '',
-      billingCity: (customer.billingAddress as BillingAddress)?.city || customer.city || '',
-      billingProvince: (customer.billingAddress as BillingAddress)?.province || customer.province || '',
-      billingPostalCode: (customer.billingAddress as BillingAddress)?.postalCode || '',
-      billingCountry: (customer.billingAddress as BillingAddress)?.country || 'Ecuador',
-      // Customer type and status
-      type: customer.type || customerTypeEnum.PERSON,
-      status: customer.status || customerStatusEnum.ACTIVE,
-      // Other fields
-      source: customer.source || 'instagram',
-      brand: customer.brand || brandEnum.SLEEPWEAR,
-      notes: customer.notes || ''
-    } : {
+    defaultValues: {
       firstName: "",
       lastName: "",
       idNumber: "",
@@ -314,6 +253,47 @@ export function CustomerForm({
       notes: ""
     }
   });
+  
+  // Actualizar el formulario cuando se cargan los datos del cliente desde la API
+  useEffect(() => {
+    if (customer) {
+      // Reset del formulario con los datos actualizados del cliente
+      form.reset({
+        // Use separate first/last name fields if available, otherwise split from name
+        firstName: customer.firstName || customer.name?.split(' ')[0] || '',
+        lastName: customer.lastName || customer.name?.split(' ').slice(1).join(' ') || '',
+        idNumber: customer.idNumber || '',
+        email: customer.email || '',
+        // Use dedicated phone fields if available, otherwise parse from combined phone field
+        phoneCountry: customer.phoneCountry || customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
+        phoneNumber: customer.phoneNumber || customer.phone?.replace(/^\+\d+/, '') || '',
+        secondaryPhone: customer.secondaryPhone || '',
+        // Use structured address fields if available, otherwise parse from legacy address field
+        street: customer.street || customer.address?.split(',')[0]?.trim() || '',
+        city: customer.city || customer.address?.split(',')[1]?.trim() || '',
+        province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
+        deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
+        // Billing address fields
+        billingStreet: (customer.billingAddress as BillingAddress)?.street || customer.street || '',
+        billingCity: (customer.billingAddress as BillingAddress)?.city || customer.city || '',
+        billingProvince: (customer.billingAddress as BillingAddress)?.province || customer.province || '',
+        billingPostalCode: (customer.billingAddress as BillingAddress)?.postalCode || '',
+        billingCountry: (customer.billingAddress as BillingAddress)?.country || 'Ecuador',
+        // Customer type and status
+        type: customer.type as any || customerTypeEnum.PERSON,
+        status: customer.status || customerStatusEnum.ACTIVE,
+        // Other fields
+        source: customer.source || 'instagram',
+        brand: customer.brand || brandEnum.SLEEPWEAR,
+        notes: customer.notes || ''
+      });
+      
+      // Actualizar tags si están disponibles
+      if (customer.tags && Array.isArray(customer.tags)) {
+        setCustomerTags(customer.tags);
+      }
+    }
+  }, [customer, form]);
 
   const formatPhoneNumber = (value: string | undefined) => {
     if (!value) return '';
@@ -322,6 +302,33 @@ export function CustomerForm({
     }
     return value;
   };
+
+  // Si hay un ID de cliente pero aún está cargando, mostrar un spinner
+  if (customerId && isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+        <p className="text-muted-foreground">Cargando datos actualizados del cliente...</p>
+      </div>
+    );
+  }
+
+  // Si ocurrió un error al cargar los datos, mostrar un mensaje de error
+  if (error) {
+    return (
+      <div className="bg-destructive/10 p-4 rounded-md">
+        <h3 className="text-destructive font-medium mb-2">Error al cargar datos del cliente</h3>
+        <p className="text-sm">{error instanceof Error ? error.message : "Ocurrió un error desconocido"}</p>
+        <Button 
+          className="mt-4" 
+          variant="outline" 
+          onClick={() => onComplete()}
+        >
+          Cerrar
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <>

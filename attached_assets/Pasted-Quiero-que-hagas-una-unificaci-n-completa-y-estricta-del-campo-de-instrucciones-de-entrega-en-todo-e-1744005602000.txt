@@ -1,0 +1,26 @@
+Quiero que hagas una unificación completa y estricta del campo de instrucciones de entrega en todo el sistema. Actualmente existen múltiples formas de este campo como deliveryInstructions, delivery_instructions, instructions, shippingAddress.instructions, etc., tanto en frontend, backend y base de datos. Esto ha generado múltiples errores de visualización, actualización y sincronización.
+
+A partir de ahora, solo debe existir un único campo fuente de verdad llamado: delivery_instructions en la tabla customers.
+
+Haz lo siguiente:
+	1.	En la base de datos, asegúrate de que:
+	•	El único campo válido sea delivery_instructions en la tabla customers.
+	•	Si existen otros campos similares en otras tablas como shipping_addresses o orders, valida si se usan. Si no se usan, elimínalos. Si se usan para un propósito diferente, asegúrate que su uso esté bien separado y no se mezcle nunca con el del cliente.
+	•	Si hay datos existentes en campos como shippingAddress.instructions, migra su valor a customers.delivery_instructions solo si no está vacío.
+	2.	En el backend, actualiza todos los endpoints (como /api/shipping/check-customer, /api/shipping/save-data, /api/customers/update, etc.) para que:
+	•	Solo utilicen delivery_instructions como campo de instrucciones.
+	•	El campo sea leído y escrito correctamente desde y hacia la tabla customers.
+	•	El mapeo entre camelCase y snake_case sea consistente si es necesario por razones de frontend (ej: usar deliveryInstructions en JSON pero mapear a delivery_instructions internamente).
+	3.	En el frontend, revisa y corrige todos los formularios donde se capturan o muestran instrucciones de entrega (Wizard paso 3, formulario estático, ficha del cliente, etc.), para que:
+	•	Usen solo deliveryInstructions y se aseguren que se esté leyendo y escribiendo desde el campo correcto de customers.
+	•	Se evite toda duplicidad con instructions o shippingAddress.instructions.
+	•	Asegúrate de que el campo sea editable, se sincronice con la base de datos y se vea reflejado correctamente en todos los lugares.
+	4.	Limpia el código: elimina variables, props, interfaces o referencias duplicadas o inconsistentes en todo el proyecto que se relacionen a instructions.
+
+Esta unificación debe hacerse con precisión y pruebas. Al final, dime exactamente:
+	•	Cuáles archivos editaste
+	•	Qué campos eliminaste
+	•	Dónde migraste información
+	•	Cómo confirmas que ya no hay duplicidades
+
+Este cambio es fundamental para evitar bugs de sincronización entre formularios, base de datos y vistas de cliente. No asumas nada, revisa el código completo con extremo detalle.

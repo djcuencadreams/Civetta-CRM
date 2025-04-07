@@ -57,7 +57,7 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
           <CustomerForm
-            customer={selectedCustomer}
+            customerId={selectedCustomer?.id}
             onComplete={() => {
               setDialogOpen(false);
               setSelectedCustomer(undefined);
