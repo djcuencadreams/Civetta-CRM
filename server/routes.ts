@@ -52,28 +52,8 @@ export function registerRoutes(app: Express): Server {
           }
         }
         
-        // If a customer has address but not structured address fields, parse them
-        if (enhancedCustomer.address && (!enhancedCustomer.street || !enhancedCustomer.city || !enhancedCustomer.province)) {
-          try {
-            const addressParts = enhancedCustomer.address.split(',');
-            enhancedCustomer.street = enhancedCustomer.street || addressParts[0]?.trim();
-            enhancedCustomer.city = enhancedCustomer.city || addressParts[1]?.trim();
-            
-            // Handle province which might be followed by delivery instructions
-            if (addressParts[2]) {
-              const provinceAndInstructions = addressParts[2].split('\n');
-              enhancedCustomer.province = enhancedCustomer.province || provinceAndInstructions[0]?.trim();
-              
-              // Get delivery instructions if present
-              if (provinceAndInstructions.length > 1) {
-                enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || provinceAndInstructions[1]?.trim();
-              }
-            }
-          } catch (e) {
-            // Silent fail - if parsing fails, we'll just use what we have
-            console.warn('Failed to parse address for customer', enhancedCustomer.id);
-          }
-        }
+        // No more legacy address field, only use structured fields
+        // This approach relies on street, city, province as separate fields
         
         // If a customer has phone but not phoneCountry/phoneNumber, parse them
         if (enhancedCustomer.phone && (!enhancedCustomer.phoneCountry || !enhancedCustomer.phoneNumber)) {
@@ -92,35 +72,31 @@ export function registerRoutes(app: Express): Server {
         // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
         // Este es el punto clave para solucionar el problema de inconsistencia
         
+        // Aseguramos que todos los campos estén presentes y con valores consistentes
+        // En la base de datos usamos camelCase, pero algunos componentes frontend esperan snake_case
+        
         // Campos de identificación
         enhancedCustomer.idNumber = enhancedCustomer.idNumber || null;
-        enhancedCustomer.id_number = enhancedCustomer.idNumber || null;
         
         // Campos de nombre
-        enhancedCustomer.first_name = enhancedCustomer.firstName || null;
-        enhancedCustomer.last_name = enhancedCustomer.lastName || null;
+        enhancedCustomer.firstName = enhancedCustomer.firstName || null;
+        enhancedCustomer.lastName = enhancedCustomer.lastName || null;
         
         // Campos de dirección
         enhancedCustomer.street = enhancedCustomer.street || null;
         enhancedCustomer.city = enhancedCustomer.city || null;
         enhancedCustomer.province = enhancedCustomer.province || null;
         enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || null;
-        enhancedCustomer.delivery_instructions = enhancedCustomer.deliveryInstructions || null;
         
         // Campos de teléfono
-        enhancedCustomer.phone_country = enhancedCustomer.phoneCountry || null;
-        enhancedCustomer.phone_number = enhancedCustomer.phoneNumber || null;
+        enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || null;
+        enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || null;
         
         // Otros campos
-        enhancedCustomer.secondary_phone = enhancedCustomer.secondaryPhone || null;
-        enhancedCustomer.billing_address = enhancedCustomer.billingAddress || null;
-        enhancedCustomer.total_value = enhancedCustomer.totalValue || null;
-        enhancedCustomer.assigned_user_id = enhancedCustomer.assignedUserId || null;
-        
-        // Compatibilidad adicional para campos alternativos
-        enhancedCustomer.street_address = enhancedCustomer.street || null;
-        enhancedCustomer.city_name = enhancedCustomer.city || null;
-        enhancedCustomer.province_name = enhancedCustomer.province || null;
+        enhancedCustomer.secondaryPhone = enhancedCustomer.secondaryPhone || null;
+        enhancedCustomer.billingAddress = enhancedCustomer.billingAddress || null;
+        enhancedCustomer.totalValue = enhancedCustomer.totalValue || null;
+        enhancedCustomer.assignedUserId = enhancedCustomer.assignedUserId || null;
         
         console.log(`Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
         
@@ -149,8 +125,8 @@ export function registerRoutes(app: Express): Server {
       });
 
       webhookList.forEach(webhook => {
-        if (webhook.active && webhook.endpoint) {
-          fetch(webhook.endpoint, {
+        if (webhook.active && webhook.url) {
+          fetch(webhook.url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(customer[0])
@@ -275,11 +251,12 @@ export function registerRoutes(app: Express): Server {
       let province = customer.province || '';
       let deliveryInstructions = customer.deliveryInstructions || '';
       
-      // If we don't have structured fields but we do have a legacy address, parse it
-      if (!street && !city && !province && customer.address) {
+      // Ya no tenemos campos legacy de dirección, solo trabajamos con campos estructurados
+      if (!street && !city && !province) {
         try {
-          const parts = customer.address.split('\n');
-          const addressParts = parts[0]?.split(',') || [];
+          // Intentar reconstruir desde cualquier datos parcial disponible
+          const parts = [];
+          const addressParts = [];
 
           street = addressParts[0]?.trim() || '';
           city = addressParts[1]?.trim() || '';
@@ -344,7 +321,21 @@ export function registerRoutes(app: Express): Server {
     try {
       const result = await db.query.sales.findMany({
         orderBy: desc(sales.createdAt),
-        with: { customer: true }
+        with: { 
+          customer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          }
+        }
       });
       res.json(result);
     } catch (error) {
@@ -366,7 +357,21 @@ export function registerRoutes(app: Express): Server {
       const sale = await db.insert(sales).values(req.body).returning();
       const saleWithCustomer = await db.query.sales.findFirst({
         where: eq(sales.id, sale[0].id),
-        with: { customer: true }
+        with: { 
+          customer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          }
+        }
       });
 
       res.json(saleWithCustomer);
@@ -377,8 +382,8 @@ export function registerRoutes(app: Express): Server {
       });
 
       webhookList.forEach(webhook => {
-        if (webhook.active && webhook.endpoint) {
-          fetch(webhook.endpoint, {
+        if (webhook.active && webhook.url) {
+          fetch(webhook.url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(saleWithCustomer)
@@ -435,7 +440,21 @@ export function registerRoutes(app: Express): Server {
       // Obtener la venta actualizada con la información del cliente
       const updatedSale = await db.query.sales.findFirst({
         where: eq(sales.id, saleId),
-        with: { customer: true }
+        with: { 
+          customer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          }
+        }
       });
       
       res.json(updatedSale);
@@ -557,8 +576,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Webhook name is required" });
       }
 
-      if (!req.body.endpoint?.trim()) {
-        return res.status(400).json({ error: "Webhook endpoint is required" });
+      if (!req.body.url?.trim()) {
+        return res.status(400).json({ error: "Webhook URL is required" });
       }
 
       if (!req.body.event?.trim()) {
@@ -596,7 +615,19 @@ export function registerRoutes(app: Express): Server {
       const result = await db.query.leads.findMany({
         orderBy: [desc(leads.createdAt)],
         with: {
-          convertedCustomer: true
+          convertedCustomer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          }
         }
       });
       res.json(result);

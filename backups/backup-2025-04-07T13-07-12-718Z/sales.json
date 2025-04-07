@@ -1,0 +1,26 @@
+[
+  {
+    "id": 20,
+    "customerId": 143,
+    "orderId": null,
+    "amount": "23.55",
+    "status": "new",
+    "paymentMethod": "transferencia",
+    "brand": "sleepwear",
+    "notes": "pijama blanca (Pijamas) - $23.55 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-01T05:42:20.822Z",
+    "updatedAt": "2025-03-01T05:42:20.822Z"
+  },
+  {
+    "id": 21,
+    "customerId": 149,
+    "orderId": null,
+    "amount": "55.00",
+    "status": "new",
+    "paymentMethod": "transferencia",
+    "brand": "sleepwear",
+    "notes": "fdsfsdf (Pijamas) - $55 x 1 - Civetta Sleepwear",
+    "createdAt": "2025-03-16T05:14:35.450Z",
+    "updatedAt": "2025-03-16T05:14:35.450Z"
+  }
+]

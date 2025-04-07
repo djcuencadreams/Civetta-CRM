@@ -1,0 +1,66 @@
+Estoy teniendo varios errores críticos desde los últimos cambios y necesito que los resuelvas con total precisión y sin afectar la integridad del sistema. Sigue estas instrucciones exactas:
+
+🛠️ CONTEXTO GENERAL
+	•	Este CRM usa una arquitectura modular con tablas como customers, sales, leads, entre otras.
+	•	WooCommerce es el ecommerce conectado al CRM. Usamos el campo woo_commerce_id como identificador único para sincronización.
+	•	El sistema está fallando en múltiples vistas: wizard, leads, ventas, interacciones.
+	•	El wizard no está guardando correctamente algunos campos.
+	•	Las vistas de cliente no muestran los datos reales, aunque el resumen sí. Puede deberse a duplicación de datos en componentes, errores de estado o desincronización entre bases.
+
+⸻
+
+1️⃣ ARREGLAR EL CAMPO woo_commerce_id
+	•	Verifica que el campo woo_commerce_id exista en las siguientes tablas:
+	•	customers
+	•	sales
+	•	leads
+	•	Si no existen, agrégalos con tipo TEXT o VARCHAR, permitiendo NULL.
+	•	Si hay referencias a sales_customer.woo_commerce_id o leads_convertedCustomer.woo_commerce_id en consultas o joins, asegúrate que estos campos existan y tengan sus alias correctamente definidos.
+	•	Actualiza todos los ORMs, esquemas y servicios (customers.service.ts, sales.service.ts, leads.service.ts, schema.ts, etc.) para que soporten este campo sin errores.
+	•	Elimina cualquier referencia a campos WooCommerce que no estén definidos correctamente.
+
+⸻
+
+2️⃣ CORREGIR PROBLEMAS EN EL WIZARD
+	•	Asegúrate de que los datos modificados en los pasos 2 y 3 del wizard:
+	•	Se sincronicen correctamente en la base de datos de clientes (customers)
+	•	Se reflejen de inmediato en:
+	•	el resumen del paso 4
+	•	la lista de clientes
+	•	la ficha de cliente (ver/editar)
+	•	Corrige la lógica de envío (submit) en el paso final del wizard. Actualmente no está enviando datos.
+	•	Si hay duplicación de campos como name, unifícalos. Pero mantén separados firstName y lastName, ya que en Ecuador usamos nombres y apellidos como entidades diferentes.
+	•	No elimines firstName y lastName, ni los reemplaces por name. Solo usa name como campo de uso visual derivado.
+
+⸻
+
+3️⃣ SOLUCIONAR VISTAS INCONSISTENTES
+	•	La vista de la lista de clientes muestra datos diferentes a la ficha. Esto indica:
+	•	Posible cacheo indebido
+	•	Duplicidad de estados
+	•	Desincronización entre componentes
+	•	Asegúrate que tanto el componente que renderiza la lista de clientes, como el de ver o editar cliente, obtienen los datos desde la misma fuente (customers.service.ts) y con la misma lógica.
+	•	Actualiza los endpoints backend y React frontend si es necesario.
+
+⸻
+
+4️⃣ VERIFICACIÓN
+	•	Asegúrate de que:
+	•	Se puede crear y actualizar clientes sin errores
+	•	La vista lista y la ficha individual de cliente muestran los mismos datos
+	•	Los pedidos, leads, ventas e interacciones cargan sin errores 500
+	•	El wizard funcione correctamente en todos los pasos y guarde toda la info
+	•	Corrección de errores como:
+	•	column sales_customer.woo_commerce_id does not exist
+	•	column leads_convertedCustomer.woo_commerce_id does not exist
+
+⸻
+
+5️⃣ BUENAS PRÁCTICAS A RESPETAR
+	•	Mantén campos WooCommerce en las tablas, pero bien gestionados, documentados y validados.
+	•	Usa firstName y lastName como campos base para los clientes. Usa name solo como campo derivado.
+	•	Establece funciones auxiliares como getFullName() si es necesario unificarlos para UI o reportes.
+
+⸻
+
+🔁 Si realizas migraciones, documenta los cambios y reinicia el servidor para verificar consistencia del sistema. Ejecuta pruebas completas de lectura y escritura en las secciones de Clientes, Ventas, Leads, Wizard y Etiquetas.

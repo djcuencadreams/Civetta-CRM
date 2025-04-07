@@ -8,7 +8,7 @@ import * as z from 'zod';
 export const serviceConfigurations = pgTable("service_configurations", {
   id: serial("id").primaryKey(),
   service: text("service").notNull().unique(),
-  config: text("config").notNull().default({}),
+  config: text("config").notNull().default(sql`'{}'`),
   enabled: boolean("enabled").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -184,7 +184,7 @@ export const customers = pgTable('customers', {
   totalValue: text('total_value').default('0.00'),
   assignedUserId: integer('assigned_user_id'),
   lastPurchase: timestamp('last_purchase'),
-  wooCommerceId: integer('woo_commerce_id'),
+  wooCommerceId: integer('wooCommerceId'),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
@@ -275,11 +275,11 @@ export const products = pgTable("products", {
   status: text("status").default(productStatusEnum.ACTIVE), 
   productType: text("product_type").default('simple'), 
   weight: text("weight"), 
-  dimensions: text("dimensions").default({}), 
-  images: text("images").default([]), 
-  attributes: text("attributes").default({}), 
-  variants: text("variants").default([]), 
-  relatedProducts: text("related_products").default([]), 
+  dimensions: text("dimensions").default(sql`'{}'`), 
+  images: text("images").default(sql`'[]'`), 
+  attributes: text("attributes").default(sql`'{}'`), 
+  variants: text("variants").default(sql`'[]'`), 
+  relatedProducts: text("related_products").default(sql`'[]'`), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
@@ -298,7 +298,7 @@ export const orders = pgTable("orders", {
   status: text("status").default(orderStatusEnum.NEW),
   paymentStatus: text("payment_status").default(paymentStatusEnum.PENDING),
   paymentMethod: text("payment_method"),
-  paymentDetails: text("payment_details").default({}), 
+  paymentDetails: text("payment_details").default(sql`'{}'`), 
   paymentDate: timestamp("payment_date"), 
   source: text("source").default(sourceEnum.WEBSITE),
   isFromWebForm: boolean("is_from_web_form").default(false), 
@@ -306,8 +306,8 @@ export const orders = pgTable("orders", {
   trackingNumber: text("tracking_number"), 
   shippingMethod: text("shipping_method"), 
   brand: text("brand").default(brandEnum.SLEEPWEAR),
-  shippingAddress: text("shipping_address").default({}), 
-  billingAddress: text("billing_address").default({}), 
+  shippingAddress: text("shipping_address").default(sql`'{}'`), 
+  billingAddress: text("billing_address").default(sql`'{}'`), 
   couponCode: text("coupon_code"), 
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id), 
   notes: text("notes"),
@@ -325,7 +325,7 @@ export const orderItems = pgTable("order_items", {
   unitPrice: text("unit_price").notNull(),
   discount: text("discount").default("0"),
   subtotal: text("subtotal").notNull(),
-  attributes: text("attributes").default({}), 
+  attributes: text("attributes").default(sql`'{}'`), 
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -386,7 +386,7 @@ export const opportunities = pgTable("opportunities", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   estimatedCloseDate: timestamp("estimated_close_date"),
   notes: text("notes"),
-  productsInterested: text("products_interested").default([]), 
+  productsInterested: text("products_interested").default(sql`'[]'`), 
   nextActionDate: timestamp("next_action_date") 
 });
 
@@ -399,7 +399,7 @@ export const interactions = pgTable("interactions", {
   type: text("type").notNull().default(interactionTypeEnum.QUERY),
   channel: text("channel").notNull().default(interactionChannelEnum.WHATSAPP),
   content: text("content").notNull(), 
-  attachments: text("attachments").default([]), 
+  attachments: text("attachments").default(sql`'[]'`), 
   assignedUserId: integer("assigned_user_id").references(() => crmUsers.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   isResolved: boolean("is_resolved").default(false),

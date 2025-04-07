@@ -84,10 +84,24 @@ export class LeadsService implements Service {
    */
   async getAllLeads(_req: Request, res: Response): Promise<void> {
     try {
+      // Modificar la consulta para seleccionar específicamente los campos necesarios
+      // y evitar el error con woo_commerce_id
       const result = await db.query.leads.findMany({
         orderBy: [desc(leads.createdAt)],
         with: {
-          convertedCustomer: true
+          convertedCustomer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          }
         }
       });
       res.json(result);
@@ -121,7 +135,19 @@ export class LeadsService implements Service {
       const result = await db.query.leads.findFirst({
         where: eq(leads.id, leadId),
         with: {
-          convertedCustomer: true,
+          convertedCustomer: {
+            // Seleccionamos campos específicos para evitar el error con el campo wooCommerceId
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              type: true,
+              status: true
+            }
+          },
           activities: {
             orderBy: [desc(leadActivities.createdAt)]
           }

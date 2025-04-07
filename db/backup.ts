@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './index';
-import * as schema from './schema-original';
+import * as schema from './schema';
 
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
