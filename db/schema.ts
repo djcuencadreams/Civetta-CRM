@@ -180,6 +180,8 @@ export const customers = pgTable('customers', {
   source: text('source').default('manual'),
   brand: text('brand'),
   status: text('status').default('active'),
+  // NOTE: In the database, this column is actually JSONB type, not text[].
+  // When working with this field, use sql`'["value1", "value2"]'::jsonb` for direct insertions
   tags: text('tags').array(),
   totalValue: text('total_value').default('0.00'),
   assignedUserId: integer('assigned_user_id'),

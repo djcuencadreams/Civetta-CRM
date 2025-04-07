@@ -26,6 +26,9 @@ export async function backupDatabase(): Promise<string> {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupDirPath = path.join(backupDir, `backup-${timestamp}`);
+    
+    // Track record counts for metadata
+    const recordCounts: Record<string, number> = {};
 
     // Create backup directory with timestamp
     fs.mkdirSync(backupDirPath, { recursive: true });
@@ -70,7 +73,10 @@ export async function backupDatabase(): Promise<string> {
           // Write records to a JSON file
           const filePath = path.join(backupDirPath, `${tableName}.json`);
           fs.writeFileSync(filePath, JSON.stringify(processedRecords, null, 2));
-
+          
+          // Save record count for metadata
+          recordCounts[tableName] = processedRecords.length;
+          
           console.log(`Backed up ${processedRecords.length} records from ${tableName} table`);
         } catch (error) {
           console.error(`Error backing up table ${tableName}:`, error);
@@ -86,7 +92,7 @@ export async function backupDatabase(): Promise<string> {
     const metadata = {
       timestamp: new Date().toISOString(),
       tables: TABLES_TO_BACKUP,
-      recordCounts: {},
+      recordCounts: recordCounts,
     };
 
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
@@ -245,4 +251,18 @@ function cleanupOldBackups(keepCount: number): void {
   } catch (error) {
     console.error('Error cleaning up old backups:', error);
   }
+}
+
+// When this file is executed directly, run a backup
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log('Executing backup script directly...');
+  backupDatabase()
+    .then(backupPath => {
+      console.log(`Backup completed successfully: ${backupPath}`);
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Backup failed:', error);
+      process.exit(1);
+    });
 }
