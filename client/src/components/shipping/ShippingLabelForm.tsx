@@ -97,6 +97,7 @@ export function ShippingLabelForm(): JSX.Element {
   const [searchType, setSearchType] = useState<"identification" | "email" | "phone">("identification");
   const [customerType, setCustomerType] = useState<"existing" | "new">("new");
   const [customerFound, setCustomerFound] = useState(false);
+  const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); // Added state for existing customer
 
   // Definir el formulario con valores por defecto
   const form = useForm<ShippingFormValues>({
@@ -308,6 +309,7 @@ export function ShippingLabelForm(): JSX.Element {
             province: form.getValues('province')
           });
 
+          setExistingCustomer(data.customer); // Set existing customer data
         setCustomerFound(true);
 
         toast({
@@ -503,11 +505,57 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
+  // Función para actualizar los datos del cliente desde el asistente
+  const updateCustomerFromWizard = async (customerId: number) => {
+    const { firstName, lastName, phone, email, street, city, province, deliveryInstructions, idNumber } = form.getValues();
+    try {
+      const customerData = {
+        name: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
+        phone,
+        email,
+        street,
+        city, 
+        province,
+        deliveryInstructions,
+        idNumber
+      };
+
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(customerData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update customer data');
+      }
+
+      console.log('✅ Customer data updated successfully');
+      return true;
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      return false;
+    }
+  };
+
+
   // Función para generar la etiqueta de envío (en el último paso)
   const generateLabel = async (data: ShippingFormValues) => {
     setIsPdfGenerating(true);
+    const { firstName, lastName, phone, email, street, city, province, idNumber, deliveryInstructions } = form.getValues();
 
     try {
+      // Update customer data if we have an existing customer
+      if (existingCustomer?.id) {
+        const success = await updateCustomerFromWizard(existingCustomer.id);
+        if (!success) {
+          throw new Error('Failed to update customer data');
+        }
+      }
       // Formato para enviar al servidor
       const formData = {
         name: `${data.firstName} ${data.lastName}`,
@@ -566,6 +614,7 @@ export function ShippingLabelForm(): JSX.Element {
       form.reset();
       setCustomerType("new");
       setCustomerFound(false);
+      setExistingCustomer(null); // Reset existing customer
 
     } catch (error) {
       console.error('Error:', error);
@@ -1121,7 +1170,7 @@ export function ShippingLabelForm(): JSX.Element {
                   Enviando...
                 </>
               ) : (
-                'Enviar formulario'
+                'Generar Etiqueta'
               )}
             </Button>
           </form>
