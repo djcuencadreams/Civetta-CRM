@@ -184,13 +184,14 @@ export function registerImprovedShippingRoutes(app: Express) {
             // Incluir explícitamente la información de dirección con valores por defecto en caso de null
             street: dbCustomer.street || '',
             city: dbCustomer.city || '',
-            province: dbCustomer.province || '',
+            province: dbCustomer.province || 'Azuay', // Default to Azuay if empty
             deliveryInstructions: dbCustomer.delivery_instructions || ''
           };
 
           console.log('[SHIPPING-DEBUG] Respuesta preparada para el cliente:', JSON.stringify(responseCustomer, null, 2));
 
           // Respuesta como JSON completa
+          console.log("CHECK-CUSTOMER RESPONSE:", JSON.stringify(responseCustomer, null, 2));
           return res.json({
             found: true,
             customer: responseCustomer

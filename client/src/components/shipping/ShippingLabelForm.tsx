@@ -137,7 +137,8 @@ export function ShippingLabelForm() {
       console.log("Resultado búsqueda:", data);
 
       if (data.found && data.customer) {
-          console.log("Datos del cliente:", data.customer);
+          // Log detallado de los datos recibidos
+          console.log("DATOS RECIBIDOS DEL ENDPOINT:", JSON.stringify(data.customer, null, 2));
 
           // Extraer nombre completo y dividirlo en primer nombre y apellidos
           const nameParts = data.customer.name.split(' ');
@@ -151,13 +152,15 @@ export function ShippingLabelForm() {
           form.setValue('email', data.customer.email || '');
           form.setValue('idNumber', data.customer.idNumber || '');
 
-          // Información de dirección - asegurarse de usar los campos correctos
+          // Información de dirección - mapeo explícito y correcto
           form.setValue('street', data.customer.street || '');
-          form.setValue('city', data.customer.city || '');
-          form.setValue('province', data.customer.province || 'Azuay'); // Default to Azuay if not provided
-          // Solo establecer instrucciones si existe y no es null
-          const deliveryInst = data.customer.deliveryInstructions || null;
-          form.setValue('deliveryInstructions', deliveryInst === null ? '' : deliveryInst);
+          form.setValue('city', data.customer.city || ''); // Asegurar que sea el campo city
+          form.setValue('province', data.customer.province || 'Azuay');
+          form.setValue('deliveryInstructions', 
+            data.customer.deliveryInstructions || 
+            data.customer.delivery_instructions || 
+            ''
+          );
 
         setCustomerFound(true);
 
