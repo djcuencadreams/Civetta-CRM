@@ -198,6 +198,28 @@ export class CustomersService implements Service {
       
       const result = await db.query.customers.findFirst({
         where: eq(customers.id, customerId),
+        columns: {
+          id: true,
+          name: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          phoneCountry: true,
+          phoneNumber: true,
+          secondaryPhone: true,
+          street: true,
+          city: true,
+          province: true,
+          deliveryInstructions: true,
+          idNumber: true,
+          source: true,
+          brand: true,
+          status: true,
+          type: true,
+          createdAt: true,
+          updatedAt: true
+        },
         with: {
           sales: {
             orderBy: [desc(sales.createdAt)]
@@ -213,42 +235,30 @@ export class CustomersService implements Service {
       // Crear una copia del resultado para evitar modificar el objeto original
       const enhancedCustomer = { ...result };
       
-      // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
-      // para asegurar la consistencia entre la lista y la vista detallada
-      
-      // Campos de identificación
-      enhancedCustomer.idNumber = enhancedCustomer.idNumber || null;
-      enhancedCustomer.id_number = enhancedCustomer.idNumber || null;
-      
-      // Campos de nombre
-      enhancedCustomer.firstName = enhancedCustomer.firstName || null;
-      enhancedCustomer.lastName = enhancedCustomer.lastName || null;
-      enhancedCustomer.first_name = enhancedCustomer.firstName || null;
-      enhancedCustomer.last_name = enhancedCustomer.lastName || null;
-      
-      // Campos de dirección
-      enhancedCustomer.street = enhancedCustomer.street || null;
-      enhancedCustomer.city = enhancedCustomer.city || null;
-      enhancedCustomer.province = enhancedCustomer.province || null;
-      enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || null;
-      enhancedCustomer.delivery_instructions = enhancedCustomer.deliveryInstructions || null;
-      
-      // Campos de teléfono
-      enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || null;
-      enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || null;
-      enhancedCustomer.phone_country = enhancedCustomer.phoneCountry || null;
-      enhancedCustomer.phone_number = enhancedCustomer.phoneNumber || null;
-      
-      // Otros campos
-      enhancedCustomer.secondaryPhone = enhancedCustomer.secondaryPhone || null;
-      enhancedCustomer.secondary_phone = enhancedCustomer.secondaryPhone || null;
-      enhancedCustomer.total_value = enhancedCustomer.totalValue || null;
-      enhancedCustomer.assigned_user_id = enhancedCustomer.assignedUserId || null;
-      
-      // Compatibilidad adicional para campos alternativos
-      enhancedCustomer.street_address = enhancedCustomer.street || null;
-      enhancedCustomer.city_name = enhancedCustomer.city || null;
-      enhancedCustomer.province_name = enhancedCustomer.province || null;
+      // Crear objeto de respuesta limpio con solo los campos necesarios
+      const enhancedCustomer = {
+        id: result.id,
+        name: result.name,
+        firstName: result.firstName || null,
+        lastName: result.lastName || null,
+        email: result.email || null,
+        phone: result.phone || null,
+        phoneCountry: result.phoneCountry || null,
+        phoneNumber: result.phoneNumber || null,
+        secondaryPhone: result.secondaryPhone || null,
+        street: result.street || null,
+        city: result.city || null,
+        province: result.province || null,
+        deliveryInstructions: result.deliveryInstructions || null,
+        idNumber: result.idNumber || null,
+        source: result.source || null,
+        brand: result.brand || null,
+        status: result.status || 'active',
+        type: result.type || 'person',
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+        sales: result.sales || []
+      };
       
       console.log(`✅ [GET:ID] Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
       console.log(`📋 [GET:ID] Datos de dirección: street=${enhancedCustomer.street}, city=${enhancedCustomer.city}, province=${enhancedCustomer.province}`);
