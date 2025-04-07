@@ -199,6 +199,8 @@ export class CustomersService implements Service {
       const { id } = req.params;
       const customerId = parseInt(id);
       
+      // Petición de actualización del cliente
+      
       const { 
         name, email, phone, street, city, province, 
         deliveryInstructions, source, brand, notes, idNumber,
@@ -241,6 +243,9 @@ export class CustomersService implements Service {
         }
       }
 
+      // Procesar correctamente el campo idNumber
+      const updatedIdNumber = idNumber !== undefined ? (idNumber?.trim() || null) : existingCustomer.idNumber;
+
       const [updatedCustomer] = await db.update(customers)
         .set({
           name: name.trim(),
@@ -255,7 +260,7 @@ export class CustomersService implements Service {
           city: city?.trim() || existingCustomer.city || null,
           province: province || existingCustomer.province || null,
           deliveryInstructions: deliveryInstructions?.trim() || existingCustomer.deliveryInstructions || null,
-          idNumber: idNumber?.trim() !== undefined ? idNumber.trim() : existingCustomer.idNumber,
+          idNumber: updatedIdNumber,
           // Actualizar la dirección de facturación y preservar los campos no proporcionados
           billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
           // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes
@@ -272,6 +277,14 @@ export class CustomersService implements Service {
 
       // Emit customer updated event
       appEvents.emit(EventTypes.CUSTOMER_UPDATED, updatedCustomer);
+      
+      // Log del cliente actualizado
+      console.log(`[DEBUG] updateCustomer - Cliente actualizado:`, JSON.stringify({
+        id: updatedCustomer.id,
+        name: updatedCustomer.name,
+        idNumber: updatedCustomer.idNumber,
+        deliveryInstructions: updatedCustomer.deliveryInstructions
+      }, null, 2));
       
       res.json(updatedCustomer);
     } catch (error) {
