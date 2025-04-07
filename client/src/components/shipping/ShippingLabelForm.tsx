@@ -632,10 +632,12 @@ export function ShippingLabelForm(): JSX.Element {
     const formValues = form.getValues();
     console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales del formulario:", JSON.stringify(formValues));
     
-    // Verificar explícitamente las inconsistencias conocidas en la renderización inicial del paso 3
-    // pero solo UNA VEZ al cargar el componente, no contínuamente
-    useEffect(() => {
-      if (currentStep === 3) {
+    // IMPORTANTE: No podemos usar hooks (como useEffect) directamente dentro de renderStep3()
+    // En su lugar, realizamos la corrección de inconsistencias en tiempo de renderizado
+    if (currentStep === 3) {
+      // Usamos setTimeout para garantizar que estas correcciones se realicen después del renderizado actual
+      // pero sin usar useEffect dentro de renderStep3
+      setTimeout(() => {
         // Correcciones específicas para inconsistencias conocidas
         if (formValues.city === formValues.idNumber) {
           console.log("🚨 CORRECCIÓN EN RENDERIZADO PASO 3: Campo city contiene el idNumber:", formValues.city);
@@ -652,8 +654,8 @@ export function ShippingLabelForm(): JSX.Element {
             shouldDirty: false // IMPORTANTE: No marcar como editado para permitir cambios manuales
           });
         }
-      }
-    }, []); // Solo se ejecuta una vez al montar el componente, no en cada renderizado
+      }, 0);
+    }
     
     return (
       <div className="space-y-6">
