@@ -2,13 +2,12 @@
  * API mejorada para la verificación y recuperación de datos de clientes
  * Asegura que todos los campos de dirección se incluyan en la respuesta
  */
-import { eq, or } from 'drizzle-orm';
 import { Express, Request, Response } from 'express';
 import { db } from '@db';
 import { customers } from '@db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { validateBody } from './middlewares/validate';
+import { validateBody } from './validation';
 import cors from 'cors';
 
 // Esquema de validación para la búsqueda de clientes

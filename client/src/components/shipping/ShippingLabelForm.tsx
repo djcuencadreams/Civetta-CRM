@@ -122,7 +122,7 @@ export function ShippingLabelForm() {
     console.log("Buscando cliente:", searchIdentifier, "tipo:", searchType);
 
     try {
-      const response = await fetch('/api/shipping/check-customer', {
+      const response = await fetch('/api/shipping/check-customer-v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

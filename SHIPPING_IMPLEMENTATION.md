@@ -18,6 +18,7 @@ Hemos implementado este sistema en los siguientes componentes:
 Se ha creado un nuevo archivo `server/routes-shipping-improved.ts` que contiene los siguientes endpoints:
 
 - `/api/shipping/check-customer` - Verifica si un cliente existe por cédula, email o teléfono
+- `/api/shipping/check-customer-v2` - Versión mejorada que devuelve todos los campos de dirección
 - `/api/shipping/save-data` - Guarda o actualiza los datos del cliente y crea una orden pendiente
 - `/api/shipping/generate-label` - Genera una etiqueta basada en datos actualizados del cliente
 - `/api/shipping/generate-label-internal/:orderId` - Genera etiquetas para órdenes existentes usando datos actualizados del cliente
@@ -78,6 +79,29 @@ CREATE TABLE customers (
   -- otros campos...
 );
 ```
+
+## Mejoras Recientes (Abril 2025)
+
+### 1. Nuevo Endpoint para Verificación de Clientes
+
+Se ha creado un nuevo endpoint `/api/shipping/check-customer-v2` que:
+
+- Devuelve todos los campos de dirección del cliente, incluyendo instrucciones de entrega
+- Utiliza validación Zod para asegurar datos correctos
+- Proporciona respuestas más detalladas para depuración
+
+### 2. Actualización del Formulario Web Integrado
+
+Se ha actualizado el template `wordpress-embed-modern.html`:
+
+- Ahora utiliza el nuevo endpoint `/api/shipping/check-customer-v2`
+- Procesa correctamente la respuesta para mostrar todos los campos de dirección
+- Incluye instrucciones de entrega cuando están disponibles
+- Establece siempre `updateCustomerInfo` y `alwaysUpdateCustomer` a `true` para asegurar actualizaciones
+
+### 3. Corrección de Bug en la Visualización de Direcciones
+
+Se ha corregido un problema que impedía que los campos de dirección se mostraran correctamente en la segunda etapa del formulario cuando se encontraba un cliente existente.
 
 ## Conclusión
 

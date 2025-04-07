@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Shipping Form</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { padding: 10px 15px; background: #0066cc; color: white; border: none; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Shipping Form API</h1>
+        
+        <div class="form-group">
+            <label for="searchType">Tipo de búsqueda:</label>
+            <select id="searchType">
+                <option value="identification">Cédula/Pasaporte</option>
+                <option value="email">Email</option>
+                <option value="phone">Teléfono</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="searchValue">Valor para buscar:</label>
+            <input type="text" id="searchValue" placeholder="Ingrese valor de búsqueda">
+        </div>
+        
+        <button onclick="searchCustomer()">Buscar Cliente</button>
+        
+        <h2>Resultado:</h2>
+        <pre id="result">Realice una búsqueda...</pre>
+    </div>
+
+    <script>
+        async function searchCustomer() {
+            const searchType = document.getElementById('searchType').value;
+            const searchValue = document.getElementById('searchValue').value;
+            const resultElement = document.getElementById('result');
+            
+            if (!searchValue.trim()) {
+                resultElement.textContent = 'Por favor ingrese un valor para buscar';
+                return;
+            }
+            
+            resultElement.textContent = 'Buscando...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/shipping/check-customer-v2', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: searchValue,
+                        type: searchType
+                    })
+                });
+                
+                const data = await response.json();
+                resultElement.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.found) {
+                    console.log('Datos de dirección encontrados:', {
+                        street: data.customer.street,
+                        city: data.customer.city,
+                        province: data.customer.province,
+                        deliveryInstructions: data.customer.deliveryInstructions
+                    });
+                }
+            } catch (error) {
+                resultElement.textContent = `Error: ${error.message}`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

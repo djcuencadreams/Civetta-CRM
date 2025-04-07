@@ -548,7 +548,7 @@ export function registerShippingRoutes(app: Express) {
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      const formPath = path.join(__dirname, '../templates/shipping/wordpress-embed-modern.html');
+      const formPath = path.join(__dirname, '../templates/shipping/embed-form.html');
       res.setHeader('Content-Type', 'text/html');
       res.sendFile(formPath);
     } catch (error) {
@@ -562,6 +562,9 @@ export function registerShippingRoutes(app: Express) {
   app.get('/shipping', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta-de-envio', cors(corsOptions), serveShippingForm);
+  app.get('/embed/shipping-form-static', cors(corsOptions), serveShippingForm);
+  
+  // Nota: La ruta /embed/shipping-form está manejada por el frontend React
 
   app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
     try {

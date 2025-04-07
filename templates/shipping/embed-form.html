@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Etiquetas de Envío</title>
+    <title>Formulario Embebido de Envío - Civetta CRM</title>
     <style>
         /* Reset y estilos base */
         *, *::before, *::after {
@@ -498,8 +498,8 @@
     <div class="form-container">
         <!-- Encabezado -->
         <div class="form-header">
-            <h1>Etiquetas de Envío</h1>
-            <div class="subtitle">Genere etiquetas de envío para sus productos de Civetta</div>
+            <h1>Formulario de Dirección de Envío</h1>
+            <div class="subtitle">Complete su información de envío para productos de Civetta</div>
         </div>
         
         <!-- Contenido del formulario -->
@@ -509,7 +509,7 @@
                 <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Datos de envío registrados correctamente. Nuestro equipo se pondrá en contacto con usted para coordinar la entrega.
+                Información de envío actualizada correctamente en su perfil de cliente. Sus próximos pedidos y etiquetas de envío usarán esta información.
             </div>
             <div id="alert-error" class="alert alert-error hidden">
                 <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -533,7 +533,7 @@
                         <svg class="icon" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                         </svg>
-                        <span>Al enviar este formulario, sus datos serán registrados en nuestro sistema. <strong>No se generará una etiqueta de inmediato</strong>, sino que nuestro equipo se encargará de procesar su pedido y preparar el envío.</span>
+                        <span>Al enviar este formulario, su información de envío se actualizará en su perfil de cliente. Esta información se utilizará para todas sus etiquetas de envío y pedidos futuros.</span>
                     </div>
                 </div>
                 <div class="card-content">
@@ -994,7 +994,7 @@
                     
                     if (responseData.success) {
                         // Mostrar mensaje de éxito
-                        showMessage('Datos de envío guardados correctamente. Nuestro equipo preparará su pedido y se pondrá en contacto con usted.', 'success');
+                        showMessage('Información de envío actualizada correctamente en su perfil de cliente. Sus próximos pedidos y etiquetas de envío usarán esta información.', 'success');
                         
                         // Limpiar campos no esenciales
                         document.getElementById('orderNumber').value = '';
