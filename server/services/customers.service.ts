@@ -252,10 +252,10 @@ export class CustomersService implements Service {
           phoneNumber: phoneNumber || existingCustomer.phoneNumber,
           secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone,
           street: street?.trim() || null,
-          city: city?.trim() || null,
-          province: province?.trim() || null,
-          deliveryInstructions: deliveryInstructions?.trim() || null,
-          idNumber: idNumber?.trim() || existingCustomer.idNumber, // Preserve existing idNumber if not provided
+          city: city?.trim() || existingCustomer.city || null,
+          province: province || existingCustomer.province || null,
+          deliveryInstructions: deliveryInstructions?.trim() || existingCustomer.deliveryInstructions || null,
+          idNumber: idNumber?.trim() || existingCustomer.idNumber || null,
           // Actualizar la dirección de facturación y preservar los campos no proporcionados
           billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
           // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes

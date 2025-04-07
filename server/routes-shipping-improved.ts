@@ -293,6 +293,7 @@ export function registerImprovedShippingRoutes(app: Express) {
                 street: formData.street,
                 city: formData.city,
                 province: formData.province,
+                idNumber: formData.idNumber || null, //Added idNumber update
                 // Actualizamos también los campos de contacto si el cliente no los tiene
                 phone: customer.phone || formData.phone,
                 email: customer.email || formData.email || null,
@@ -452,6 +453,7 @@ export function registerImprovedShippingRoutes(app: Express) {
                   street: formData.street,
                   city: formData.city,
                   province: formData.province,
+                  idNumber: formData.idNumber || null, // Added idNumber update
                   phone: customer.phone || formData.phone,
                   email: customer.email || formData.email || null,
                   updatedAt: new Date()
