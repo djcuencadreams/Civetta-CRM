@@ -415,31 +415,32 @@ export function ShippingLabelForm(): JSX.Element {
       
       console.log("🔍 Verificando valores de dirección al cambiar al paso 3:", formValues);
       
-      // Función para corregir valores problemáticos
+      // Función para corregir ÚNICAMENTE valores problemáticos conocidos
+      // sin afectar la capacidad de edición de los campos
       const fixAddressFields = () => {
         // Verificar si el campo city contiene el número de identificación
         if (formValues.city === formValues.idNumber) {
           console.log("🚨 CORRECCIÓN CAMBIO DE PASO: Campo city contiene el idNumber:", formValues.city);
-          form.setValue('city', "Cuenca", { shouldValidate: true }); // Valor por defecto para la ciudad
+          form.setValue('city', "Cuenca", { 
+            shouldValidate: true,
+            shouldDirty: false  // No marcar como "dirty" para permitir cambios manuales
+          });
         }
         
         // Verificar si el campo de instrucciones contiene el email
         if (formValues.deliveryInstructions === formValues.email) {
           console.log("🚨 CORRECCIÓN CAMBIO DE PASO: Campo instructions contiene el email:", formValues.deliveryInstructions);
-          form.setValue('deliveryInstructions', "", { shouldValidate: true }); // Limpiar el campo
+          form.setValue('deliveryInstructions', "", { 
+            shouldValidate: true,
+            shouldDirty: false  // No marcar como "dirty" para permitir cambios manuales
+          });
         }
         
-        // Forzar refresco de TODOS los campos para asegurar que la UI muestre los valores correctos
-        console.log("🔄 Refrescando todos los campos en paso 3...");
-        Object.entries(formValues).forEach(([field, value]) => {
-          if (value && field.startsWith("city") || field.startsWith("street") || 
-              field.startsWith("province") || field.startsWith("deliveryInstructions")) {
-            form.setValue(field as any, value, { 
-              shouldValidate: true,
-              shouldDirty: true 
-            });
-          }
-        });
+        // Necesitamos registrar los campos para que sean editables explícitamente
+        form.register('street');
+        form.register('city');
+        form.register('province');
+        form.register('deliveryInstructions');
       };
       
       // Ejecutar la función para corregir los valores con un breve retraso
@@ -632,38 +633,27 @@ export function ShippingLabelForm(): JSX.Element {
     console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales del formulario:", JSON.stringify(formValues));
     
     // Verificar explícitamente las inconsistencias conocidas en la renderización inicial del paso 3
-    if (currentStep === 3) {
-      // Refrescar manualmente los valores en ReactHookForm para asegurar consistencia visual
-      const refreshFormFields = () => {
-        console.log("🔄 Refrescando valores de campos en paso 3...");
-        
-        // Re-establecer todos los valores del formulario para forzar actualización UI
-        Object.entries(formValues).forEach(([field, value]) => {
-          if (value) {
-            console.log(`   → Refrescando campo ${field}:`, value);
-            form.setValue(field as any, value, { 
-              shouldValidate: true,
-              shouldDirty: true,
-              shouldTouch: true
-            });
-          }
-        });
-        
+    // pero solo UNA VEZ al cargar el componente, no contínuamente
+    useEffect(() => {
+      if (currentStep === 3) {
         // Correcciones específicas para inconsistencias conocidas
         if (formValues.city === formValues.idNumber) {
-          console.log("🚨 CORRECCIÓN PASO 3: Campo city contiene el idNumber:", formValues.city);
-          form.setValue('city', "Cuenca", { shouldValidate: true });
+          console.log("🚨 CORRECCIÓN EN RENDERIZADO PASO 3: Campo city contiene el idNumber:", formValues.city);
+          form.setValue('city', "Cuenca", { 
+            shouldValidate: true,
+            shouldDirty: false // IMPORTANTE: No marcar como editado para permitir cambios manuales
+          });
         }
         
         if (formValues.deliveryInstructions === formValues.email) {
-          console.log("🚨 CORRECCIÓN PASO 3: Campo instructions contiene el email:", formValues.deliveryInstructions);
-          form.setValue('deliveryInstructions', "", { shouldValidate: true });
+          console.log("🚨 CORRECCIÓN EN RENDERIZADO PASO 3: Campo instructions contiene el email:", formValues.deliveryInstructions);
+          form.setValue('deliveryInstructions', "", { 
+            shouldValidate: true,
+            shouldDirty: false // IMPORTANTE: No marcar como editado para permitir cambios manuales
+          });
         }
-      };
-      
-      // Aplicar el refresco después del renderizado inicial
-      setTimeout(refreshFormFields, 50);
-    }
+      }
+    }, []); // Solo se ejecuta una vez al montar el componente, no en cada renderizado
     
     return (
       <div className="space-y-6">
