@@ -1,3 +1,6 @@
+// Importar configuración de zona horaria (debe ser lo primero)
+import './timezone-config';
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerAdditionalRoutes } from "./routes-extension";
@@ -16,7 +19,11 @@ import { registerEmailEventHandlers } from "./lib/email.service";
 import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
 import cors from 'cors';
 
-const logger = pino({ level: 'info' });
+// Configurar logger con timestamp en zona horaria de Ecuador
+const logger = pino({ 
+  level: 'info',
+  timestamp: () => `,"time":"${new Date().toLocaleString('es-EC', {timeZone: 'America/Guayaquil'})}"` 
+});
 const app = express();
 
 // Habilitar CORS para todas las rutas
