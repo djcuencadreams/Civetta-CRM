@@ -1,68 +1,86 @@
-# Data Safety Guidelines
+# Estandarización de datos de clientes en CRM
 
-This document provides instructions on how to maintain data safety and prevent system failures in your CRM application.
+## Resumen de cambios
 
-## Automated Backups
+Se ha implementado una estandarización completa de los campos de nombres de clientes para mejorar la consistencia y calidad de los datos en el CRM. Esta documentación detalla las modificaciones realizadas y las consideraciones para desarrolladores y usuarios del sistema.
 
-The CRM has an automated backup system that creates database backups every 24 hours. These backups are stored in the `/backups` directory.
+## Cambios realizados
 
-### Manual Backups
+1. **Esquema de base de datos**:
+   - Los campos `firstName` y `lastName` son ahora **obligatorios** (NOT NULL) en las tablas `customers` y `leads`.
+   - El campo `name` se mantiene por compatibilidad pero ahora se genera automáticamente a partir de `firstName` y `lastName`.
 
-You can also trigger manual backups anytime by running:
+2. **API y servicios**:
+   - Las operaciones de creación y actualización de clientes y leads ahora exigen la presencia de `firstName` y `lastName`.
+   - El campo `name` se mantiene en las respuestas API por compatibilidad, pero siempre se genera a partir de `firstName` y `lastName`.
+   - Se ha actualizado la lógica de conversión entre clientes y leads para mantener la consistencia de estos campos.
 
-```bash
-npx tsx scripts/backup.ts
+3. **Migración de datos**:
+   - Se han actualizado todos los registros existentes para garantizar que tengan valores válidos en `firstName` y `lastName`.
+   - Se ha regenerado el campo `name` para todos los registros para asegurar consistencia.
+
+## Impacto en el desarrollo
+
+### Validaciones
+- Todas las operaciones de creación y actualización de clientes y leads deben incluir `firstName` y `lastName`.
+- La validación fallará si alguno de estos campos está vacío o es nulo.
+
+### Convención de nomenclatura
+- En el código (TypeScript): `firstName`, `lastName` (camelCase)
+- En la base de datos (PostgreSQL): `first_name`, `last_name` (snake_case)
+
+### Ejemplos de código
+
+**Creación de cliente correcta**:
+```typescript
+const customer = {
+  firstName: "Juan",
+  lastName: "Pérez",
+  email: "juan@example.com"
+};
+// El campo name se generará automáticamente como "Juan Pérez"
 ```
 
-This is recommended before:
-- Making significant data changes
-- Updating the application
-- Any planned maintenance
-
-## Restoring from Backup
-
-If you need to restore data from a backup:
-
-1. Find the backup file in the `/backups` directory (they are timestamped)
-2. Run the restore command:
-
-```bash
-npx tsx scripts/restore.ts /path/to/backup/file.sql
+**Actualización de cliente correcta**:
+```typescript
+const customerUpdate = {
+  firstName: "Juan Carlos",
+  lastName: "Pérez González",
+  // Otros campos...
+};
+// El campo name se actualizará automáticamente a "Juan Carlos Pérez González"
 ```
 
-## Best Practices to Prevent Data Loss
+## Consideraciones para Front-end
 
-1. **Regular Testing**: Periodically test the backup and restore functionality to ensure it works correctly.
+1. **Formularios**:
+   - Todos los formularios de creación/edición de clientes o leads deben incluir campos separados para `firstName` y `lastName`.
+   - Ambos campos deben marcarse como obligatorios y tener validaciones apropiadas.
+   - El campo `name` ya no debe ser editable directamente.
 
-2. **Verify Data Migrations**: When updating the database schema, verify that all data has been properly migrated.
+2. **Visualización**:
+   - Se puede mostrar el campo `name` para visualizar el nombre completo del cliente.
+   - Para edición, siempre usar los campos separados `firstName` y `lastName`.
 
-3. **Export Important Data**: Periodically export critical data (customers, sales, leads) to CSV files as an additional safeguard.
+## Consideraciones para integraciones
 
-4. **Check Logs**: Monitor application logs regularly for any unusual errors or warnings.
+1. **Importación de datos**:
+   - Las importaciones deben mapear correctamente los campos de nombre a `firstName` y `lastName`.
+   - Si solo se dispone de un campo de nombre completo, debe implementarse lógica para dividirlo apropiadamente.
 
-5. **Update Dependencies**: Keep all dependencies updated to their latest stable versions.
+2. **Exportación de datos**:
+   - Las exportaciones deben incluir tanto el campo `name` como los campos `firstName` y `lastName` para mayor flexibilidad.
 
-6. **Test New Features**: Always test new features in a development environment before deploying to production.
+## Plan a futuro
 
-7. **Data Validation**: The system has built-in data validation. Never bypass or disable these validation rules.
+- En una versión futura, el campo `name` se convertirá en un campo calculado y eventualmente podría ser deprecado para simplificar el esquema.
+- Se recomienda que todas las nuevas características y componentes utilicen exclusivamente `firstName` y `lastName`.
 
-## Troubleshooting
+## Estadísticas de la migración
 
-If you encounter issues with the application:
+- Se actualizaron **44 clientes** y **10 leads** para establecer consistencia entre los campos `name`, `firstName` y `lastName`.
+- Se estableció la restricción NOT NULL en los campos `firstName` y `lastName` para prevenir inconsistencias futuras.
 
-1. Check the server logs for error messages
-2. Look for a unique error ID (e.g., "ERROR-1a2b3c") in the logs
-3. Verify that the database connection is working
-4. Check that all API endpoints are responding correctly
+---
 
-## Emergency Recovery
-
-If the application experiences a critical failure:
-
-1. Stop the server
-2. Create a backup of the current database state (even if corrupted)
-3. Restore from the most recent backup
-4. Restart the server
-5. If issues persist, contact support with your error logs
-
-Remember, prevention is better than recovery. Regular backups and careful testing are your best protection against data loss.
+Documento creado el 7 de abril de 2025

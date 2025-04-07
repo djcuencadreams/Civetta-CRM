@@ -160,9 +160,9 @@ export const webhooks = pgTable("webhooks", {
 
 export const customers = pgTable('customers', {
   id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  firstName: text('first_name'),
-  lastName: text('last_name'), 
+  name: text('name').notNull(), // Mantenemos para compatibilidad pero será generado a partir de firstName + lastName
+  firstName: text('first_name').notNull(), // Requerido: nombre del cliente
+  lastName: text('last_name').notNull(), // Requerido: apellido del cliente
   type: text('type').default('person'),
   idNumber: text('id_number'),
   ruc: text('ruc'),
@@ -175,7 +175,7 @@ export const customers = pgTable('customers', {
   city: text('city'),
   province: text('province'),
   deliveryInstructions: text('delivery_instructions'),
-  address: text('address'),
+  // address: text('address'), // Campo obsoleto que será eliminado
   billingAddress: text('billing_address'),
   source: text('source').default('manual'),
   brand: text('brand'),
@@ -192,9 +192,9 @@ export const customers = pgTable('customers', {
 
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
+  name: text("name").notNull(), // Mantenemos para compatibilidad pero será generado a partir de firstName + lastName
+  firstName: text("first_name").notNull(), // Requerido: nombre del cliente o lead
+  lastName: text("last_name").notNull(), // Requerido: apellido del cliente o lead
   idNumber: text("id_number"), 
   email: text("email"),
   phone: text("phone"),
@@ -604,9 +604,10 @@ export const activityRelations = relations(activities, ({ one }) => ({
 
 // Schemas for validation
 export const insertLeadSchema = z.object({
-  name: z.string().min(1, "El nombre es requerido"),
-  firstName: z.string().optional().nullable(),
-  lastName: z.string().optional().nullable(),
+  // name field remains as an optional computed field (firstName + lastName)
+  name: z.string().optional(),
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
   email: z.string().email("Email inválido").optional().nullable(),
   phone: z.string().optional().nullable(),
   phoneCountry: z.string().optional().nullable(),
@@ -623,7 +624,32 @@ export const insertLeadSchema = z.object({
   nextFollowUp: z.string().optional().nullable().transform(val => val ? new Date(val) : null)
 });
 
-export const insertCustomerSchema = createInsertSchema(customers);
+// Personalizado para garantizar que firstName y lastName son obligatorios
+export const insertCustomerSchema = z.object({
+  id: z.number().optional(),
+  name: z.string().optional(), // Campo computado a partir de firstName + lastName
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
+  idNumber: z.string().optional().nullable(),
+  email: z.string().email("Email inválido").optional().nullable(),
+  phone: z.string().optional().nullable(),
+  phoneCountry: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  secondaryPhone: z.string().optional().nullable(),
+  street: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  province: z.string().optional().nullable(),
+  deliveryInstructions: z.string().optional().nullable(),
+  source: z.string().optional().default('manual'),
+  brand: z.string().optional().default('sleepwear'),
+  status: z.string().optional().default('active'),
+  notes: z.string().optional().nullable(),
+  type: z.string().optional().default('person'),
+  billingAddress: z.any().optional(),
+  tags: z.array(z.string()).optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional()
+});
 export const insertSaleSchema = createInsertSchema(sales);
 export const insertWebhookSchema = createInsertSchema(webhooks);
 export const insertLeadActivitySchema = createInsertSchema(leadActivities);

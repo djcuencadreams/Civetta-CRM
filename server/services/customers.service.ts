@@ -259,7 +259,7 @@ export class CustomersService implements Service {
       
       console.log(`✅ [GET:ID] Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
       console.log(`📋 [GET:ID] Datos de dirección: street=${enhancedCustomer.street}, city=${enhancedCustomer.city}, province=${enhancedCustomer.province}`);
-      console.log(`🆔 [GET:ID] Datos de ID: idNumber=${enhancedCustomer.idNumber}, id_number=${enhancedCustomer.id_number}`);
+      console.log(`🆔 [GET:ID] Datos de ID: idNumber=${enhancedCustomer.idNumber}`);
       
       res.json(enhancedCustomer);
     } catch (error) {
@@ -274,33 +274,30 @@ export class CustomersService implements Service {
   async createCustomer(req: Request, res: Response): Promise<void> {
     try {
       const { 
-        name, email, phone, street, city, province, 
+        firstName, lastName, email, phone, street, city, province, 
         deliveryInstructions, source, brand, notes, idNumber,
         billingAddress, // Agregamos billingAddress a los campos que extraemos
         phoneCountry, phoneNumber, secondaryPhone, // Campos adicionales
-        firstName: firstNameInput, lastName: lastNameInput, // Nombres desde el frontend
+        name, // Mantener para compatibilidad temporal
         status, type, tags // Campos de clasificación
       } = req.body;
 
-      if (!name?.trim()) {
-        res.status(400).json({ error: "El nombre es requerido" });
+      // Validar que se proporcionaron firstName y lastName
+      if (!firstName?.trim()) {
+        res.status(400).json({ error: "El nombre (firstName) es requerido" });
         return;
       }
 
-      // Split name into first and last name if not provided directly
-      let firstName = firstNameInput || name;
-      let lastName = lastNameInput || '';
-      
-      if (!firstNameInput && !lastNameInput) {
-        const nameParts = name.trim().split(' ');
-        if (nameParts.length > 1) {
-          firstName = nameParts[0];
-          lastName = nameParts.slice(1).join(' ');
-        }
+      if (!lastName?.trim()) {
+        res.status(400).json({ error: "El apellido (lastName) es requerido" });
+        return;
       }
+      
+      // Generar el campo name a partir de firstName y lastName
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
       const [customer] = await db.insert(customers).values({
-        name: name.trim(),
+        name: fullName, // Usar el nombre completo generado
         firstName,
         lastName,
         email: email?.trim() || null,
@@ -345,18 +342,27 @@ export class CustomersService implements Service {
       // Petición de actualización del cliente
       
       const { 
-        name, email, phone, street, city, province, 
+        firstName, lastName, email, phone, street, city, province, 
         deliveryInstructions, source, brand, notes, idNumber,
-        billingAddress, // Agregamos billingAddress a los campos que extraemos
+        billingAddress, // Campos para la dirección de facturación
         phoneCountry, phoneNumber, secondaryPhone, // Campos adicionales
-        firstName: firstNameInput, lastName: lastNameInput, // Nombres desde el frontend
+        name, // Mantener para compatibilidad temporal
         status, type, tags // Campos de clasificación
       } = req.body;
 
-      if (!name?.trim()) {
-        res.status(400).json({ error: "El nombre es requerido" });
+      // Validar que se proporcionaron firstName y lastName
+      if (!firstName?.trim()) {
+        res.status(400).json({ error: "El nombre (firstName) es requerido" });
         return;
       }
+
+      if (!lastName?.trim()) {
+        res.status(400).json({ error: "El apellido (lastName) es requerido" });
+        return;
+      }
+      
+      // Generar el campo name a partir de firstName y lastName
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
       // Check if customer exists
       const existingCustomer = await db.query.customers.findFirst({
@@ -369,29 +375,17 @@ export class CustomersService implements Service {
       }
       
       // Asegurar que los campos complejos estén inicializados
-      const existingBillingAddress = existingCustomer.billingAddress as Record<string, any> || {};
+      const existingBillingAddress = existingCustomer.billingAddress || {};
       const existingTags = existingCustomer.tags as any[] || [];
       const existingStatus = existingCustomer.status || 'active';
       const existingType = existingCustomer.type || 'person';
-
-      // Split name into first and last name if not provided directly
-      let firstName = firstNameInput || name;
-      let lastName = lastNameInput || '';
-      
-      if (!firstNameInput && !lastNameInput) {
-        const nameParts = name.trim().split(' ');
-        if (nameParts.length > 1) {
-          firstName = nameParts[0];
-          lastName = nameParts.slice(1).join(' ');
-        }
-      }
 
       // Procesar correctamente el campo idNumber
       const updatedIdNumber = idNumber !== undefined ? (idNumber?.trim() || null) : existingCustomer.idNumber;
 
       const [updatedCustomer] = await db.update(customers)
         .set({
-          name: name.trim(),
+          name: fullName, // Usar el nombre completo generado
           firstName,
           lastName,
           email: email?.trim() || null,
@@ -499,8 +493,18 @@ export class CustomersService implements Service {
       }
 
       // Create a new lead from the customer data
+      // Aseguramos que firstName y lastName estén siempre presentes
+      const leadFirstName = customer.firstName || customer.name.split(' ')[0] || 'Unknown';
+      const leadLastName = customer.lastName || 
+        (customer.name.split(' ').length > 1 ? customer.name.split(' ').slice(1).join(' ') : '');
+      
+      // Generamos el campo name a partir de firstName y lastName
+      const leadFullName = `${leadFirstName} ${leadLastName}`.trim();
+
       const [lead] = await db.insert(leads).values({
-        name: customer.name,
+        name: leadFullName,
+        firstName: leadFirstName,
+        lastName: leadLastName || 'Unknown', // Aseguramos que lastName siempre tenga un valor
         email: customer.email,
         phone: customer.phone,
         phoneCountry: phoneCountry || null,
