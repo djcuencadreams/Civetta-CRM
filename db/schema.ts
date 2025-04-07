@@ -160,7 +160,7 @@ export const webhooks = pgTable("webhooks", {
 
 export const customers = pgTable('customers', {
   id: serial('id').primaryKey(),
-  name: text('name').notNull(), // Mantenemos para compatibilidad pero será generado a partir de firstName + lastName
+  name: text('name'), // Campo computado a partir de firstName + lastName (nullable para permitir migración)
   firstName: text('first_name').notNull(), // Requerido: nombre del cliente
   lastName: text('last_name').notNull(), // Requerido: apellido del cliente
   type: text('type').default('person'),
@@ -192,7 +192,7 @@ export const customers = pgTable('customers', {
 
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(), // Mantenemos para compatibilidad pero será generado a partir de firstName + lastName
+  name: text("name"), // Campo computado a partir de firstName + lastName (nullable para permitir migración)
   firstName: text("first_name").notNull(), // Requerido: nombre del cliente o lead
   lastName: text("last_name").notNull(), // Requerido: apellido del cliente o lead
   idNumber: text("id_number"), 

@@ -7,6 +7,7 @@ import { Service } from "./service-registry";
 import { validateParams } from "../validation";
 import { appEvents, EventTypes } from "../lib/event-emitter";
 import { Customer } from "@db/schema";
+import { generateFullName, ensureNameField } from "../utils/name-utils";
 
 /**
  * Interfaz para la dirección de facturación
@@ -293,11 +294,14 @@ export class CustomersService implements Service {
         return;
       }
       
-      // Generar el campo name a partir de firstName y lastName
-      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      // Generar el campo name a partir de firstName y lastName usando la función de utilidad
+      const customerData = ensureNameField({
+        firstName,
+        lastName
+      });
 
       const [customer] = await db.insert(customers).values({
-        name: fullName, // Usar el nombre completo generado
+        name: customerData.name,
         firstName,
         lastName,
         email: email?.trim() || null,
@@ -361,8 +365,11 @@ export class CustomersService implements Service {
         return;
       }
       
-      // Generar el campo name a partir de firstName y lastName
-      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      // Generar el campo name a partir de firstName y lastName usando la función de utilidad
+      const customerData = ensureNameField({
+        firstName,
+        lastName
+      });
 
       // Check if customer exists
       const existingCustomer = await db.query.customers.findFirst({
@@ -385,7 +392,7 @@ export class CustomersService implements Service {
 
       const [updatedCustomer] = await db.update(customers)
         .set({
-          name: fullName, // Usar el nombre completo generado
+          name: customerData.name, // Usar el nombre completo generado con ensureNameField
           firstName,
           lastName,
           email: email?.trim() || null,
@@ -494,17 +501,24 @@ export class CustomersService implements Service {
 
       // Create a new lead from the customer data
       // Aseguramos que firstName y lastName estén siempre presentes
-      const leadFirstName = customer.firstName || customer.name.split(' ')[0] || 'Unknown';
+      const customerName = typeof customer.name === 'string' ? customer.name : '';
+      const leadFirstName = customer.firstName || (customerName ? customerName.split(' ')[0] : '') || 'Unknown';
       const leadLastName = customer.lastName || 
-        (customer.name.split(' ').length > 1 ? customer.name.split(' ').slice(1).join(' ') : '');
+        (customerName && customerName.split(' ').length > 1 ? customerName.split(' ').slice(1).join(' ') : '') || 'Unknown';
       
-      // Generamos el campo name a partir de firstName y lastName
-      const leadFullName = `${leadFirstName} ${leadLastName}`.trim();
+      // Generamos el campo name a partir de firstName y lastName usando la función de utilidad
+      // No es necesario calcular leadFullName, ya que lo haremos con ensureNameField
 
-      const [lead] = await db.insert(leads).values({
-        name: leadFullName,
+      // Usar ensureNameField para garantizar la consistencia entre firstName, lastName y name
+      const leadData = ensureNameField({
         firstName: leadFirstName,
         lastName: leadLastName || 'Unknown', // Aseguramos que lastName siempre tenga un valor
+      });
+
+      const [lead] = await db.insert(leads).values({
+        name: leadData.name,
+        firstName: leadData.firstName,
+        lastName: leadData.lastName,
         email: customer.email,
         phone: customer.phone,
         phoneCountry: phoneCountry || null,
