@@ -35,6 +35,46 @@ export function LeadForm({ lead, onClose }: LeadFormProps) {
   const [idNumber, setIdNumber] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Corrección para manejar los nombres de campos en snake_case vs camelCase
+  if (lead) {
+    // Hacemos un casting a any para poder acceder a campos sin tipo
+    const leadAny = lead as any;
+    
+    // Mapeamos las propiedades de snake_case a camelCase si es necesario
+    if (!lead.idNumber && leadAny.id_number) {
+      lead.idNumber = leadAny.id_number;
+    }
+    
+    if (!lead.firstName && leadAny.first_name) {
+      lead.firstName = leadAny.first_name;
+    }
+    
+    if (!lead.lastName && leadAny.last_name) {
+      lead.lastName = leadAny.last_name;
+    }
+    
+    if (!lead.phoneNumber && leadAny.phone_number) {
+      lead.phoneNumber = leadAny.phone_number;
+    }
+    
+    if (!lead.phoneCountry && leadAny.phone_country) {
+      lead.phoneCountry = leadAny.phone_country;
+    }
+    
+    if (!lead.deliveryInstructions && leadAny.delivery_instructions) {
+      lead.deliveryInstructions = leadAny.delivery_instructions;
+    }
+    
+    if (!lead.assignedUserId && leadAny.assigned_user_id) {
+      lead.assignedUserId = leadAny.assigned_user_id;
+    }
+    
+    // brandInterest podría no existir en el tipo Lead, pero queremos manejar el campo igual
+    if (!lead.brandInterest && leadAny.brand_interest) {
+      (lead as any).brandInterest = leadAny.brand_interest;
+    }
+  }
 
   // Brand options for marketing segmentation purposes
   const brandOptions = [

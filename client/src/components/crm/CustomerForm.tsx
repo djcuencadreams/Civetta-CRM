@@ -107,6 +107,64 @@ export function CustomerForm({
   const [isViewMode, setIsViewMode] = useState(!!customer);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Log de los datos recibidos al inicio
+  if (customer) {
+    console.log("CustomerForm - Cliente recibido:", customer);
+    // Utilizar una aserción de tipo para acceder a propiedades en snake_case
+    const customerAny = customer as any;
+    
+    // Manejo de campo de identificación
+    if (!customer.idNumber && customerAny.id_number) {
+      customer.idNumber = customerAny.id_number;
+      console.log("CustomerForm - idNumber mapeado correctamente:", customer.idNumber);
+    }
+    
+    // Manejo de campos de dirección (por si acaso hay más inconsistencias)
+    if (!customer.deliveryInstructions && customerAny.delivery_instructions) {
+      customer.deliveryInstructions = customerAny.delivery_instructions;
+    }
+    
+    // Otros campos que podrían tener el mismo problema
+    if (!customer.firstName && customerAny.first_name) {
+      customer.firstName = customerAny.first_name;
+    }
+    
+    if (!customer.lastName && customerAny.last_name) {
+      customer.lastName = customerAny.last_name;
+    }
+    
+    if (!customer.phoneNumber && customerAny.phone_number) {
+      customer.phoneNumber = customerAny.phone_number;
+    }
+    
+    if (!customer.phoneCountry && customerAny.phone_country) {
+      customer.phoneCountry = customerAny.phone_country;
+    }
+    
+    if (!customer.secondaryPhone && customerAny.secondary_phone) {
+      customer.secondaryPhone = customerAny.secondary_phone;
+    }
+    
+    if (!customer.billingAddress && customerAny.billing_address) {
+      customer.billingAddress = customerAny.billing_address;
+    }
+    
+    // Campo adicional: assigned_user_id
+    if (!customer.assignedUserId && customerAny.assigned_user_id) {
+      customer.assignedUserId = customerAny.assigned_user_id;
+    }
+    
+    // Otros campos posibles
+    if (!customer.totalValue && customerAny.total_value) {
+      customer.totalValue = customerAny.total_value;
+    }
+    
+    // brandInterest podría no existir en el tipo Customer, pero queremos mapearlo igual
+    if (customerAny.brand_interest) {
+      (customer as any).brandInterest = customerAny.brand_interest;
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async (values: any) => {
