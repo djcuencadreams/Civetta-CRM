@@ -512,10 +512,10 @@ export function ShippingLabelForm() {
             name="street"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Dirección de Entrega *</FormLabel>
+                <FormLabel>Dirección de Entrega Calle, Intersección y Número de Casa *</FormLabel>
                 <FormControl>
                   <Textarea 
-                    placeholder="Escriba aquí la calle principal, secundaria y número de cada, departamento y oficina. Agregue alguna referencia de ser necesario." 
+                    placeholder="Escriba aquí la calle principal, intersección y número de casa. Agregue alguna referencia de ser necesario." 
                     rows={3} 
                     {...field} 
                   />
@@ -573,10 +573,10 @@ export function ShippingLabelForm() {
             name="deliveryInstructions"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Comentarios o Instrucciones Especiales para la Entrega</FormLabel>
+                <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
                 <FormControl>
                   <Textarea 
-                    placeholder="Instrucciones especiales para la entrega" 
+                    placeholder="Referencias adicionales o instrucciones especiales para la entrega" 
                     rows={2} 
                     {...field} 
                   />
