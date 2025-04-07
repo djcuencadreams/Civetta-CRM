@@ -151,11 +151,13 @@ export function ShippingLabelForm() {
           form.setValue('email', data.customer.email || '');
           form.setValue('idNumber', data.customer.idNumber || '');
 
-          // Información de dirección
+          // Información de dirección - asegurarse de usar los campos correctos
           form.setValue('street', data.customer.street || '');
           form.setValue('city', data.customer.city || '');
-          form.setValue('province', data.customer.province || '');
-          form.setValue('deliveryInstructions', data.customer.deliveryInstructions || data.customer.delivery_instructions || '');
+          form.setValue('province', data.customer.province || 'Azuay'); // Default to Azuay if not provided
+          // Solo establecer instrucciones si existe y no es null
+          const deliveryInst = data.customer.deliveryInstructions || null;
+          form.setValue('deliveryInstructions', deliveryInst === null ? '' : deliveryInst);
 
         setCustomerFound(true);
 
