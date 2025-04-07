@@ -1,0 +1,41 @@
+// 🛠️ PROMPT PARA REPLIT AI AGENT (SOLUCIÓN DEFINITIVA)
+
+// Danny ha detectado un bug grave: la lista de clientes muestra datos (como nombres y dirección) actualizados desde el wizard, pero al abrir la ficha del cliente (ver o editar), los datos están desactualizados. Esto incluye campos como nombre, apellido, número de cédula, email, y dirección. También hay problemas anteriores de inconsistencia entre `deliveryInstructions` y `delivery_instructions` que podrían estar involucrados.
+
+// 🎯 OBJETIVO: Corregir definitivamente la inconsistencia entre los datos mostrados en la lista de clientes y los mostrados al visualizar/editar la ficha del cliente, garantizando que todo se sincronice correctamente con la base de datos y use los mismos campos y lógica de mapeo.
+
+// 🔍 PASOS CONCRETOS:
+
+1. ✅ REVISA el componente del frontend que carga la lista de clientes (`CustomerList` o similar). Asegúrate de que los datos usados provienen exclusivamente de la base de datos actualizada (vía API o fetch) y no de un cache o archivo `json` local como `customers.json` que no se sincronice.
+
+2. ✅ REVISA el componente del frontend que carga la vista y edición del cliente (`CustomerDetails`, `CustomerView`, `CustomerEdit` o similar). Asegúrate de que esté usando exactamente la misma fuente de datos que la lista de clientes. Ambos deben usar la versión más reciente desde la DB.
+
+3. ✅ VERIFICA si existe duplicidad de campos en la base de datos, como por ejemplo:
+   - `firstName`, `lastName`, y `name`
+   - `deliveryInstructions` vs `delivery_instructions`
+   - Si el nombre completo (`name`) se actualiza pero `firstName` y `lastName` no, o viceversa, y el componente usa uno u otro según el lugar, eso explicaría el bug.
+
+4. ✅ UNIFICA EL MODELO DE DATOS:
+   - Usa solo un conjunto de campos para representar la información del cliente.
+   - Si hay un campo `name`, elimínalo y usa siempre `firstName` + `lastName` en todos los componentes.
+   - Usa `delivery_instructions` de forma única y borra cualquier referencia a `deliveryInstructions` en frontend y backend.
+
+5. ✅ ACTUALIZA LAS FUNCIONES DE GUARDADO Y ACTUALIZACIÓN DE CLIENTES:
+   - Asegúrate de que todos los campos de cliente (nombres, email, cédula, dirección e instrucciones) se actualicen correctamente en la tabla `customers`.
+   - Verifica que la función de guardado desde el wizard haga un `UPDATE` sobre `customers` y no cree un registro nuevo o lo haga parcialmente.
+
+6. ✅ ACTUALIZA LAS CONSULTAS:
+   - Cuando el usuario entra a la vista o edición de un cliente, asegúrate de que se haga una nueva consulta en tiempo real a la base de datos y no se use una versión antigua.
+
+7. ✅ REVISIÓN FINAL:
+   - Verifica que al editar datos desde el wizard (nombre, dirección, instrucciones, etc), se reflejen tanto en la lista como en la ficha del cliente.
+   - Verifica que no haya campos que persistan datos antiguos.
+
+// 🚨 IMPORTANTE: HAZ UN BACKUP antes de eliminar campos duplicados como `deliveryInstructions` o `name`, y verifica que todos los lugares del sistema estén ajustados a los nuevos nombres únicos.
+
+// ✅ UNA VEZ TERMINADO:
+   - Confirmar que editar un cliente desde el wizard modifica correctamente su ficha.
+   - Confirmar que el nombre, email, dirección e instrucciones coincidan en la lista y en la ficha del cliente.
+   - Confirmar que el PDF de la etiqueta se genere con estos datos actualizados.
+
+// Este fix es prioritario y debe resolverse antes de cualquier nueva funcionalidad. Danny confía en la ejecución precisa y profesional de este fix.

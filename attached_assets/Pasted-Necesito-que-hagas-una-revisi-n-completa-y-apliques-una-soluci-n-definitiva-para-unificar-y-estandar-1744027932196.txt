@@ -1,0 +1,22 @@
+Necesito que hagas una revisión completa y apliques una solución definitiva para unificar y estandarizar todos los campos de clientes en el CRM. 
+
+1. Elimina cualquier uso del campo `name` en la base de datos, frontend y backend. En su lugar, usa exclusivamente los campos `firstName` y `lastName`, que deben estar correctamente definidos en el esquema de base de datos, y usados en todas las vistas, formularios, wizard, listado, generación de etiquetas, PDFs, etc.
+
+2. Asegúrate de que en toda visualización donde se necesite el nombre completo del cliente, se utilice la concatenación:
+   `${firstName} ${lastName}` de forma dinámica, sin almacenar un campo `name` adicional que cause conflictos de sincronización.
+
+3. En la ficha del cliente, en la lista de clientes y en el wizard de envío, tanto en la edición como en la visualización, los datos deben ser exactamente los mismos y siempre tomarse directamente desde la tabla `customers` por `id`.
+
+4. Haz una revisión de toda la base de código para detectar si hay campos duplicados o inconsistentes como `delivery_instructions` vs `deliveryInstructions`, `id_number` vs `idNumber`, etc. Unifica los nombres de columnas y variables a un solo formato (preferiblemente `snake_case` en la base de datos y `camelCase` en el frontend), y asegúrate de que no existan propiedades redundantes o colisiones de nombres que causen desincronización de datos.
+
+5. Corrige el problema de que en la **lista de clientes aparece la información nueva editada desde el wizard**, pero al dar clic en “Ver” o “Editar” un cliente, los datos que aparecen en la ficha son distintos. Esto indica que la vista de ficha de cliente no está cargando los datos directamente de la tabla `customers` actualizada. Todos los datos deben cargarse en tiempo real desde la base de datos con el ID del cliente, sin usar caches o versiones previas del objeto.
+
+6. Asegúrate de que todos los campos editables desde el wizard de envío (paso 2 y paso 3) se actualicen correctamente en la base de datos del cliente (`customers`) y no solo en la orden de envío. Los cambios deben reflejarse tanto en la lista de clientes como en la ficha individual y los formularios embebidos.
+
+7. Si hay funciones que asignan valores a los campos de cliente pero usan nombres incorrectos (ej: asignar la cédula al campo `city`, o el correo al campo `deliveryInstructions`), corrige esa lógica inmediatamente en los archivos correspondientes del wizard (`ShippingLabelForm.tsx` y formulario embebido).
+
+8. Al final, crea una migración para eliminar campos duplicados y dejar solo los definitivos, con nombres estandarizados. Verifica también que las vistas, formularios, etiquetas, y PDFs usen únicamente los campos correctos del modelo `customers`.
+
+9. Usa buenas prácticas de diseño de CRMs. En Ecuador, los usuarios deben ingresar sus nombres y apellidos por separado. Por cultura y por requisitos legales, esto es esencial. El campo visual unificado puede construirse en tiempo real con `${firstName} ${lastName}` pero nunca debe almacenarse como un campo `name`.
+
+Esta revisión debe ser integral y completa. No quiero soluciones parciales ni parches. El sistema debe quedar con una estructura clara, sin campos duplicados, sin datos inconsistentes, y con una sola fuente de verdad para la información de los clientes.

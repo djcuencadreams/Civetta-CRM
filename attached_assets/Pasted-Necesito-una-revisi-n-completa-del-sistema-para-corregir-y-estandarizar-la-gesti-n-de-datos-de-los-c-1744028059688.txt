@@ -1,0 +1,86 @@
+Necesito una revisión completa del sistema para corregir y estandarizar la gestión de datos de los clientes. El sistema tiene problemas graves de inconsistencia entre los datos mostrados en el listado de clientes, la ficha completa, y los datos editados o creados desde el wizard o el formulario embebido.
+
+Por favor, realiza los siguientes pasos de forma precisa y detallada, sin omitir nada y sin soluciones parciales:
+
+---
+
+1. 🔁 **UNIFICACIÓN DE CAMPOS DE NOMBRES**:
+   - Elimina cualquier uso del campo `name` en el sistema. 
+   - Usa únicamente `firstName` y `lastName` en la base de datos (`customers`), frontend (`ShippingLabelForm.tsx`, formularios embebidos y ficha de cliente), en PDF, etiquetas y cualquier otro archivo.
+   - En todos los lugares donde se deba mostrar el nombre completo del cliente, genera dinámicamente la cadena: 
+     ```js
+     `${firstName} ${lastName}`
+     ```
+   - No mantengas un campo duplicado de nombre completo en la base de datos ni en objetos de cliente.
+
+---
+
+2. 🛑 **ELIMINACIÓN DE CAMPOS DUPLICADOS O CON NOMBRES CONFLICTIVOS**:
+   - Busca en toda la base de código campos duplicados como:
+     - `deliveryInstructions` vs `delivery_instructions`
+     - `idNumber` vs `id_number`
+     - `name` vs `firstName + lastName`
+   - Unifica todos los nombres de campos. Usa `snake_case` en la base de datos (ej. `delivery_instructions`) y `camelCase` en el frontend (`deliveryInstructions`) usando los mappers de Drizzle si es necesario.
+   - Verifica que todos los formularios, APIs y componentes usan el campo correcto.
+
+---
+
+3. 🧠 **UNIFICACIÓN COMPLETA DEL MODELO DE CLIENTE**:
+   - Todos los datos del cliente deben residir exclusivamente en la tabla `customers`.
+   - Cuando se edite un cliente desde el wizard, formulario embebido o ficha de cliente, los cambios deben reflejarse en `customers`.
+   - No debe haber una copia de datos dentro de `orders`, `shippingAddress` o cualquier otra estructura que desincronice la información del cliente.
+   - Si la orden requiere dirección de envío diferente, solo guárdala en `orders`, pero no sobrescribas `customers` a menos que el usuario lo indique.
+
+---
+
+4. 👁 **CORRECCIÓN DE LA FICHA DE CLIENTE**:
+   - En la vista de “Ver” o “Editar” cliente, carga siempre los datos desde la base de datos por `id` y muestra exactamente lo que está en la tabla `customers`.
+   - No uses versiones en memoria ni datos que provengan de formularios anteriores.
+
+---
+
+5. 🧩 **CORRECCIÓN DEL LISTADO DE CLIENTES**:
+   - Asegúrate de que la información mostrada en la lista de clientes provenga del mismo origen (`customers`) que la ficha de cliente.
+   - Si el listado está mostrando datos actualizados y la ficha no, hay un problema de fuente de datos inconsistente. Corrígelo para que ambos usen la misma consulta o hook.
+
+---
+
+6. 🧙‍♂️ **WIZARD DE ENVÍO (ShippingLabelForm.tsx)**:
+   - Asegúrate de que los campos editables en el paso 2 y paso 3 se actualicen correctamente en la tabla `customers`.
+   - Revisa si los campos del paso 2 están sobreescribiendo erróneamente los campos del paso 3 (ej. cédula en campo ciudad).
+   - Cuando se realiza una búsqueda de cliente y se autocompleta el formulario, asegúrate de mapear correctamente los valores de `delivery_instructions`, `city`, `province`, etc.
+
+---
+
+7. 🔁 **SINCRONIZACIÓN EN PDF Y ETIQUETA**:
+   - El PDF y la etiqueta deben mostrar la información más reciente y real del cliente directamente desde la tabla `customers`, no de una caché ni del payload temporal del wizard.
+
+---
+
+8. 📂 **MIGRACIÓN Y LIMPIEZA FINAL**:
+   - Crea una migración SQL que:
+     - Elimine columnas duplicadas (`name`, `deliveryInstructions`, etc.)
+     - Unifique datos bajo un solo esquema
+     - Aplique renombramientos si es necesario
+   - Valida que después de la migración no haya campos obsoletos ni referencias rotas.
+
+---
+
+9. 🇪🇨 **CONSIDERACIÓN CULTURAL PARA NOMBRES EN ECUADOR Y LATINOAMÉRICA**:
+   - En Ecuador es culturalmente importante capturar `firstName` y `lastName` por separado.
+   - Muchas personas tienen dos nombres y dos apellidos, pero por requisitos de operación basta con uno y uno.
+   - Mantenerlos separados es mejor para formularios oficiales, validaciones y generación de reportes.
+   - Solo une los nombres visualmente cuando se requiera.
+
+---
+
+🔁 **RECUERDA:**
+Este trabajo debe ser exhaustivo y eliminar todos los bugs e inconsistencias entre:
+- Listado de clientes
+- Ficha completa del cliente
+- Wizard (pasos 2, 3 y resumen)
+- Formularios embebidos
+- PDFs y etiquetas
+- Datos en la base de datos
+
+NO quiero soluciones parciales. Haz pruebas para confirmar que la información del cliente es consistente y sincronizada en todas las vistas. Al finalizar, deja documentado todo lo que hiciste y en qué archivos hiciste cambios.
