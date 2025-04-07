@@ -1,0 +1,14 @@
+necesito que corrijas un problema en el wizard del formulario de envío. En el paso 3 del wizard (la sección de ‘Dirección de Envío’), los campos están mostrando datos incorrectos: el campo ‘Ciudad’ muestra la cédula que se ingresó en el paso 2, ‘Provincia’ aparece vacío y ‘Referencia o Instrucciones Especiales para la Entrega’ muestra el email del paso 2. Sin embargo, en el paso 4 (resumen) se muestran los datos correctos de la ficha del cliente en la base de datos. Esto indica que, al pasar del paso 2 al paso 3, el formulario no está cargando los datos actualizados y se mantiene una copia equivocada de los valores anteriores.
+
+Por favor, realiza lo siguiente:
+	1.	Revisa el manejo del estado en el wizard para el paso 3. Asegúrate de que al avanzar del paso 2 al paso 3 se recarguen y muestren los valores reales obtenidos del endpoint (por ejemplo, data.customer.city, data.customer.province, data.customer.deliveryInstructions o delivery_instructions), en lugar de mantener los valores del paso 2.
+	2.	Modifica el mapeo en el componente ShippingLabelForm.tsx (o el componente correspondiente del wizard) para que, en la función que procesa la respuesta del endpoint, se asignen correctamente los valores a cada campo del formulario. Por ejemplo, utiliza:
+form.setValue(‘street’, data.customer.street || ‘’);
+form.setValue(‘city’, data.customer.city || ‘’);
+form.setValue(‘province’, data.customer.province || ‘’);
+form.setValue(‘deliveryInstructions’, data.customer.deliveryInstructions || data.customer.delivery_instructions || ‘’);
+	3.	Agrega logs (console.log) en el montaje del paso 3 para comparar los valores actuales del formulario (por ejemplo, usando form.getValues()) con los valores correctos que deberían provenir del endpoint, y así detectar cualquier desincronización.
+	4.	Corrige cualquier error en el flujo de estado del wizard para que el paso 3 utilice los datos actualizados y no copie accidentalmente datos del paso 2.
+	5.	Al finalizar, verifica que en el paso 3 se muestren los datos reales de la dirección de envío (por ejemplo, ‘Ciudad’ con el valor correcto, ‘Provincia’ con ‘Azuay’ si corresponde y ‘Referencia o Instrucciones Especiales para la Entrega’ esté vacío si la ficha del cliente no lo tiene) y que estos coincidan con el resumen del paso 4.
+
+Por favor, aplica estos cambios y proporciona un reporte final indicando en qué archivos se realizaron las modificaciones y cómo verificaste que el estado se sincroniza correctamente entre el paso 3 y el paso 4 del wizard.

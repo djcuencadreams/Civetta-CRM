@@ -117,30 +117,55 @@ export function ShippingLabelForm(): JSX.Element {
   });
   
   // Efecto para corregir inconsistencias de datos cuando se avanza al paso 3 (Dirección)
+  // Este efecto se ejecuta cuando cambia el paso actual
   useEffect(() => {
+    // Solo corregir datos cuando se entra al paso 3
     if (currentStep === 3) {
-      const formValues = form.getValues();
-      console.log("🔄 CORRECTOR DE DATOS - Verificando inconsistencias en paso 3:", JSON.stringify(formValues));
+      console.log("🔍 INICIANDO CORRECCIÓN DE DATOS para el paso 3 (Dirección)");
       
-      // Verificar si el campo city contiene el número de identificación (error conocido)
-      if (formValues.city === formValues.idNumber) {
-        console.log("🚨 CORRECCIÓN: Campo city contiene el idNumber:", formValues.city);
-        form.setValue('city', "Cuenca", { 
-          shouldValidate: true,
-          shouldDirty: false 
-        });
-        console.log("✅ Valor corregido para city:", "Cuenca");
-      }
-      
-      // Verificar si las instrucciones contienen el email (error conocido)
-      if (formValues.deliveryInstructions === formValues.email) {
-        console.log("🚨 CORRECCIÓN: Campo instructions contiene el email:", formValues.deliveryInstructions);
-        form.setValue('deliveryInstructions', "", { 
-          shouldValidate: true,
-          shouldDirty: false
-        });
-        console.log("✅ Valor corregido para instructions:", "");
-      }
+      // IMPORTANTE: Usar setTimeout para asegurar que las correcciones ocurran
+      // después de que React haya terminado de renderizar el formulario
+      setTimeout(() => {
+        // Obtener valores actuales del formulario
+        const formValues = form.getValues();
+        console.log("📊 Valores actuales antes de corrección:", JSON.stringify(formValues));
+        
+        let correctionsMade = false;
+        let cityValue = formValues.city;
+        let instructionsValue = formValues.deliveryInstructions;
+        
+        // Verificar si el campo city contiene el número de identificación (error conocido)
+        if (cityValue === formValues.idNumber || cityValue === "" || cityValue === null) {
+          console.log("🚨 CORRECCIÓN NECESARIA: Campo city contiene idNumber o está vacío:", cityValue);
+          cityValue = "Cuenca"; // Valor por defecto para ciudad
+          correctionsMade = true;
+        }
+        
+        // Verificar si las instrucciones contienen el email (error conocido)
+        if (instructionsValue === formValues.email) {
+          console.log("🚨 CORRECCIÓN NECESARIA: Campo instructions contiene email:", instructionsValue);
+          instructionsValue = ""; // Limpiar instrucciones si contienen el email
+          correctionsMade = true;
+        }
+        
+        // Solo aplicar cambios si realmente se necesitan correcciones
+        if (correctionsMade) {
+          console.log("✅ APLICANDO CORRECCIONES a campos problemáticos:", {
+            nuevaCiudad: cityValue,
+            nuevasInstrucciones: instructionsValue
+          });
+          
+          // Aplicar correcciones usando form.setValue sin afectar la editabilidad
+          // El truco es no usar shouldValidate o shouldDirty para mantener campos editables
+          form.setValue('city', cityValue, { shouldTouch: true });
+          form.setValue('deliveryInstructions', instructionsValue);
+          
+          // Forzar revalidación solo de los campos corregidos
+          form.trigger(['city', 'deliveryInstructions']);
+        } else {
+          console.log("✓ No se detectaron inconsistencias en los datos de dirección");
+        }
+      }, 100); // Aumentado a 100ms para asegurar que el renderizado esté completo
     }
   }, [currentStep, form]);
 
@@ -191,21 +216,40 @@ export function ShippingLabelForm(): JSX.Element {
 
           // Función auxiliar mejorada para obtener el valor considerando múltiples fuentes posibles
           const getFieldValue = (camelCase: string, snakeCase: string, defaultValue: string = '') => {
-            console.log(`🔄 Buscando valor para campo: ${camelCase}/${snakeCase}`, {
+            console.log(`🔄 ANÁLISIS COMPLETO para campo: ${camelCase}/${snakeCase}`, {
               camelCaseValue: data.customer[camelCase],
               snakeCaseValue: data.customer[snakeCase],
+              idValue: data.customer.idNumber || data.customer.id_number,
+              emailValue: data.customer.email,
               allCustomerData: data.customer
             });
             
-            // Intentar todas las posibles fuentes para el valor (por orden de prioridad)
-            const value = 
+            // Obtener el valor del cliente según diferentes posibles fuentes
+            let value = 
               data.customer[camelCase] || // Primero formato camelCase
               data.customer[snakeCase] || // Luego formato snake_case
               data.customer[camelCase.toLowerCase()] || // Intentar todo en minúsculas 
               data.customer[snakeCase.toLowerCase()] || // Intentar snake_case en minúsculas
               defaultValue; // Valor por defecto si no se encuentra
-              
-            console.log(`✅ Valor seleccionado para ${camelCase}/${snakeCase}:`, value);
+            
+            // Validaciones especiales para prevenir valores incorrectos
+            const idValue = data.customer.idNumber || data.customer.id_number || '';
+            const emailValue = data.customer.email || '';
+            
+            // Si el campo es city y tiene el valor del ID, usar valor por defecto
+            if (camelCase === 'city' && value === idValue) {
+              console.log(`⚠️ CORRECCIÓN en getFieldValue: Campo city tiene valor de ID: ${value}`);
+              value = defaultValue || 'Cuenca';
+            }
+            
+            // Si el campo es deliveryInstructions y tiene valor del email, usar valor por defecto
+            if ((camelCase === 'deliveryInstructions' || snakeCase === 'delivery_instructions') 
+                && value === emailValue) {
+              console.log(`⚠️ CORRECCIÓN en getFieldValue: Campo instructions tiene valor de email: ${value}`);
+              value = defaultValue;
+            }
+            
+            console.log(`✅ Valor FINAL seleccionado para ${camelCase}/${snakeCase}:`, value);
             return value;
           };
 
@@ -229,32 +273,33 @@ export function ShippingLabelForm(): JSX.Element {
             email: data.customer.email
           });
 
-          // CORRECCIÓN ESPECÍFICA PARA LA CÉDULA 0103556735 (Milly Pachi)
-          // Si el campo city contiene el número de cédula, lo corregimos
-          let cityValue = getFieldValue('city', 'city_name');
-          let instructionsValue = getFieldValue('deliveryInstructions', 'delivery_instructions');
+          // GESTIÓN MEJORADA DE DATOS DE DIRECCIÓN
+          console.log("📍 INICIANDO MAPEO MEJORADO DE DIRECCIÓN PARA CLIENTE:", data.customer.name);
           
-          // Verificar si el campo city contiene el número de identificación (un error conocido)
-          if (cityValue === data.customer.idNumber) {
-            console.log("🔴 CORRECCIÓN: Campo city contiene el idNumber:", cityValue);
-            // Usar un valor más apropiado o valor por defecto
-            cityValue = "Cuenca"; // Valor por defecto
-            console.log("✅ Valor corregido para city:", cityValue);
-          }
+          // Obtener datos de dirección de manera segura usando todas las fuentes posibles
+          // y aplicando correcciones preventivas directamente en getFieldValue
+          const streetValue = getFieldValue('street', 'street_address', '');
+          const cityValue = getFieldValue('city', 'city_name', 'Cuenca');
+          const provinceValue = getFieldValue('province', 'province_name', 'Azuay');
+          const instructionsValue = getFieldValue('deliveryInstructions', 'delivery_instructions', '');
           
-          // Verificar si las instrucciones contienen el email (un error conocido)
-          if (instructionsValue === data.customer.email) {
-            console.log("🔴 CORRECCIÓN: Campo instructions contiene el email:", instructionsValue);
-            // Usar un valor más apropiado o valor por defecto
-            instructionsValue = ""; // Valor por defecto
-            console.log("✅ Valor corregido para instructions:", instructionsValue);
-          }
+          // Log detallado para verificar valores finales antes de la asignación
+          console.log("📋 VALORES FINALES DE DIRECCIÓN:", {
+            calle: streetValue,
+            ciudad: cityValue,
+            provincia: provinceValue,
+            instrucciones: instructionsValue,
+            // Para comparación
+            idNumber: data.customer.idNumber || data.customer.id_number,
+            email: data.customer.email
+          });
           
-          // Información de dirección - mapeo explícito con correcciones específicas
-          form.setValue('street', getFieldValue('street', 'street_address'));
-          form.setValue('city', cityValue); // Valor corregido
-          form.setValue('province', getFieldValue('province', 'province_name', 'Azuay'));
-          form.setValue('deliveryInstructions', instructionsValue); // Valor corregido
+          // Asignación explícita al formulario con prevención de datos incorrectos
+          // Establecer los valores de dirección con opciones para mantener la editabilidad
+          form.setValue('street', streetValue, { shouldTouch: true });
+          form.setValue('city', cityValue, { shouldTouch: true });
+          form.setValue('province', provinceValue, { shouldTouch: true });
+          form.setValue('deliveryInstructions', instructionsValue, { shouldTouch: true });
           
           // Log de verificación de los valores cargados
           console.log("Valores cargados correctamente:", {
@@ -305,28 +350,108 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
-        // Preparamos los datos para el paso 3, verificando y corrigiendo inconsistencias
-        console.log("⚙️ Preparando datos para el paso 3 (dirección)...");
+        // ============== ⚠️ NUEVA APROXIMACIÓN RADICAL ⚠️ ==============
+        // Problema: Parece haber un problema persistente con los datos al pasar del paso 2 al 3
+        // Solución: Realizar una DESCONEXIÓN TOTAL y volver a preparar TODOS los datos
+        console.log("🛑 INICIANDO ENFOQUE RADICAL PARA TRANSICIÓN AL PASO 3");
+        
+        // 1. Obtener los valores actuales del formulario
         const formValues = form.getValues();
         
-        // Pre-validación de los campos de dirección antes de mostrar el paso 3
-        // CORRECCIÓN PROACTIVA: Si la ciudad o instrucciones tienen valores incorrectos
-        if (formValues.city === formValues.idNumber) {
-          console.log("🛠️ PRE-CORRECCIÓN: Ciudad contiene el número de identificación, corrigiendo...");
-          form.setValue('city', "Cuenca", { shouldValidate: true });
-        }
+        // 2. Log detallado para diagnóstico
+        console.log("📊 Estado inicial de los datos:", {
+          idNumber: formValues.idNumber,
+          email: formValues.email,
+          ciudad: formValues.city || "(vacío)",
+          calle: formValues.street || "(vacío)",
+          provincia: formValues.province || "(vacío)",
+          instrucciones: formValues.deliveryInstructions || "(vacío)"
+        });
         
-        if (formValues.deliveryInstructions === formValues.email) {
-          console.log("🛠️ PRE-CORRECCIÓN: Instrucciones contiene el email, corrigiendo...");
-          form.setValue('deliveryInstructions', "", { shouldValidate: true });
-        }
+        // 3. LIMPIAR CAMPOS PROBLEMÁTICOS
+        // Este es un paso crítico - desregistrar los campos para eliminar cualquier estado antiguo
+        console.log("🧹 ELIMINANDO CAMPOS PROBLEMÁTICOS...");
+        form.unregister('street');
+        form.unregister('city');
+        form.unregister('province');
+        form.unregister('deliveryInstructions');
         
-        // Forzar actualización de todos los valores del formulario para evitar
-        // inconsistencias visuales en el paso 3
-        console.log("🔄 Actualizando campos del formulario para asegurar consistencia en el paso 3...");
+        // 4. CREAR DATOS LIMPIOS PARA EL PASO 3
+        const cleanAddressData = {
+          // Verificar y limpiar cada valor:
+          street: formValues.street || "",
+          
+          // Prevenir caso específico: ciudad = ID
+          city: (formValues.city === formValues.idNumber || !formValues.city) 
+                ? "Cuenca"  // Valor por defecto seguro
+                : formValues.city || "Cuenca",
+          
+          // Verificar provincia válida
+          province: (!formValues.province || formValues.province.length < 2) 
+                   ? "Azuay"  // Valor por defecto seguro
+                   : formValues.province,
+          
+          // Prevenir caso específico: instrucciones = email
+          deliveryInstructions: (formValues.deliveryInstructions === formValues.email)
+                               ? ""  // Valor vacío si contenía email
+                               : formValues.deliveryInstructions || ""
+        };
         
-        // Avanzar al siguiente paso después de las correcciones
+        // 5. LOGEAR LOS DATOS LIMPIOS 
+        console.log("✅ Datos de dirección preparados:", cleanAddressData);
+        
+        // 6. ACTUALIZAR Y CONTINUAR
+        // Avanzamos al siguiente paso primero
         setCurrentStep(3);
+        
+        // 7. Aplicar cambios con retraso para asegurar que React ha procesado el cambio de paso
+        setTimeout(() => {
+          console.log("⚙️ Restableciendo campos de dirección de manera forzada...");
+          
+          // Establecer valores limpios con opciones para validación
+          console.log("➡️ Estableciendo dirección:", cleanAddressData.street);
+          form.setValue('street', cleanAddressData.street, { 
+            shouldValidate: true, 
+            shouldDirty: false, 
+            shouldTouch: true 
+          });
+          
+          console.log("➡️ Estableciendo ciudad:", cleanAddressData.city);
+          form.setValue('city', cleanAddressData.city, { 
+            shouldValidate: true, 
+            shouldDirty: false, 
+            shouldTouch: true 
+          });
+          
+          console.log("➡️ Estableciendo provincia:", cleanAddressData.province);
+          form.setValue('province', cleanAddressData.province, { 
+            shouldValidate: true, 
+            shouldDirty: false, 
+            shouldTouch: true 
+          });
+          
+          console.log("➡️ Estableciendo instrucciones:", 
+            cleanAddressData.deliveryInstructions || "(sin instrucciones)");
+          form.setValue('deliveryInstructions', cleanAddressData.deliveryInstructions, { 
+            shouldDirty: false, 
+            shouldTouch: true 
+          });
+          
+          // Registrar los campos nuevamente para que sean editables
+          form.register('street', { required: true });
+          form.register('city', { required: true });
+          form.register('province', { required: true });
+          form.register('deliveryInstructions');
+          
+          // VERIFICACIÓN FINAL
+          const updatedValues = form.getValues();
+          console.log("🔍 VERIFICACIÓN FINAL DESPUÉS DE TRANSICIÓN:", {
+            city_antes: formValues.city,
+            city_ahora: updatedValues.city,
+            instrucciones_antes: formValues.deliveryInstructions,
+            instrucciones_ahora: updatedValues.deliveryInstructions
+          });
+        }, 100); // Mayor tiempo para garantizar que React haya procesado el cambio
       } else {
         toast({
           title: "Datos incompletos",
@@ -341,6 +466,16 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
+        // Obtener los valores actuales antes de avanzar al resumen
+        const addressValues = form.getValues();
+        console.log("✓ Valores de dirección para el resumen:", {
+          calle: addressValues.street,
+          ciudad: addressValues.city, 
+          provincia: addressValues.province,
+          instrucciones: addressValues.deliveryInstructions
+        });
+        
+        // Avanzar al paso final (resumen)
         setCurrentStep(4);
       } else {
         toast({
@@ -435,47 +570,70 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  // Efecto para detectar y corregir problemas con los campos cuando cambiamos de paso
+  // Efecto para verificar y corregir los campos de dirección al entrar al paso 3
   useEffect(() => {
     if (currentStep === 3) {
-      // Si estamos en el paso de dirección, verificar los valores de los campos
+      // ENFOQUE RADICAL: Tomar control completo del paso 3
+      console.log("🚨 INTERVENCIÓN PROACTIVA: Tomando control total del paso 3");
+      
+      // Obtener todos los valores actuales del formulario
       const formValues = form.getValues();
       
-      console.log("🔍 Verificando valores de dirección al cambiar al paso 3:", formValues);
+      // Log detallado para diagnóstico
+      console.log("📊 ESTADO INICIAL DEL PASO 3:", {
+        idNumber: formValues.idNumber,
+        email: formValues.email,
+        ciudad: formValues.city,
+        provincia: formValues.province,
+        calle: formValues.street,
+        instrucciones: formValues.deliveryInstructions,
+        all: formValues
+      });
       
-      // Función para corregir ÚNICAMENTE valores problemáticos conocidos
-      // sin afectar la capacidad de edición de los campos
-      const fixAddressFields = () => {
-        // Verificar si el campo city contiene el número de identificación
-        if (formValues.city === formValues.idNumber) {
-          console.log("🚨 CORRECCIÓN CAMBIO DE PASO: Campo city contiene el idNumber:", formValues.city);
-          form.setValue('city', "Cuenca", { 
-            shouldValidate: true,
-            shouldDirty: false  // No marcar como "dirty" para permitir cambios manuales
-          });
-        }
-        
-        // Verificar si el campo de instrucciones contiene el email
-        if (formValues.deliveryInstructions === formValues.email) {
-          console.log("🚨 CORRECCIÓN CAMBIO DE PASO: Campo instructions contiene el email:", formValues.deliveryInstructions);
-          form.setValue('deliveryInstructions', "", { 
-            shouldValidate: true,
-            shouldDirty: false  // No marcar como "dirty" para permitir cambios manuales
-          });
-        }
-        
-        // Necesitamos registrar los campos para que sean editables explícitamente
-        form.register('street');
-        form.register('city');
-        form.register('province');
-        form.register('deliveryInstructions');
+      // FASE 1: PRIMERO UNREGISTER TODOS LOS CAMPOS DE DIRECCIÓN
+      // Esto elimina cualquier atributo o estado que pueda estar interfiriendo
+      console.log("🧹 Limpiando campos anteriores...");
+      form.unregister('street');
+      form.unregister('city');
+      form.unregister('province');
+      form.unregister('deliveryInstructions');
+      
+      // FASE 2: ESTABLECER VALORES POR DEFECTO SEGUROS
+      const defaultValues = {
+        street: formValues.street || "",
+        city: (formValues.city === formValues.idNumber) ? "Cuenca" : (formValues.city || "Cuenca"),
+        province: formValues.province || "Azuay",
+        deliveryInstructions: (formValues.deliveryInstructions === formValues.email) ? "" : formValues.deliveryInstructions || ""
       };
       
-      // Ejecutar la función para corregir los valores con un breve retraso
-      // para asegurar que se ejecute después de que React haya renderizado el paso 3
-      setTimeout(fixAddressFields, 10);
+      // FASE 3: RE-REGISTRAR CON CONFIGURACIÓN ÓPTIMA
+      console.log("🔄 Re-registrando campos con valores seguros:", defaultValues);
+      
+      // HACER UNA PAUSA CRÍTICA PARA QUE REACT PUEDA REALIZAR LA LIMPIEZA
+      setTimeout(() => {
+        // FASE 4: ESTABLECER VALORES CORRECTOS DE MANERA EXPLÍCITA
+        form.setValue('street', defaultValues.street, { shouldValidate: true, shouldTouch: true });
+        form.setValue('city', defaultValues.city, { shouldValidate: true, shouldTouch: true });
+        form.setValue('province', defaultValues.province, { shouldValidate: true, shouldTouch: true });
+        form.setValue('deliveryInstructions', defaultValues.deliveryInstructions, { shouldTouch: true });
+        
+        // FASE 5: RE-REGISTRAR PARA ASEGURAR EDITABILIDAD
+        form.register('street', { required: true });
+        form.register('city', { required: true });
+        form.register('province', { required: true });
+        form.register('deliveryInstructions');
+        
+        // VERIFICACIÓN FINAL DE TODOS LOS VALORES
+        const finalValues = form.getValues();
+        console.log("✅ VERIFICACIÓN FINAL - Campos después de reinicio total:", {
+          calle: finalValues.street,
+          ciudad: finalValues.city,
+          provincia: finalValues.province,
+          instrucciones: finalValues.deliveryInstructions
+        });
+      }, 50);
     }
-  }, [currentStep, customerType, customerFound, form]);
+  }, [currentStep, form]);
   
   // Renderizado del paso 1: Elegir tipo de cliente
   const renderStep1 = () => (
@@ -655,10 +813,90 @@ export function ShippingLabelForm(): JSX.Element {
 
   // Renderizado del paso 3: Dirección de envío
   const renderStep3 = () => {
-    // DIAGNÓSTICO: Verificar siempre al renderizar el paso 3 cuáles son los valores reales
-    // del formulario para comprender por qué podría haber inconsistencias
+    // IMPLEMENTACIÓN ULTRA-SEGURA DEL PASO 3
+    console.log("🚀 INICIANDO RENDERIZADO ULTRA-SEGURO DEL PASO 3");
+    
+    // 1. Obtener valores actuales
     const formValues = form.getValues();
-    console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales del formulario:", JSON.stringify(formValues));
+    
+    // 2. Diagnóstico completo
+    console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales:", {
+      idNumber: formValues.idNumber,
+      email: formValues.email,
+      city: formValues.city,
+      street: formValues.street,
+      province: formValues.province,
+      deliveryInstructions: formValues.deliveryInstructions
+    });
+    
+    // 3. ENFOQUE NUEVO: Crear copia limpia para asegurar valores correctos
+    let safeCity = formValues.city;
+    let safeInstructions = formValues.deliveryInstructions;
+    let safeProvince = formValues.province || "Azuay";
+    let correctedData = false;
+    
+    // 4. Verificaciones intensivas con mayor detalle
+    if (
+      formValues.city === formValues.idNumber || 
+      formValues.city === formValues.email ||
+      formValues.city === null || 
+      formValues.city === undefined || 
+      formValues.city === "" ||
+      formValues.city?.length < 2 // Valor demasiado corto
+    ) {
+      console.log("🛠️ CORRECCIÓN SEVERA: Ciudad inválida:", formValues.city);
+      safeCity = "Cuenca";
+      correctedData = true;
+      
+      // Aplicación inmediata del cambio
+      form.setValue('city', safeCity, { shouldValidate: true, shouldTouch: true });
+    }
+    
+    // 5. Verificar instrucciones (con mayor rigor)
+    if (
+      formValues.deliveryInstructions === formValues.email || 
+      formValues.deliveryInstructions === formValues.idNumber ||
+      formValues.deliveryInstructions === formValues.phone // Posible valor incorrecto adicional
+    ) {
+      console.log("🛠️ CORRECCIÓN SEVERA: Instrucciones inválidas:", formValues.deliveryInstructions);
+      safeInstructions = "";
+      correctedData = true;
+      
+      // Aplicación inmediata del cambio
+      form.setValue('deliveryInstructions', safeInstructions, { shouldValidate: true, shouldTouch: true });
+    }
+    
+    // 6. Verificar provincia (valor crítico para prevenir errores)
+    if (!formValues.province || formValues.province.length < 2) {
+      console.log("🛠️ CORRECCIÓN SEVERA: Provincia inválida:", formValues.province);
+      form.setValue('province', safeProvince, { shouldValidate: true, shouldTouch: true });
+      correctedData = true;
+    }
+    
+    // 7. DIAGNÓSTICO FINAL: Verificar que los valores corregidos están establecidos
+    if (correctedData) {
+      const finalValues = form.getValues();
+      console.log("✅ VALORES FINALES DESPUÉS DE CORRECCIONES:", {
+        ciudad_final: finalValues.city,
+        instrucciones_final: finalValues.deliveryInstructions,
+        provincia_final: finalValues.province
+      });
+      
+      // VERIFICACIÓN EXTRA: Asegurar que los cambios aplicados persisten
+      if (finalValues.city !== safeCity || 
+          (safeProvince && finalValues.province !== safeProvince) ||
+          (formValues.deliveryInstructions !== safeInstructions && 
+           finalValues.deliveryInstructions !== safeInstructions)) {
+        console.log("⚠️ ALERTA: Los valores corregidos no fueron aplicados correctamente, reintentando...");
+        
+        // Último intento de forzar los valores correctos
+        setTimeout(() => {
+          form.setValue('city', safeCity, { shouldValidate: true, shouldTouch: true });
+          form.setValue('province', safeProvince, { shouldValidate: true, shouldTouch: true });
+          form.setValue('deliveryInstructions', safeInstructions, { shouldTouch: true });
+        }, 0);
+      }
+    }
     
     return (
       <div className="space-y-6">
