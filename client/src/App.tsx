@@ -31,7 +31,7 @@ function App() {
 
   // Check if the route is an embeddable route
   const [location] = useLocation();
-  const isEmbedRoute = location.startsWith('/embed/');
+  const isEmbedRoute = location.startsWith('/embed/') && location !== '/embed/shipping-form-static';
 
   // For embeddable routes, use EmbedShell without any chrome
   if (isEmbedRoute) {

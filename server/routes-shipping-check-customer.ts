@@ -79,7 +79,9 @@ export function registerCustomerCheckEndpoint(app: Express) {
             street: customer.street || '',
             city: customer.city || '',
             province: customer.province || '',
-            deliveryInstructions: customer.deliveryInstructions || ''
+            deliveryInstructions: customer.deliveryInstructions || '',
+            // También incluimos nombres alternativos para mantener compatibilidad
+            delivery_instructions: customer.deliveryInstructions || ''
           };
           
           // Verificar que la respuesta incluya los campos de dirección

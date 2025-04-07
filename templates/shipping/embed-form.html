@@ -845,10 +845,11 @@
                             console.log('Provincia asignada:', data.customer.province);
                         }
                         
-                        // Si existen instrucciones de entrega, también las establecemos
-                        if (data.customer.deliveryInstructions) {
-                            document.getElementById('deliveryInstructions').value = data.customer.deliveryInstructions;
-                            console.log('Instrucciones asignadas:', data.customer.deliveryInstructions);
+                        // Si existen instrucciones de entrega, también las establecemos (compatible con ambos formatos)
+                        const deliveryInstructions = data.customer.deliveryInstructions || data.customer.delivery_instructions;
+                        if (deliveryInstructions) {
+                            document.getElementById('deliveryInstructions').value = deliveryInstructions;
+                            console.log('Instrucciones asignadas:', deliveryInstructions);
                         }
                         
                         // Mostrar alerta de cliente encontrado

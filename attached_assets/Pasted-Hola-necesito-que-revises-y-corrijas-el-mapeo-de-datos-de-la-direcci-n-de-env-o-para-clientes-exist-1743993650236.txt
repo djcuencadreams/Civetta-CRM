@@ -1,0 +1,28 @@
+Hola, necesito que revises y corrijas el mapeo de datos de la dirección de envío para clientes existentes. Actualmente, al recuperar la información del cliente desde el endpoint (por ejemplo, /api/shipping/check-customer-v2), se observa que:
+	•	El campo ‘Ciudad’ muestra el valor de la cédula (u otro dato incorrecto).
+	•	El campo ‘Provincia’ aparece vacío.
+	•	El campo de ‘Referencia o Instrucciones Especiales para la Entrega’ muestra el email.
+
+Estos errores indican que los campos no se están mapeando correctamente desde la base de datos hacia el objeto de respuesta, ni se asignan correctamente en el formulario.
+
+Por favor, realiza lo siguiente:
+	1.	En el Endpoint de Verificación de Cliente:
+	•	Revisa el código del endpoint (en server/routes-shipping-check-customer-v2 o similar) para asegurarte de que la consulta recupere explícitamente las columnas correctas de la tabla customers, es decir:
+	•	street (calle)
+	•	city (ciudad)
+	•	province (provincia)
+	•	delivery_instructions (las instrucciones especiales, que debe mapearse a ‘Referencia o Instrucciones Especiales para la Entrega’)
+	•	Verifica que los nombres de las columnas usados en la consulta coincidan con los definidos en el esquema de la base de datos (usando snake_case, por ejemplo, delivery_instructions en lugar de deliveryInstructions).
+	•	Asegúrate de que el objeto JSON devuelto incluya estos campos con sus valores correctos.
+	2.	En el Componente del Formulario (ShippingLabelForm.tsx):
+	•	Revisa la función que procesa la respuesta del endpoint para asignar los valores a los campos del formulario.
+	•	Corrige el mapeo de cada campo:
+	•	El input de ‘Ciudad’ debe asignarse al valor data.city.
+	•	El input de ‘Provincia’ debe asignarse a data.province.
+	•	El campo de ‘Referencia o Instrucciones Especiales para la Entrega’ debe usar data.delivery_instructions.
+	•	Asegúrate de que no se estén asignando valores incorrectos (por ejemplo, que el campo ‘Ciudad’ no muestre datos de la cédula o que el campo de instrucciones no muestre el email).
+	3.	Validación y Reporte Final:
+	•	Una vez realizados los cambios, verifica que al buscar un cliente existente en el wizard, se muestren correctamente todos los datos de dirección, exactamente como están almacenados en la ficha del cliente en el CRM.
+	•	Proporciona un reporte final indicando en qué archivos se hicieron los cambios y confirmando que la respuesta del endpoint y la asignación en el formulario son correctas.
+
+El objetivo es que la información de dirección que se recupere y se muestre en el wizard coincida exactamente con la ficha del cliente en el CRM, sin mezclar datos ni dejar campos vacíos. ¡Gracias!

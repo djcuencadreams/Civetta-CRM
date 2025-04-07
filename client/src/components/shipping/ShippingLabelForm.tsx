@@ -150,16 +150,21 @@ export function ShippingLabelForm() {
         form.setValue('idNumber', data.customer.idNumber || '');
         
         // Llenar información de dirección de envío
+        // Manejar tanto formato camelCase como snake_case en los campos
         form.setValue('street', data.customer.street || '');
         form.setValue('city', data.customer.city || '');
         form.setValue('province', data.customer.province || '');
-        form.setValue('deliveryInstructions', data.customer.deliveryInstructions || '');
+        // Para el campo deliveryInstructions, usar cualquiera de las dos formas disponibles
+        form.setValue('deliveryInstructions', 
+          data.customer.deliveryInstructions || 
+          data.customer.delivery_instructions || 
+          '');
         
         console.log('Datos de dirección cargados:', {
           street: data.customer.street,
           city: data.customer.city,
           province: data.customer.province,
-          deliveryInstructions: data.customer.deliveryInstructions
+          deliveryInstructions: data.customer.deliveryInstructions || data.customer.delivery_instructions
         });
         
         setCustomerFound(true);
