@@ -586,32 +586,27 @@ export function ShippingLabelForm(): JSX.Element {
 
   // Renderizado del paso 3: Dirección de envío
   const renderStep3 = () => {
-    // Corregir los valores directamente al renderizar el paso 3
-    // Es seguro hacer esto porque React renderizará nuevamente el componente si el estado cambia
-    if (currentStep === 3) {
-      // Verificar si hay problemas con los campos de dirección
-      const formValues = form.getValues();
-      
-      console.log("🔍 Verificando valores de dirección en el paso 3:", formValues);
-      
-      // Verificar si el campo city contiene el número de identificación
-      if (formValues.city === formValues.idNumber) {
-        console.log("🚨 CORRECCIÓN PASO 3: Campo city contiene el idNumber:", formValues.city);
-        // Corregir el valor en el siguiente ciclo de renderizado
-        setTimeout(() => {
-          form.setValue('city', "Cuenca");
-        }, 0);
+    // Efecto para verificar y corregir los valores de los campos de dirección cuando el paso 3 se renderiza
+    useEffect(() => {
+      if (currentStep === 3) {
+        // Verificar si hay problemas con los campos de dirección
+        const formValues = form.getValues();
+        
+        console.log("🔍 Verificando valores de dirección en el paso 3:", formValues);
+        
+        // Verificar si el campo city contiene el número de identificación
+        if (formValues.city === formValues.idNumber) {
+          console.log("🚨 CORRECCIÓN PASO 3: Campo city contiene el idNumber:", formValues.city);
+          form.setValue('city', "Cuenca"); // Establecer un valor por defecto
+        }
+        
+        // Verificar si el campo de instrucciones contiene el email
+        if (formValues.deliveryInstructions === formValues.email) {
+          console.log("🚨 CORRECCIÓN PASO 3: Campo instructions contiene el email:", formValues.deliveryInstructions);
+          form.setValue('deliveryInstructions', ""); // Limpiar el valor
+        }
       }
-      
-      // Verificar si el campo de instrucciones contiene el email
-      if (formValues.deliveryInstructions === formValues.email) {
-        console.log("🚨 CORRECCIÓN PASO 3: Campo instructions contiene el email:", formValues.deliveryInstructions);
-        // Corregir el valor en el siguiente ciclo de renderizado
-        setTimeout(() => {
-          form.setValue('deliveryInstructions', "");
-        }, 0);
-      }
-    }
+    }, [currentStep, form]);
     
     return (
       <div className="space-y-6">

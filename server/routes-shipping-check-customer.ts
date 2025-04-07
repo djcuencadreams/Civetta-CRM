@@ -82,23 +82,26 @@ export function registerCustomerCheckEndpoint(app: Express) {
           });
           
           // Construir la respuesta incluyendo todos los campos necesarios
-          // Asegurándonos de incluir TODOS los campos de dirección necesarios
+          // Asegurándonos de incluir TODOS los campos de dirección en un formato coherente
           const customerResponse = {
+            // Información básica del cliente
             id: customer.id,
             name: customer.name,
             email: customer.email,
             phone: customer.phone,
-            idNumber: customer.idNumber,
             
-            // Campos explícitos de dirección con valores por defecto para evitar valores undefined
+            // Campos en formato camelCase (formato principal)
+            idNumber: customer.idNumber || '',
             street: customer.street || '',
             city: customer.city || '',
             province: customer.province || '',
             deliveryInstructions: customer.deliveryInstructions || '',
             
-            // Incluimos también formato con snake_case para compatibilidad
+            // Campos en formato snake_case (para compatibilidad)
+            id_number: customer.idNumber || '',
             delivery_instructions: customer.deliveryInstructions || '',
-            // Agregamos otros campos en snake_case para compatibilidad total
+            
+            // Campos alternativos (para compatibilidad con versiones antiguas del sistema)
             street_address: customer.street || '',
             city_name: customer.city || '',
             province_name: customer.province || ''
