@@ -300,20 +300,9 @@ export class CustomersService implements Service {
         lastName
       });
 
-      // Ensure tags is properly formatted as a string array
-      const formattedTags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
-      
-      // Log the parsed data for debugging
-      console.log(`Creating customer with data:`, {
-        name: customerData.name,
-        firstName,
-        lastName,
-        tagsType: typeof tags,
-        tagsValue: tags,
-        formattedTags
-      });
-
-      const [customer] = await db.insert(customers).values({
+      // Creamos un objeto sin el campo tags para la inserción principal
+      // Esto evita problemas con el tipo de datos (array en el schema vs. JSONB en la BD)
+      const customerData2Insert = {
         name: customerData.name,
         firstName,
         lastName,
@@ -328,7 +317,6 @@ export class CustomersService implements Service {
         deliveryInstructions: deliveryInstructions?.trim() || null,
         idNumber: idNumber?.trim() || null,
         billingAddress: billingAddress || null, // Guardamos la dirección de facturación si existe
-        tags: formattedTags, // Use properly formatted tags array
         status: status || 'active',
         type: type || 'person',
         source: source || 'direct',
@@ -336,7 +324,36 @@ export class CustomersService implements Service {
         notes: notes?.trim() || null,
         createdAt: new Date(),
         updatedAt: new Date()
-      }).returning();
+      };
+      
+      // Log the parsed data for debugging
+      console.log(`Creating customer with data:`, {
+        name: customerData.name,
+        firstName,
+        lastName,
+        tagsType: typeof tags,
+        tagsValue: tags
+      });
+
+      // Crear el cliente sin los tags inicialmente
+      const [customer] = await db.insert(customers).values(customerData2Insert).returning();
+      
+      // Si se proporcionaron tags, actualizamos usando SQL nativo para manejar el tipo JSONB
+      if (tags) {
+        try {
+          // Ensure tags is properly formatted as a string array
+          const formattedTags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
+          
+          // Actualizar el campo tags como JSONB usando SQL nativo
+          await db.$client.query(
+            `UPDATE customers SET tags = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(formattedTags), customer.id]
+          );
+          console.log(`[TAGS] Agregado campo tags para nuevo cliente ${customer.id}`);
+        } catch (tagsError) {
+          console.error('[TAGS] Error agregando tags:', tagsError);
+        }
+      }
 
       // Emit customer created event
       appEvents.emit(EventTypes.CUSTOMER_CREATED, customer);
@@ -396,39 +413,56 @@ export class CustomersService implements Service {
       
       // Asegurar que los campos complejos estén inicializados
       const existingBillingAddress = existingCustomer.billingAddress || {};
-      const existingTags = existingCustomer.tags as any[] || [];
+      // FIXME: El campo tags está definido como array pero en la BD es JSONB
+      // Para evitar errores de tipo, no lo incluimos directamente en la actualización
       const existingStatus = existingCustomer.status || 'active';
       const existingType = existingCustomer.type || 'person';
 
       // Procesar correctamente el campo idNumber
       const updatedIdNumber = idNumber !== undefined ? (idNumber?.trim() || null) : existingCustomer.idNumber;
 
+      // Creamos un objeto de actualización sin el campo tags para evitar errores
+      const updateData = {
+        name: customerData.name, // Usar el nombre completo generado con ensureNameField
+        firstName,
+        lastName,
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        phoneCountry: phoneCountry || existingCustomer.phoneCountry,
+        phoneNumber: phoneNumber || existingCustomer.phoneNumber,
+        secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone,
+        street: street?.trim() || null,
+        city: city?.trim() || existingCustomer.city || null,
+        province: province || existingCustomer.province || null,
+        deliveryInstructions: deliveryInstructions !== undefined ? deliveryInstructions?.trim() || null : existingCustomer.deliveryInstructions,
+        idNumber: updatedIdNumber,
+        // Actualizar la dirección de facturación y preservar los campos no proporcionados
+        billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
+        status: status || existingStatus,
+        type: type || existingType,
+        source: source || existingCustomer.source,
+        brand: brand || existingCustomer.brand,
+        notes: notes?.trim() || null,
+        updatedAt: new Date()
+      };
+
+      // Si se proporcionaron tags nuevos, los actualizamos usando SQL nativo
+      // para asegurar compatibilidad con el tipo JSONB de la BD
+      if (tags) {
+        try {
+          // Actualizar el campo tags como JSONB usando SQL nativo
+          await db.$client.query(
+            `UPDATE customers SET tags = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(tags), customerId]
+          );
+          console.log(`[TAGS] Actualizado campo tags para cliente ${customerId}`);
+        } catch (tagsError) {
+          console.error('[TAGS] Error actualizando tags:', tagsError);
+        }
+      }
+
       const [updatedCustomer] = await db.update(customers)
-        .set({
-          name: customerData.name, // Usar el nombre completo generado con ensureNameField
-          firstName,
-          lastName,
-          email: email?.trim() || null,
-          phone: phone?.trim() || null,
-          phoneCountry: phoneCountry || existingCustomer.phoneCountry,
-          phoneNumber: phoneNumber || existingCustomer.phoneNumber,
-          secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone,
-          street: street?.trim() || null,
-          city: city?.trim() || existingCustomer.city || null,
-          province: province || existingCustomer.province || null,
-          deliveryInstructions: deliveryInstructions !== undefined ? deliveryInstructions?.trim() || null : existingCustomer.deliveryInstructions,
-          idNumber: updatedIdNumber,
-          // Actualizar la dirección de facturación y preservar los campos no proporcionados
-          billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
-          // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes
-          tags: tags || existingTags,
-          status: status || existingStatus,
-          type: type || existingType,
-          source: source || existingCustomer.source,
-          brand: brand || existingCustomer.brand,
-          notes: notes?.trim() || null,
-          updatedAt: new Date()
-        })
+        .set(updateData)
         .where(eq(customers.id, customerId))
         .returning();
 
