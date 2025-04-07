@@ -255,7 +255,7 @@ export class CustomersService implements Service {
           city: city?.trim() || existingCustomer.city || null,
           province: province || existingCustomer.province || null,
           deliveryInstructions: deliveryInstructions?.trim() || existingCustomer.deliveryInstructions || null,
-          idNumber: idNumber?.trim() || existingCustomer.idNumber || null,
+          idNumber: idNumber?.trim() || null, // Si se proporciona idNumber, usar el nuevo valor
           // Actualizar la dirección de facturación y preservar los campos no proporcionados
           billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
           // Actualizar etiquetas si se proporcionan, de lo contrario mantener las existentes
