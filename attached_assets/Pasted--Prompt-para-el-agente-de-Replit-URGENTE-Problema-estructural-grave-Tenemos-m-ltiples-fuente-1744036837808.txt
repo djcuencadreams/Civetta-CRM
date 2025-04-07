@@ -1,0 +1,36 @@
+// Prompt para el agente de Replit:
+
+URGENTE - Problema estructural grave.
+
+Tenemos múltiples fuentes de verdad para los datos del cliente. La ficha de cliente, la lista de clientes y el resumen de pedidos muestran datos distintos porque:
+
+1. Existen múltiples campos redundantes: `name`, `firstName`, `lastName`, `deliveryInstructions`, `delivery_instructions`.
+2. Algunas rutas (ej. `/api/shipping/save-data`, `/api/customers/:id`) actualizan solo algunos de estos campos.
+3. El resumen del wizard y PDF muestra datos actualizados, pero la ficha del cliente carga los antiguos.
+
+SOLUCIÓN DEFINITIVA NECESARIA:
+
+✅ ESTANDARIZAR MODELO DE CLIENTE:
+- Eliminar el uso directo de `name` y `delivery_instructions` en la base y el código.
+- Mantener solo `firstName`, `lastName`, `deliveryInstructions`.
+- Generar `name = firstName + ' ' + lastName` dinámicamente cuando se necesita mostrarlo.
+
+✅ UNIFICAR LÓGICA DE ACTUALIZACIÓN:
+- Crear una única función `updateCustomer(id, data)` que actualice todos los campos sincronizadamente.
+- Usar esta función en todos los endpoints y formularios (wizard, customer form, save-data, etc.).
+
+✅ VALIDAR TODO EL FRONTEND:
+- `CustomerForm.tsx`, `CustomerList.tsx`, `ShippingLabelForm.tsx`, `WizardShippingForm.tsx` deben usar solo `firstName`, `lastName`, `deliveryInstructions`.
+- Eliminar dependencias a `name`, `delivery_instructions`.
+
+✅ REVISAR MODELO Y SCHEMA:
+- Eliminar columna `name` de la base si ya no es requerida. Solo conservar `first_name`, `last_name`.
+- Eliminar `delivery_instructions` si ya se usa `deliveryInstructions`.
+
+✅ EJECUTAR MIGRACIÓN FINAL:
+- Escribir migración para limpiar datos antiguos y renombrar columnas si hace falta.
+- Asegurar que los datos actuales se migren sin pérdida.
+
+⛔️ IMPORTANTE: Verifica que NO se estén creando duplicados de clientes ni pedidos. Revisa los logs y asegúrate de usar el mismo `customerId` al crear órdenes.
+
+Queremos resolver este problema **de raíz**, garantizar que **todas las vistas cargan y guardan el mismo objeto cliente**, y dejar el sistema **robusto y sin duplicidad lógica ni de datos**.
