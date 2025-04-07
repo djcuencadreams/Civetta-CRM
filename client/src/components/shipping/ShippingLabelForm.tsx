@@ -115,6 +115,34 @@ export function ShippingLabelForm(): JSX.Element {
     },
     mode: "onChange" // Validar en cambios para mejora UX en pasos
   });
+  
+  // Efecto para corregir inconsistencias de datos cuando se avanza al paso 3 (Dirección)
+  useEffect(() => {
+    if (currentStep === 3) {
+      const formValues = form.getValues();
+      console.log("🔄 CORRECTOR DE DATOS - Verificando inconsistencias en paso 3:", JSON.stringify(formValues));
+      
+      // Verificar si el campo city contiene el número de identificación (error conocido)
+      if (formValues.city === formValues.idNumber) {
+        console.log("🚨 CORRECCIÓN: Campo city contiene el idNumber:", formValues.city);
+        form.setValue('city', "Cuenca", { 
+          shouldValidate: true,
+          shouldDirty: false 
+        });
+        console.log("✅ Valor corregido para city:", "Cuenca");
+      }
+      
+      // Verificar si las instrucciones contienen el email (error conocido)
+      if (formValues.deliveryInstructions === formValues.email) {
+        console.log("🚨 CORRECCIÓN: Campo instructions contiene el email:", formValues.deliveryInstructions);
+        form.setValue('deliveryInstructions', "", { 
+          shouldValidate: true,
+          shouldDirty: false
+        });
+        console.log("✅ Valor corregido para instructions:", "");
+      }
+    }
+  }, [currentStep, form]);
 
   // Obtener el progreso actual (0-100)
   const getProgress = () => {
@@ -631,31 +659,6 @@ export function ShippingLabelForm(): JSX.Element {
     // del formulario para comprender por qué podría haber inconsistencias
     const formValues = form.getValues();
     console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales del formulario:", JSON.stringify(formValues));
-    
-    // IMPORTANTE: No podemos usar hooks (como useEffect) directamente dentro de renderStep3()
-    // En su lugar, realizamos la corrección de inconsistencias en tiempo de renderizado
-    if (currentStep === 3) {
-      // Usamos setTimeout para garantizar que estas correcciones se realicen después del renderizado actual
-      // pero sin usar useEffect dentro de renderStep3
-      setTimeout(() => {
-        // Correcciones específicas para inconsistencias conocidas
-        if (formValues.city === formValues.idNumber) {
-          console.log("🚨 CORRECCIÓN EN RENDERIZADO PASO 3: Campo city contiene el idNumber:", formValues.city);
-          form.setValue('city', "Cuenca", { 
-            shouldValidate: true,
-            shouldDirty: false // IMPORTANTE: No marcar como editado para permitir cambios manuales
-          });
-        }
-        
-        if (formValues.deliveryInstructions === formValues.email) {
-          console.log("🚨 CORRECCIÓN EN RENDERIZADO PASO 3: Campo instructions contiene el email:", formValues.deliveryInstructions);
-          form.setValue('deliveryInstructions', "", { 
-            shouldValidate: true,
-            shouldDirty: false // IMPORTANTE: No marcar como editado para permitir cambios manuales
-          });
-        }
-      }, 0);
-    }
     
     return (
       <div className="space-y-6">
