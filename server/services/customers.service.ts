@@ -300,6 +300,19 @@ export class CustomersService implements Service {
         lastName
       });
 
+      // Ensure tags is properly formatted as a string array
+      const formattedTags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
+      
+      // Log the parsed data for debugging
+      console.log(`Creating customer with data:`, {
+        name: customerData.name,
+        firstName,
+        lastName,
+        tagsType: typeof tags,
+        tagsValue: tags,
+        formattedTags
+      });
+
       const [customer] = await db.insert(customers).values({
         name: customerData.name,
         firstName,
@@ -315,7 +328,7 @@ export class CustomersService implements Service {
         deliveryInstructions: deliveryInstructions?.trim() || null,
         idNumber: idNumber?.trim() || null,
         billingAddress: billingAddress || null, // Guardamos la dirección de facturación si existe
-        tags: tags || [], // Guardamos las etiquetas
+        tags: formattedTags, // Use properly formatted tags array
         status: status || 'active',
         type: type || 'person',
         source: source || 'direct',

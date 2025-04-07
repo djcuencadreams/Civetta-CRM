@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './index';
+import { db, pool } from './index';
 import * as schema from './schema';
 
 // Create __dirname equivalent for ES modules
@@ -36,14 +36,46 @@ export async function backupDatabase(): Promise<string> {
       const table = schema[tableName];
 
       if (table) {
-        // Query all records from the table
-        const records = await db.select().from(table);
+        try {
+          // Use raw SQL query to avoid array parsing issues
+          const query = `SELECT * FROM "${tableName}"`;
+          const result = await pool.query(query);
+          const records = result.rows;
 
-        // Write records to a JSON file
-        const filePath = path.join(backupDirPath, `${tableName}.json`);
-        fs.writeFileSync(filePath, JSON.stringify(records, null, 2));
+          // Process records to handle array fields correctly
+          const processedRecords = records.map((record: Record<string, any>) => {
+            // Create a copy of the record to avoid modifying the original
+            const processedRecord: Record<string, any> = { ...record };
+            
+            // Handle 'tags' field specifically, which is known to be an array
+            if (tableName === 'customers' && record.tags) {
+              // If tags is a string representation of an array, parse it
+              if (typeof record.tags === 'string' && record.tags.startsWith('{') && record.tags.endsWith('}')) {
+                try {
+                  // Parse PostgreSQL array format {item1,item2} to JS array
+                  processedRecord.tags = record.tags.slice(1, -1).split(',').filter((item: string) => item.length > 0);
+                } catch (e) {
+                  console.warn(`Could not parse tags for record in ${tableName}:`, e);
+                  processedRecord.tags = [];
+                }
+              } else if (!Array.isArray(record.tags)) {
+                // If tags is not an array or parseable string, default to empty array
+                processedRecord.tags = [];
+              }
+            }
+            
+            return processedRecord;
+          });
 
-        console.log(`Backed up ${records.length} records from ${tableName} table`);
+          // Write records to a JSON file
+          const filePath = path.join(backupDirPath, `${tableName}.json`);
+          fs.writeFileSync(filePath, JSON.stringify(processedRecords, null, 2));
+
+          console.log(`Backed up ${processedRecords.length} records from ${tableName} table`);
+        } catch (error) {
+          console.error(`Error backing up table ${tableName}:`, error);
+          // Continue with next table instead of failing the entire backup
+        }
       } else {
         console.warn(`Table ${tableName} not found in schema, skipping`);
       }
@@ -129,7 +161,16 @@ export async function restoreDatabase(backupDirPath: string): Promise<void> {
           // In a production environment, you'd want to handle conflicts and primary keys
           for (const record of records) {
             try {
-              await db.insert(table).values(record).onConflictDoNothing();
+              // Process array fields for restoring
+              const processedRecord: Record<string, any> = { ...record };
+              
+              // Handle tags specifically if this is a customers table
+              if (tableName === 'customers' && Array.isArray(processedRecord.tags)) {
+                // Ensure tags is properly formatted for postgres
+                // No need to convert as drizzle handles conversion automatically
+              }
+              
+              await db.insert(table).values(processedRecord).onConflictDoNothing();
             } catch (err) {
               console.error(`Error inserting record into ${tableName}:`, err);
             }
