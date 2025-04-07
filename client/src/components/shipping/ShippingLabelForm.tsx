@@ -137,58 +137,28 @@ export function ShippingLabelForm() {
       console.log("Resultado búsqueda:", data);
 
       if (data.found && data.customer) {
-        // Extraer nombre completo y dividirlo en primer nombre y apellidos
-        const nameParts = data.customer.name.split(' ');
-        const firstName = nameParts[0];
-        const lastName = nameParts.slice(1).join(' ');
-        
-        // Llenar el formulario con los datos del cliente (información personal)
-        form.setValue('firstName', firstName);
-        form.setValue('lastName', lastName);
-        form.setValue('phone', data.customer.phone || '');
-        form.setValue('email', data.customer.email || '');
-        form.setValue('idNumber', data.customer.idNumber || '');
-        
-        // Llenar información de dirección de envío
-        // Manejar tanto formato camelCase como snake_case en los campos
-        // Agregamos comprobaciones explícitas para asegurar que los campos se carguen correctamente
-        
-        // Street (calle)
-        const street = data.customer.street || '';
-        form.setValue('street', street);
-        console.log('📍 Cargando calle:', street);
-        
-        // City (ciudad)  
-        const city = data.customer.city || '';
-        form.setValue('city', city);
-        console.log('🏙️ Cargando ciudad:', city);
-        
-        // Province (provincia)
-        const province = data.customer.province || '';
-        form.setValue('province', province);
-        console.log('🏞️ Cargando provincia:', province);
-        
-        // Para el campo deliveryInstructions, verificar ambos formatos camelCase y snake_case
-        const instructions = data.customer.deliveryInstructions || data.customer.delivery_instructions || '';
-        form.setValue('deliveryInstructions', instructions);
-        console.log('📝 Cargando instrucciones de entrega:', instructions);
-        
-        // Log para verificar que todos los campos fueron cargados correctamente
-        console.log('🚚 Datos de dirección completos cargados:', {
-          street,
-          city,
-          province,
-          deliveryInstructions: instructions,
-          // Verificación de campos en la respuesta
-          street_exists: data.customer.hasOwnProperty('street'),
-          city_exists: data.customer.hasOwnProperty('city'),
-          province_exists: data.customer.hasOwnProperty('province'),
-          deliveryInstructions_exists: data.customer.hasOwnProperty('deliveryInstructions'),
-          delivery_instructions_exists: data.customer.hasOwnProperty('delivery_instructions')
-        });
-        
+          console.log("Datos del cliente:", data.customer);
+
+          // Extraer nombre completo y dividirlo en primer nombre y apellidos
+          const nameParts = data.customer.name.split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(' ');
+
+          // Información personal
+          form.setValue('firstName', firstName);
+          form.setValue('lastName', lastName);
+          form.setValue('phone', data.customer.phone || '');
+          form.setValue('email', data.customer.email || '');
+          form.setValue('idNumber', data.customer.idNumber || '');
+
+          // Información de dirección
+          form.setValue('street', data.customer.street || '');
+          form.setValue('city', data.customer.city || '');
+          form.setValue('province', data.customer.province || '');
+          form.setValue('deliveryInstructions', data.customer.deliveryInstructions || data.customer.delivery_instructions || '');
+
         setCustomerFound(true);
-        
+
         toast({
           title: "Cliente encontrado",
           description: "Los datos del cliente han sido cargados automáticamente",
@@ -196,7 +166,7 @@ export function ShippingLabelForm() {
         });
       } else {
         setCustomerFound(false);
-        
+
         toast({
           title: "Cliente no encontrado",
           description: "No se encontró ningún cliente con esos datos",
@@ -206,7 +176,7 @@ export function ShippingLabelForm() {
     } catch (error) {
       console.error('Error buscando cliente:', error);
       setCustomerFound(false);
-      
+
       toast({
         title: "Error de búsqueda",
         description: "No se pudo buscar el cliente",
@@ -227,7 +197,7 @@ export function ShippingLabelForm() {
       // Validar datos personales antes de pasar al siguiente paso
       const fieldsToValidate = ["firstName", "lastName", "idNumber", "phone", "email"];
       const result = await form.trigger(fieldsToValidate as any);
-      
+
       if (result) {
         setCurrentStep(3);
       } else {
@@ -242,7 +212,7 @@ export function ShippingLabelForm() {
       // Validar datos de dirección antes de pasar al siguiente paso
       const fieldsToValidate = ["street", "city", "province"];
       const result = await form.trigger(fieldsToValidate as any);
-      
+
       if (result) {
         setCurrentStep(4);
       } else {
@@ -265,7 +235,7 @@ export function ShippingLabelForm() {
   // Función para generar la etiqueta de envío (en el último paso)
   const generateLabel = async (data: ShippingFormValues) => {
     setIsPdfGenerating(true);
-    
+
     try {
       // Formato para enviar al servidor
       const formData = {
@@ -299,33 +269,33 @@ export function ShippingLabelForm() {
 
       // Obtener el blob del PDF
       const blob = await response.blob();
-      
+
       // Crear URL para el blob
       const url = window.URL.createObjectURL(blob);
-      
+
       // Crear un enlace para descargar el PDF
       const a = document.createElement('a');
       a.href = url;
       a.download = `etiqueta-envio-${data.firstName}-${data.lastName}.pdf`;
       document.body.appendChild(a);
       a.click();
-      
+
       // Limpiar
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast({
         title: "Etiqueta generada con éxito",
         description: "La etiqueta de envío se ha descargado correctamente",
         variant: "default"
       });
-      
+
       // Resetear el wizard al paso 1 después del éxito
       setCurrentStep(1);
       form.reset();
       setCustomerType("new");
       setCustomerFound(false);
-      
+
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -345,7 +315,7 @@ export function ShippingLabelForm() {
         <h3 className="text-lg font-semibold">Tipo de Cliente</h3>
         <p className="text-sm text-muted-foreground">Seleccione una opción para continuar</p>
       </div>
-      
+
       <RadioGroup 
         value={customerType} 
         onValueChange={(value) => setCustomerType(value as "existing" | "new")}
@@ -358,7 +328,7 @@ export function ShippingLabelForm() {
             <p className="text-sm text-muted-foreground">Ya he comprado en Civetta antes y quiero usar mis datos guardados</p>
           </div>
         </div>
-        
+
         <div className="flex items-start space-x-3 border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer" onClick={() => setCustomerType("new")}>
           <RadioGroupItem value="new" id="r-new" className="mt-1" />
           <div>
@@ -381,7 +351,7 @@ export function ShippingLabelForm() {
             : "Complete sus datos personales"}
         </p>
       </div>
-      
+
       {/* Búsqueda para clientes existentes */}
       {customerType === "existing" && (
         <Card className="mb-6 bg-muted/40">
@@ -424,7 +394,7 @@ export function ShippingLabelForm() {
                 </Button>
               </div>
             </div>
-            
+
             {customerFound && (
               <div className="mt-3 p-2 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
@@ -434,7 +404,7 @@ export function ShippingLabelForm() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Formulario de datos personales */}
       <Form {...form}>
         <div className="space-y-6">
@@ -521,7 +491,7 @@ export function ShippingLabelForm() {
         <h3 className="text-lg font-semibold">Dirección de Envío</h3>
         <p className="text-sm text-muted-foreground">Ingrese los datos de entrega del pedido</p>
       </div>
-      
+
       {/* Mensaje cuando es cliente existente y se cargaron datos de dirección */}
       {customerType === "existing" && customerFound && (form.getValues("street") || form.getValues("city") || form.getValues("province")) && (
         <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
@@ -529,7 +499,7 @@ export function ShippingLabelForm() {
           <span className="text-sm">Se ha cargado la dirección guardada en su perfil. Puede editarla si necesita actualizarla.</span>
         </div>
       )}
-      
+
       <Form {...form}>
         <div className="space-y-6">
           <FormField
@@ -638,14 +608,14 @@ export function ShippingLabelForm() {
   // Renderizado del paso 4: Resumen y confirmación
   const renderStep4 = () => {
     const formValues = form.getValues();
-    
+
     return (
       <div className="space-y-6">
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold">Resumen de Envío</h3>
           <p className="text-sm text-muted-foreground">Verifique que todos los datos sean correctos</p>
         </div>
-        
+
         <Card className="bg-muted/40">
           <CardContent className="p-4 space-y-4">
             <div>
@@ -669,9 +639,9 @@ export function ShippingLabelForm() {
                 </div>
               </div>
             </div>
-            
+
             <Separator />
-            
+
             <div>
               <h4 className="font-medium text-sm text-muted-foreground mb-2">Dirección de Envío</h4>
               <div className="grid grid-cols-1 gap-3">
@@ -697,7 +667,7 @@ export function ShippingLabelForm() {
                 )}
               </div>
             </div>
-            
+
             <div className="pt-2">
               <Badge variant={formValues.saveToDatabase ? "default" : "outline"}>
                 {formValues.saveToDatabase 
@@ -707,7 +677,7 @@ export function ShippingLabelForm() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(generateLabel)}>
             <Button 
@@ -753,7 +723,7 @@ export function ShippingLabelForm() {
         <CardDescription className="text-center">
           Complete el formulario paso a paso para generar su etiqueta de envío
         </CardDescription>
-        
+
         {/* Indicador de progreso */}
         <div className="mt-6">
           <div className="flex justify-between text-xs text-muted-foreground mb-2">
@@ -761,7 +731,7 @@ export function ShippingLabelForm() {
             <span>{Math.round(getProgress())}% Completado</span>
           </div>
           <Progress value={getProgress()} className="h-2" />
-          
+
           {/* Indicadores de paso */}
           <div className="flex justify-between mt-2">
             <div className={`text-xs ${currentStep >= 1 ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
@@ -779,12 +749,12 @@ export function ShippingLabelForm() {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent>
         {/* Contenido del paso actual */}
         {renderCurrentStep()}
       </CardContent>
-      
+
       {/* Botones de navegación (excepto en el último paso que ya tiene su propio botón) */}
       {currentStep !== 4 && (
         <CardFooter className="flex justify-between">

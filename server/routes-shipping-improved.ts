@@ -32,20 +32,20 @@ import { ordersService } from './services/orders.service';
 async function forceUpdateDeliveryInstructions(customerId: number, instructions: string | null): Promise<boolean> {
   console.log(`[FORCE-UPDATE] Forzando actualización de instrucciones para cliente ${customerId}`);
   console.log(`[FORCE-UPDATE] Valor a establecer: '${instructions}' (${typeof instructions})`);
-  
+
   try {
     // Establecer un valor por defecto de cadena vacía si es null
     const finalValue = instructions || '';
-    
+
     // Usar SQL nativo para garantizar la actualización
     const result = await db.$client.query(
       `UPDATE customers SET delivery_instructions = $1 WHERE id = $2 RETURNING id`,
       [finalValue, customerId]
     );
-    
+
     const success = result.rowCount === 1;
     console.log(`[FORCE-UPDATE] Actualización ${success ? 'exitosa' : 'fallida'}`);
-    
+
     return success;
   } catch (error) {
     console.error(`[FORCE-UPDATE] Error en actualización:`, error);
@@ -152,16 +152,16 @@ export function registerImprovedShippingRoutes(app: Express) {
                  type === 'email' ? 'email' : 
                  'phone'} = $1 
           LIMIT 1`;
-        
+
         console.log('[SHIPPING-DEBUG] Ejecutando consulta SQL:', sqlQuery, 'con parámetro:', query);
-        
+
         // Buscar cliente directamente en la base de datos para obtener todos los campos
         const result = await db.$client.query(sqlQuery, [query]);
-        
+
         if (result.rows.length > 0) {
           const dbCustomer = result.rows[0];
           console.log('[SHIPPING-DEBUG] Cliente encontrado en base de datos (SQL directo):', dbCustomer);
-          
+
           // Verificar explícitamente los campos de dirección
           console.log('[SHIPPING-DEBUG] Datos de dirección disponibles:',
             'street:', dbCustomer.street ? 'SI' : 'NO',
@@ -169,10 +169,10 @@ export function registerImprovedShippingRoutes(app: Express) {
             'province:', dbCustomer.province ? 'SI' : 'NO',
             'delivery_instructions:', dbCustomer.delivery_instructions ? 'SI' : 'NO'
           );
-          
+
           // Convertir de snake_case (DB) a camelCase (API)
           console.log('[SHIPPING-DEBUG] Datos completos del cliente encontrado:', JSON.stringify(dbCustomer, null, 2));
-          
+
           // Construir el objeto de respuesta manteniendo todos los campos
           const responseCustomer = {
             id: dbCustomer.id,
@@ -180,16 +180,16 @@ export function registerImprovedShippingRoutes(app: Express) {
             email: dbCustomer.email,
             phone: dbCustomer.phone,
             idNumber: dbCustomer.id_number,
-            
+
             // Incluir explícitamente la información de dirección con valores por defecto en caso de null
             street: dbCustomer.street || '',
             city: dbCustomer.city || '',
             province: dbCustomer.province || '',
             deliveryInstructions: dbCustomer.delivery_instructions || ''
           };
-          
+
           console.log('[SHIPPING-DEBUG] Respuesta preparada para el cliente:', JSON.stringify(responseCustomer, null, 2));
-          
+
           // Respuesta como JSON completa
           return res.json({
             found: true,
@@ -272,21 +272,21 @@ export function registerImprovedShippingRoutes(app: Express) {
           console.log(`[DEBUG-SAVE] FORZANDO ACTUALIZACIÓN DEL CLIENTE ${customer.id}`);
           console.log(`[DEBUG-SAVE] Instrucciones actuales: '${customer.deliveryInstructions}'`);
           console.log(`[DEBUG-SAVE] Nuevas instrucciones: '${formData.deliveryInstructions}'`);
-          
+
           try {
             // PASO 1: PRIMERO actualizar las instrucciones de entrega con nuestra función especializada
             const updateSuccessful = await forceUpdateDeliveryInstructions(
               customer.id, 
               formData.deliveryInstructions || null
             );
-            
+
             if (!updateSuccessful) {
               console.error(`[DEBUG-SAVE] ⚠️ Advertencia: No se pudo actualizar las instrucciones de entrega`);
             }
-            
+
             // PASO 2: Actualizar el resto de los campos de la dirección siempre
             console.log(`[DEBUG-SAVE] Actualizando todos los campos de dirección`);
-            
+
             await db.update(customers)
               .set({
                 street: formData.street,
@@ -298,12 +298,12 @@ export function registerImprovedShippingRoutes(app: Express) {
                 updatedAt: new Date()
               })
               .where(eq(customers.id, customer.id));
-            
+
             // PASO 3: Verificar explícitamente que todo se actualizó correctamente
             const updatedCustomer = await db.query.customers.findFirst({
               where: eq(customers.id, customer.id)
             });
-            
+
             if (updatedCustomer) {
               customer = updatedCustomer;
               console.log(`[DEBUG-SAVE] Cliente después de actualizar:`, JSON.stringify({
@@ -430,19 +430,19 @@ export function registerImprovedShippingRoutes(app: Express) {
         else {
           // VERSIÓN 3: Usar la función especializada para actualizar instrucciones de entrega
           console.log(`[DEBUG-LABEL] Actualizando datos del cliente ID: ${customer.id}`);
-          
+
           // 1. PRIMERO: Forzar actualización de instrucciones de entrega con nuestra función especializada
           await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions || null);
-          
+
           // 2. SEGUNDO: Actualizar el resto de los campos si corresponde 
           const shouldUpdateAddress = formData.updateCustomerInfo && (
               formData.alwaysUpdateCustomer || 
               !customer.street || 
               !customer.city || 
               !customer.province);
-              
+
           console.log(`[DEBUG-LABEL] ¿Actualizar resto de la dirección?`, shouldUpdateAddress);
-          
+
           if (shouldUpdateAddress) {
             console.log(`[DEBUG-LABEL] Actualizando campos de dirección`);
             try {
@@ -461,13 +461,13 @@ export function registerImprovedShippingRoutes(app: Express) {
               // Continuar aunque falle esta parte
             }
           }
-          
+
           // 3. Refrescar los datos del cliente para asegurar que tenemos la información actualizada
           try {
             const updatedCustomer = await db.query.customers.findFirst({
               where: eq(customers.id, customer.id)
             });
-            
+
             if (updatedCustomer) {
               customer = updatedCustomer;
               console.log(`[DEBUG-LABEL] Datos actualizados del cliente:`, JSON.stringify({
@@ -485,7 +485,7 @@ export function registerImprovedShippingRoutes(app: Express) {
         if (!customer) {
           throw new Error('Error inesperado: El cliente no existe después de crear/actualizar');
         }
-        
+
         customerId = customer.id;
 
         // Siempre usamos la información más reciente del cliente para generar el PDF
@@ -587,7 +587,7 @@ export function registerImprovedShippingRoutes(app: Express) {
         customerId: order.customerId,
         customerName: order.customer?.name
       });
-      
+
       console.log('[ETIQUETA] Usando datos del cliente ID:', order.customer.id);
 
       // Crear número de orden formateado si no existe
