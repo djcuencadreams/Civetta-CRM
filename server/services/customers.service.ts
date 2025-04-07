@@ -89,7 +89,99 @@ export class CustomersService implements Service {
       `;
       
       const { rows } = await pool.query(query, values);
-      res.json(rows);
+      
+      // Procesar todos los clientes para garantizar la consistencia de los campos
+      const enhancedCustomers = rows.map(customer => {
+        // Crear una copia del cliente para modificarlo
+        const enhancedCustomer = { ...customer };
+        
+        // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
+        
+        // Conversión de snake_case a camelCase
+        if (enhancedCustomer.id_number !== undefined) {
+          enhancedCustomer.idNumber = enhancedCustomer.id_number;
+        }
+        
+        if (enhancedCustomer.first_name !== undefined) {
+          enhancedCustomer.firstName = enhancedCustomer.first_name;
+        }
+        
+        if (enhancedCustomer.last_name !== undefined) {
+          enhancedCustomer.lastName = enhancedCustomer.last_name;
+        }
+        
+        if (enhancedCustomer.phone_country !== undefined) {
+          enhancedCustomer.phoneCountry = enhancedCustomer.phone_country;
+        }
+        
+        if (enhancedCustomer.phone_number !== undefined) {
+          enhancedCustomer.phoneNumber = enhancedCustomer.phone_number;
+        }
+        
+        if (enhancedCustomer.secondary_phone !== undefined) {
+          enhancedCustomer.secondaryPhone = enhancedCustomer.secondary_phone;
+        }
+        
+        if (enhancedCustomer.delivery_instructions !== undefined) {
+          enhancedCustomer.deliveryInstructions = enhancedCustomer.delivery_instructions;
+        }
+        
+        if (enhancedCustomer.total_value !== undefined) {
+          enhancedCustomer.totalValue = enhancedCustomer.total_value;
+        }
+        
+        if (enhancedCustomer.assigned_user_id !== undefined) {
+          enhancedCustomer.assignedUserId = enhancedCustomer.assigned_user_id;
+        }
+        
+        // Conversión de camelCase a snake_case
+        if (enhancedCustomer.idNumber !== undefined) {
+          enhancedCustomer.id_number = enhancedCustomer.idNumber;
+        }
+        
+        if (enhancedCustomer.firstName !== undefined) {
+          enhancedCustomer.first_name = enhancedCustomer.firstName;
+        }
+        
+        if (enhancedCustomer.lastName !== undefined) {
+          enhancedCustomer.last_name = enhancedCustomer.lastName;
+        }
+        
+        if (enhancedCustomer.phoneCountry !== undefined) {
+          enhancedCustomer.phone_country = enhancedCustomer.phoneCountry;
+        }
+        
+        if (enhancedCustomer.phoneNumber !== undefined) {
+          enhancedCustomer.phone_number = enhancedCustomer.phoneNumber;
+        }
+        
+        if (enhancedCustomer.secondaryPhone !== undefined) {
+          enhancedCustomer.secondary_phone = enhancedCustomer.secondaryPhone;
+        }
+        
+        if (enhancedCustomer.deliveryInstructions !== undefined) {
+          enhancedCustomer.delivery_instructions = enhancedCustomer.deliveryInstructions;
+        }
+        
+        if (enhancedCustomer.totalValue !== undefined) {
+          enhancedCustomer.total_value = enhancedCustomer.totalValue;
+        }
+        
+        if (enhancedCustomer.assignedUserId !== undefined) {
+          enhancedCustomer.assigned_user_id = enhancedCustomer.assignedUserId;
+        }
+        
+        // Compatibilidad adicional para campos alternativos
+        enhancedCustomer.street_address = enhancedCustomer.street || null;
+        enhancedCustomer.city_name = enhancedCustomer.city || null;
+        enhancedCustomer.province_name = enhancedCustomer.province || null;
+        
+        return enhancedCustomer;
+      });
+      
+      console.log(`✅ [GET:ALL] Optimizados datos de ${enhancedCustomers.length} clientes`);
+      
+      res.json(enhancedCustomers);
     } catch (error) {
       console.error('Error fetching customers:', error);
       res.status(500).json({ error: "Failed to fetch customers" });
@@ -118,7 +210,51 @@ export class CustomersService implements Service {
         return;
       }
       
-      res.json(result);
+      // Crear una copia del resultado para evitar modificar el objeto original
+      const enhancedCustomer = { ...result };
+      
+      // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
+      // para asegurar la consistencia entre la lista y la vista detallada
+      
+      // Campos de identificación
+      enhancedCustomer.idNumber = enhancedCustomer.idNumber || null;
+      enhancedCustomer.id_number = enhancedCustomer.idNumber || null;
+      
+      // Campos de nombre
+      enhancedCustomer.firstName = enhancedCustomer.firstName || null;
+      enhancedCustomer.lastName = enhancedCustomer.lastName || null;
+      enhancedCustomer.first_name = enhancedCustomer.firstName || null;
+      enhancedCustomer.last_name = enhancedCustomer.lastName || null;
+      
+      // Campos de dirección
+      enhancedCustomer.street = enhancedCustomer.street || null;
+      enhancedCustomer.city = enhancedCustomer.city || null;
+      enhancedCustomer.province = enhancedCustomer.province || null;
+      enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || null;
+      enhancedCustomer.delivery_instructions = enhancedCustomer.deliveryInstructions || null;
+      
+      // Campos de teléfono
+      enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || null;
+      enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || null;
+      enhancedCustomer.phone_country = enhancedCustomer.phoneCountry || null;
+      enhancedCustomer.phone_number = enhancedCustomer.phoneNumber || null;
+      
+      // Otros campos
+      enhancedCustomer.secondaryPhone = enhancedCustomer.secondaryPhone || null;
+      enhancedCustomer.secondary_phone = enhancedCustomer.secondaryPhone || null;
+      enhancedCustomer.total_value = enhancedCustomer.totalValue || null;
+      enhancedCustomer.assigned_user_id = enhancedCustomer.assignedUserId || null;
+      
+      // Compatibilidad adicional para campos alternativos
+      enhancedCustomer.street_address = enhancedCustomer.street || null;
+      enhancedCustomer.city_name = enhancedCustomer.city || null;
+      enhancedCustomer.province_name = enhancedCustomer.province || null;
+      
+      console.log(`✅ [GET:ID] Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
+      console.log(`📋 [GET:ID] Datos de dirección: street=${enhancedCustomer.street}, city=${enhancedCustomer.city}, province=${enhancedCustomer.province}`);
+      console.log(`🆔 [GET:ID] Datos de ID: idNumber=${enhancedCustomer.idNumber}, id_number=${enhancedCustomer.id_number}`);
+      
+      res.json(enhancedCustomer);
     } catch (error) {
       console.error('Error fetching customer:', error);
       res.status(500).json({ error: "Failed to fetch customer" });
@@ -259,7 +395,7 @@ export class CustomersService implements Service {
           street: street?.trim() || null,
           city: city?.trim() || existingCustomer.city || null,
           province: province || existingCustomer.province || null,
-          deliveryInstructions: deliveryInstructions?.trim() || existingCustomer.deliveryInstructions || null,
+          deliveryInstructions: deliveryInstructions !== undefined ? deliveryInstructions?.trim() || null : existingCustomer.deliveryInstructions,
           idNumber: updatedIdNumber,
           // Actualizar la dirección de facturación y preservar los campos no proporcionados
           billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,

@@ -381,19 +381,28 @@ export function ShippingLabelForm(): JSX.Element {
           // Verificar y limpiar cada valor:
           street: formValues.street || "",
           
-          // Prevenir caso específico: ciudad = ID
-          city: (formValues.city === formValues.idNumber || !formValues.city) 
+          // Prevenir caso específico: ciudad = ID o email
+          city: (formValues.city === formValues.idNumber || 
+                 formValues.city === formValues.email || 
+                 !formValues.city || 
+                 formValues.city.includes('@')) 
                 ? "Cuenca"  // Valor por defecto seguro
                 : formValues.city || "Cuenca",
           
           // Verificar provincia válida
-          province: (!formValues.province || formValues.province.length < 2) 
+          province: (!formValues.province || 
+                    formValues.province.length < 2 || 
+                    formValues.province === formValues.idNumber ||
+                    formValues.province === formValues.email ||
+                    formValues.province.includes('@'))
                    ? "Azuay"  // Valor por defecto seguro
                    : formValues.province,
           
-          // Prevenir caso específico: instrucciones = email
-          deliveryInstructions: (formValues.deliveryInstructions === formValues.email)
-                               ? ""  // Valor vacío si contenía email
+          // Prevenir caso específico: instrucciones = email o ID
+          deliveryInstructions: (formValues.deliveryInstructions === formValues.email ||
+                                formValues.deliveryInstructions === formValues.idNumber ||
+                                (formValues.deliveryInstructions && formValues.deliveryInstructions.includes('@')))
+                               ? ""  // Valor vacío si contiene datos sospechosos
                                : formValues.deliveryInstructions || ""
         };
         
@@ -854,9 +863,11 @@ export function ShippingLabelForm(): JSX.Element {
     
     // 5. Verificar instrucciones (con mayor rigor)
     if (
-      formValues.deliveryInstructions === formValues.email || 
-      formValues.deliveryInstructions === formValues.idNumber ||
-      formValues.deliveryInstructions === formValues.phone // Posible valor incorrecto adicional
+      formValues.deliveryInstructions && (
+        formValues.deliveryInstructions === formValues.email || 
+        formValues.deliveryInstructions === formValues.idNumber ||
+        formValues.deliveryInstructions === formValues.phone // Posible valor incorrecto adicional
+      )
     ) {
       console.log("🛠️ CORRECCIÓN SEVERA: Instrucciones inválidas:", formValues.deliveryInstructions);
       safeInstructions = "";
@@ -885,7 +896,9 @@ export function ShippingLabelForm(): JSX.Element {
       // VERIFICACIÓN EXTRA: Asegurar que los cambios aplicados persisten
       if (finalValues.city !== safeCity || 
           (safeProvince && finalValues.province !== safeProvince) ||
-          (formValues.deliveryInstructions !== safeInstructions && 
+          (formValues.deliveryInstructions !== undefined && 
+           safeInstructions !== undefined &&
+           formValues.deliveryInstructions !== safeInstructions && 
            finalValues.deliveryInstructions !== safeInstructions)) {
         console.log("⚠️ ALERTA: Los valores corregidos no fueron aplicados correctamente, reintentando...");
         

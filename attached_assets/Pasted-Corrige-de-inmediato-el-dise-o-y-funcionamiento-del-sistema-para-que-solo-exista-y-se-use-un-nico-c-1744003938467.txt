@@ -1,0 +1,20 @@
+Corrige de inmediato el diseño y funcionamiento del sistema para que solo exista y se use un único campo para las instrucciones especiales de entrega: customers.delivery_instructions.
+
+Actualmente existe confusión porque hay dos campos separados: shippingAddress.instructions (que parece usarse por pedido) y customers.delivery_instructions (que está correctamente definido en la ficha del cliente). Esto ha causado errores como que el wizard no actualice la ficha del cliente correctamente y que los datos se mezclen entre pedidos y perfil del cliente.
+
+Instrucciones precisas:
+	1.	Elimina todo uso, referencia y lógica relacionada con shippingAddress.instructions. Este campo no debe existir ni guardarse en ninguna parte del sistema.
+	2.	El único campo válido para instrucciones especiales de entrega debe ser deliveryInstructions, el cual debe escribirse y leerse siempre directamente desde y hacia customers.delivery_instructions.
+	3.	En el wizard:
+	•	El paso 3 debe mostrar el campo deliveryInstructions editable y precargado desde la base de datos (ficha del cliente).
+	•	Si el cliente edita ese campo, al finalizar el wizard debe actualizarse en la base de datos en la tabla customers.
+	4.	Verifica que:
+	•	El endpoint /api/shipping/check-customer-v2 esté devolviendo correctamente delivery_instructions.
+	•	El endpoint /api/shipping/save-data guarde siempre delivery_instructions correctamente en la tabla customers, incluso si el valor es una cadena vacía.
+	•	Todos los formularios y el frontend (ShippingLabelForm, embed-form, etc.) utilicen el nombre de campo correcto: deliveryInstructions.
+	5.	Corrige el nombre visual del campo en el wizard y en la ficha del cliente para que siempre diga: Referencia o Instrucciones Especiales para la Entrega.
+	6.	No introduzcas lógica condicional compleja. Siempre que haya un valor en el campo deliveryInstructions al finalizar el wizard, ese valor debe sobrescribir el actual en la base de datos. Si viene vacío, también debe sobrescribir (es decir, permitir borrar el campo).
+
+Esta solución es prioritaria y debe resolverse de forma integral. No propongas nuevas estructuras. No mantengas dos campos. Hazlo todo apuntando a customers.delivery_instructions como única fuente de verdad.
+
+Confirma paso a paso qué archivos modificas y qué referencias eliminas, y reinicia el sistema una vez que todo esté limpio y corregido

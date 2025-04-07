@@ -40,53 +40,91 @@ export function registerRoutes(app: Express): Server {
       
       // Ensure backward compatibility by populating structured fields from legacy fields if needed
       const enhancedResults = result.map(customer => {
+        // Si no existe, creamos un objeto para evitar errores de referencia
+        const enhancedCustomer = { ...customer };
+        
         // If a customer has name but not firstName/lastName, split them for display purposes
-        if (customer.name && (!customer.firstName || !customer.lastName)) {
-          const nameParts = customer.name.split(' ');
+        if (enhancedCustomer.name && (!enhancedCustomer.firstName || !enhancedCustomer.lastName)) {
+          const nameParts = enhancedCustomer.name.split(' ');
           if (nameParts.length > 0) {
-            customer.firstName = customer.firstName || nameParts[0];
-            customer.lastName = customer.lastName || nameParts.slice(1).join(' ');
+            enhancedCustomer.firstName = enhancedCustomer.firstName || nameParts[0];
+            enhancedCustomer.lastName = enhancedCustomer.lastName || nameParts.slice(1).join(' ');
           }
         }
         
         // If a customer has address but not structured address fields, parse them
-        if (customer.address && (!customer.street || !customer.city || !customer.province)) {
+        if (enhancedCustomer.address && (!enhancedCustomer.street || !enhancedCustomer.city || !enhancedCustomer.province)) {
           try {
-            const addressParts = customer.address.split(',');
-            customer.street = customer.street || addressParts[0]?.trim();
-            customer.city = customer.city || addressParts[1]?.trim();
+            const addressParts = enhancedCustomer.address.split(',');
+            enhancedCustomer.street = enhancedCustomer.street || addressParts[0]?.trim();
+            enhancedCustomer.city = enhancedCustomer.city || addressParts[1]?.trim();
             
             // Handle province which might be followed by delivery instructions
             if (addressParts[2]) {
               const provinceAndInstructions = addressParts[2].split('\n');
-              customer.province = customer.province || provinceAndInstructions[0]?.trim();
+              enhancedCustomer.province = enhancedCustomer.province || provinceAndInstructions[0]?.trim();
               
               // Get delivery instructions if present
               if (provinceAndInstructions.length > 1) {
-                customer.deliveryInstructions = customer.deliveryInstructions || provinceAndInstructions[1]?.trim();
+                enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || provinceAndInstructions[1]?.trim();
               }
             }
           } catch (e) {
             // Silent fail - if parsing fails, we'll just use what we have
-            console.warn('Failed to parse address for customer', customer.id);
+            console.warn('Failed to parse address for customer', enhancedCustomer.id);
           }
         }
         
         // If a customer has phone but not phoneCountry/phoneNumber, parse them
-        if (customer.phone && (!customer.phoneCountry || !customer.phoneNumber)) {
+        if (enhancedCustomer.phone && (!enhancedCustomer.phoneCountry || !enhancedCustomer.phoneNumber)) {
           try {
             // Try to extract country code (usually starts with +)
-            const phoneMatch = customer.phone.match(/^(\+\d+)(.*)$/);
+            const phoneMatch = enhancedCustomer.phone.match(/^(\+\d+)(.*)$/);
             if (phoneMatch) {
-              customer.phoneCountry = customer.phoneCountry || phoneMatch[1];
-              customer.phoneNumber = customer.phoneNumber || phoneMatch[2];
+              enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || phoneMatch[1];
+              enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || phoneMatch[2];
             }
           } catch (e) {
-            console.warn('Failed to parse phone for customer', customer.id);
+            console.warn('Failed to parse phone for customer', enhancedCustomer.id);
           }
         }
         
-        return customer;
+        // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
+        // Este es el punto clave para solucionar el problema de inconsistencia
+        
+        // Campos de identificación
+        enhancedCustomer.idNumber = enhancedCustomer.idNumber || null;
+        enhancedCustomer.id_number = enhancedCustomer.idNumber || null;
+        
+        // Campos de nombre
+        enhancedCustomer.first_name = enhancedCustomer.firstName || null;
+        enhancedCustomer.last_name = enhancedCustomer.lastName || null;
+        
+        // Campos de dirección
+        enhancedCustomer.street = enhancedCustomer.street || null;
+        enhancedCustomer.city = enhancedCustomer.city || null;
+        enhancedCustomer.province = enhancedCustomer.province || null;
+        enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || null;
+        enhancedCustomer.delivery_instructions = enhancedCustomer.deliveryInstructions || null;
+        
+        // Campos de teléfono
+        enhancedCustomer.phone_country = enhancedCustomer.phoneCountry || null;
+        enhancedCustomer.phone_number = enhancedCustomer.phoneNumber || null;
+        
+        // Otros campos
+        enhancedCustomer.secondary_phone = enhancedCustomer.secondaryPhone || null;
+        enhancedCustomer.billing_address = enhancedCustomer.billingAddress || null;
+        enhancedCustomer.total_value = enhancedCustomer.totalValue || null;
+        enhancedCustomer.assigned_user_id = enhancedCustomer.assignedUserId || null;
+        
+        // Compatibilidad adicional para campos alternativos
+        enhancedCustomer.street_address = enhancedCustomer.street || null;
+        enhancedCustomer.city_name = enhancedCustomer.city || null;
+        enhancedCustomer.province_name = enhancedCustomer.province || null;
+        
+        console.log(`Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
+        
+        return enhancedCustomer;
       });
       
       res.json(enhancedResults);

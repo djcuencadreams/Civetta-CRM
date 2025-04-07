@@ -18,6 +18,7 @@ import { validateBody } from './validation';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import { forceUpdateDeliveryInstructions } from './delivery-instructions-fix';
 import { ordersService } from './services/orders.service';
 
 /**
@@ -451,13 +452,12 @@ export function registerShippingRoutes(app: Express) {
             console.log(`Instrucciones de entrega actuales: "${customer.deliveryInstructions}"`);
             console.log(`Instrucciones de entrega nuevas: "${formData.deliveryInstructions}"`);
             
+            // Actualizamos campos del cliente excepto deliveryInstructions
             await db.update(customers)
               .set({
                 street: formData.street,
                 city: formData.city,
                 province: formData.province,
-                // CAMBIADO: Siempre usamos las instrucciones de entrega del formulario, sin mantener las anteriores
-                deliveryInstructions: formData.deliveryInstructions,
                 // Actualizamos también los campos de contacto si el cliente no los tiene
                 phone: customer.phone || formData.phone,
                 email: customer.email || formData.email || null,
@@ -465,6 +465,22 @@ export function registerShippingRoutes(app: Express) {
               })
               .where(eq(customers.id, customer.id));
             
+            // SOLUCIÓN DEFINITIVA MEJORADA: Utilizamos la función especializada para actualizar las instrucciones
+            // con logs detallados y parámetro de depuración en true
+            console.log(`⚡️ INICIO ACTUALIZACIÓN PRINCIPAL DE INSTRUCCIONES DE ENTREGA - Cliente ID: ${customer.id}`);
+            console.log(`⚡️ Valor a establecer: "${formData.deliveryInstructions}"`);
+            const updateResult = await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions, true);
+            console.log(`⚡️ Resultado de actualización de instrucciones: ${updateResult ? '✅ EXITOSO' : '❌ FALLIDO'}`);
+            
+            // Verificación adicional para asegurar que se reflejó el cambio
+            const verificacionCliente = await db.query.customers.findFirst({
+              where: eq(customers.id, customer.id),
+              columns: { 
+                deliveryInstructions: true
+              }
+            });
+            
+            console.log(`⚡️ Verificación final: "${verificacionCliente?.deliveryInstructions}"`);
             console.log(`Actualizada información de envío para cliente ID: ${customer.id}`);
           } else {
             // AÑADIDO: Incluso si no se actualizan otros campos, actualizamos las instrucciones de entrega
@@ -474,14 +490,23 @@ export function registerShippingRoutes(app: Express) {
               console.log(`Instrucciones anteriores: "${customer.deliveryInstructions}"`);
               console.log(`Nuevas instrucciones: "${formData.deliveryInstructions}"`);
               
-              await db.update(customers)
-                .set({
-                  deliveryInstructions: formData.deliveryInstructions,
-                  updatedAt: new Date()
-                })
-                .where(eq(customers.id, customer.id));
-                
-              console.log(`Instrucciones de entrega actualizadas correctamente`);
+              // SOLUCIÓN DEFINITIVA MEJORADA: Utilizamos la función especializada para actualizar las instrucciones 
+              // con logs detallados y parámetro de depuración en true 
+              console.log(`⚡️ INICIO ACTUALIZACIÓN SECUNDARIA DE INSTRUCCIONES DE ENTREGA - Cliente ID: ${customer.id}`);
+              console.log(`⚡️ Valor a establecer: "${formData.deliveryInstructions}"`);
+              const updateResult = await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions, true);
+              console.log(`⚡️ Resultado de actualización de instrucciones: ${updateResult ? '✅ EXITOSO' : '❌ FALLIDO'}`);
+              
+              // Verificación adicional para asegurar que se reflejó el cambio
+              const verificacionCliente = await db.query.customers.findFirst({
+                where: eq(customers.id, customer.id),
+                columns: { 
+                  deliveryInstructions: true
+                }
+              });
+              
+              console.log(`⚡️ Verificación final: "${verificacionCliente?.deliveryInstructions}"`);
+              console.log(`Instrucciones de entrega actualizadas correctamente usando función especializada`);
             }
           }
         }
