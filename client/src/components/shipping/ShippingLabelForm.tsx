@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
+import { parsePhoneNumber, joinPhoneNumber, synchronizePhoneFields } from '../../utils/phone-utils';
 import { 
   Card, 
   CardContent, 
@@ -105,33 +105,30 @@ export function ShippingLabelForm(): JSX.Element {
   const [customerType, setCustomerType] = useState<"existing" | "new">("new");
   const [customerFound, setCustomerFound] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); 
-  // Separate snapshots for each step
-  const [step2Snapshot, setStep2Snapshot] = useState<Partial<ShippingFormValues>>({});
-  const [step3Snapshot, setStep3Snapshot] = useState<Partial<ShippingFormValues>>({}); 
+  // Comprehensive snapshot system to store all form data at each step
+  const [formSnapshots, setFormSnapshots] = useState<Record<number, Partial<ShippingFormValues>>>({
+    1: {},
+    2: {},
+    3: {},
+    4: {}
+  });
 
+  // Para mantener compatibilidad con el código existente
+  const step2Snapshot = formSnapshots[2];
+  const step3Snapshot = formSnapshots[3];
+
+  /**
+   * Guarda todos los datos del formulario actual en el snapshot del paso especificado
+   * Este enfoque evita la pérdida de datos cuando se navega entre pasos
+   */
   const preserveStepData = (step: number) => {
     const currentValues = form.getValues();
-    if (step === 2) {
-      // In step 2, preserve customer identification fields
-      setStep2Snapshot({
-        firstName: currentValues.firstName,
-        lastName: currentValues.lastName,
-        phoneCountry: currentValues.phoneCountry,
-        phoneNumber: currentValues.phoneNumber,
-        idNumber: currentValues.idNumber,
-        email: currentValues.email
-      });
-      console.log("Step 2 snapshot saved:", currentValues.firstName, currentValues.lastName);
-    } else if (step === 3) {
-      // In step 3, preserve only address fields to avoid overwriting step 2 fields
-      setStep3Snapshot({
-        street: currentValues.street,
-        city: currentValues.city,
-        province: currentValues.province,
-        deliveryInstructions: currentValues.deliveryInstructions
-      });
-      console.log("Step 3 snapshot saved: Address fields only");
-    }
+    console.log(`📸 Guardando snapshot completo del paso ${step}:`, currentValues);
+    
+    setFormSnapshots(prev => ({
+      ...prev,
+      [step]: {...currentValues}
+    }));
   };
 
   // Removed unused handleFormChange function
@@ -218,14 +215,20 @@ export function ShippingLabelForm(): JSX.Element {
 
           form.setValue('firstName', firstName);
           form.setValue('lastName', lastName);
+          // Get all potential phone field values from the API response
           const fullPhone = getFieldValue('phone', 'phone', '');
-          console.log("🔍 Phone from customer:", fullPhone);
-          // Properly parse the phone number to separate country code and number
-          const parsedPhone = parsePhoneNumber(fullPhone);
-          console.log("📱 Parsed phone:", parsedPhone);
-          // Set phone country and number separately to avoid duplicating "+" prefix
-          form.setValue('phoneCountry', parsedPhone.phoneCountry);
-          form.setValue('phoneNumber', parsedPhone.phoneNumber);
+          const phoneCountry = getFieldValue('phoneCountry', 'phone_country', '');
+          const phoneNumber = getFieldValue('phoneNumber', 'phone_number', '');
+          
+          console.log("🔍 Phone data:", { fullPhone, phoneCountry, phoneNumber });
+          
+          // Synchronize all phone fields to ensure consistency
+          const phoneFields = synchronizePhoneFields(fullPhone, phoneCountry, phoneNumber);
+          console.log("📱 Synchronized phone fields:", phoneFields);
+          
+          // Set phone values in the form
+          form.setValue('phoneCountry', phoneFields.phoneCountry);
+          form.setValue('phoneNumber', phoneFields.phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
           form.setValue('idNumber', getFieldValue('idNumber', 'id_number'));
           form.setValue('street', getFieldValue('street', 'street_address', ''));
@@ -265,15 +268,31 @@ export function ShippingLabelForm(): JSX.Element {
   };
 
   const goToNextStep = async () => {
+    // Guarda los datos del paso actual antes de continuar
     preserveStepData(currentStep);
 
     if (currentStep === 1) {
+      // Simple avance al paso 2
       setCurrentStep(2 as WizardStep);
     } else if (currentStep === 2) {
-      const fieldsToValidate = ["firstName", "lastName", "idNumber", "phoneNumber", "email"]; // Updated validation fields
+      // Validamos solo los campos específicos del paso 2
+      const fieldsToValidate = ["firstName", "lastName", "idNumber", "phoneNumber", "email"];
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
+        // Al avanzar al paso 3, recordamos restaurar la información de dirección 
+        // del snapshot si existe (para clientes existentes que ya tenían dirección)
+        if (formSnapshots[3] && Object.keys(formSnapshots[3]).length > 0) {
+          console.log("🔄 Restaurando datos previos del paso 3:", formSnapshots[3]);
+          const step3Data = formSnapshots[3];
+          
+          // Solo restauramos campos de dirección, no los personales
+          if (step3Data.street) form.setValue("street", step3Data.street);
+          if (step3Data.city) form.setValue("city", step3Data.city);
+          if (step3Data.province) form.setValue("province", step3Data.province);
+          if (step3Data.deliveryInstructions) form.setValue("deliveryInstructions", step3Data.deliveryInstructions);
+        }
+        
         setCurrentStep(3 as WizardStep);
       } else {
         toast({
@@ -283,7 +302,9 @@ export function ShippingLabelForm(): JSX.Element {
         });
       }
     } else if (currentStep === 3) {
-      const result = await form.trigger(); // Validate all fields in step 3
+      // Validamos solo los campos específicos del paso 3
+      const fieldsToValidate = ["street", "city", "province"];
+      const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
         setCurrentStep(4 as WizardStep);
@@ -303,12 +324,16 @@ export function ShippingLabelForm(): JSX.Element {
     3: ["street", "city", "province", "deliveryInstructions"],
   } as const;
 
+  /**
+   * Restaura el estado del formulario al regresar a un paso anterior
+   * Utiliza los snapshots guardados para mantener los datos entre navegaciones
+   */
   const resetToStep = (step: number) => {
-    // Get only the fields for the current step
-    const fields = preservedStepFields[step as keyof typeof preservedStepFields];
+    console.log(`🔄 Restaurando al paso ${step} con los snapshots disponibles`);
     
-    // When handling step 1, preserve the customer type field
+    // Cuando vamos al paso 1, solo mantenemos el tipo de cliente
     if (step === 1) {
+      // Preservamos solo el tipo de cliente y reseteamos todo lo demás
       form.reset({ 
         ...form.formState.defaultValues as any,
         customerType: customerType
@@ -316,15 +341,43 @@ export function ShippingLabelForm(): JSX.Element {
       return;
     }
     
-    // For other steps, get the specific values
-    const values = form.getValues(fields as any);
-    
-    // Reset form but preserve only current step fields
-    const defaultValues = form.formState.defaultValues as any;
-    form.reset({ 
-      ...defaultValues,
-      ...values 
-    });
+    // Para los pasos 2 y 3, verificamos si tenemos un snapshot guardado
+    if (formSnapshots[step] && Object.keys(formSnapshots[step]).length > 0) {
+      console.log(`📋 Restaurando datos del snapshot del paso ${step}:`, formSnapshots[step]);
+      
+      // Usamos los valores del snapshot guardado para este paso
+      const stepSnapshot = formSnapshots[step];
+      
+      // Restauramos solo los campos de este paso, manteniendo los valores de otros pasos
+      if (step === 2) {
+        // En el paso 2 restauramos solo los datos personales
+        form.setValue('firstName', stepSnapshot.firstName || '');
+        form.setValue('lastName', stepSnapshot.lastName || '');
+        form.setValue('phoneCountry', stepSnapshot.phoneCountry || '');
+        form.setValue('phoneNumber', stepSnapshot.phoneNumber || '');
+        form.setValue('email', stepSnapshot.email || '');
+        form.setValue('idNumber', stepSnapshot.idNumber || '');
+      } else if (step === 3) {
+        // En el paso 3 restauramos solo los datos de dirección
+        form.setValue('street', stepSnapshot.street || '');
+        form.setValue('city', stepSnapshot.city || '');
+        form.setValue('province', stepSnapshot.province || '');
+        form.setValue('deliveryInstructions', stepSnapshot.deliveryInstructions || '');
+      }
+    } else {
+      console.log(`⚠️ No hay snapshot guardado para el paso ${step}, usando valores por defecto`);
+      
+      // Si no hay snapshot, usamos el comportamiento anterior (más limitado)
+      const fields = preservedStepFields[step as keyof typeof preservedStepFields];
+      const values = form.getValues(fields as any);
+      
+      // Reset form but preserve only current step fields
+      const defaultValues = form.formState.defaultValues as any;
+      form.reset({ 
+        ...defaultValues,
+        ...values 
+      });
+    }
   };
 
   const handlePreviousStep = () => {
@@ -335,26 +388,42 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  // Effect to clean address fields when moving to step 2
+  // Effect para gestionar cambios entre pasos del wizard
   useEffect(() => {
-    if (currentStep === 2) {
+    // Cuando vamos al paso 2, no limpiamos los campos de dirección automáticamente
+    // Esto evita la pérdida de datos al navegar entre pasos
+    // Los campos se limpiarán solo si el usuario es nuevo, no si es existente con datos ya cargados
+    if (currentStep === 2 && customerType === "new") {
+      // Solo limpiamos los campos si estamos en el caso de cliente nuevo
       form.setValue("street", '');
       form.setValue("city", '');
       form.setValue("province", '');
       form.setValue("deliveryInstructions", '');
     }
-  }, [currentStep, form]);
+    
+    // Cuando avanzamos a cualquier paso, registramos el evento para debugging
+    console.log(`📝 Cambiando al paso ${currentStep} - Tipo de cliente: ${customerType}`);
+  }, [currentStep, customerType, form]);
 
   const updateCustomerFromWizard = async (customerId: number) => {
     const { firstName, lastName, phoneCountry, phoneNumber, email, street, city, province, deliveryInstructions, idNumber } = form.getValues();
     try {
+      // Sincronizar y normalizar datos del teléfono
+      // Usamos el campo phone unificado como fuente de verdad
+      const phoneFields = synchronizePhoneFields(
+        joinPhoneNumber(phoneCountry, phoneNumber),
+        phoneCountry,
+        phoneNumber
+      );
+      
       const customerData = {
         name: `${firstName} ${lastName}`,
         firstName,
         lastName,
-        phone: joinPhoneNumber(phoneCountry, phoneNumber), // Recompose phone number correctly with joinPhoneNumber
-        phoneCountry: phoneCountry, // Store the individual parts as well
-        phoneNumber: phoneNumber,
+        // Usar los datos de teléfono normalizados y sincronizados
+        phone: phoneFields.phone,
+        phoneCountry: phoneFields.phoneCountry, 
+        phoneNumber: phoneFields.phoneNumber,
         email,
         street,
         city, 
@@ -393,19 +462,33 @@ export function ShippingLabelForm(): JSX.Element {
         }
       }
       const formValues = form.getValues();
-      const finalPhone = joinPhoneNumber(
+      
+      // Sincronizar y normalizar datos del teléfono
+      // Usamos el campo phone unificado como fuente de verdad
+      const phoneFields = synchronizePhoneFields(
+        joinPhoneNumber(formValues.phoneCountry, formValues.phoneNumber),
         formValues.phoneCountry,
         formValues.phoneNumber
       );
 
-      // First include all step2 data which has customer identity fields
+      console.log("📱 Generating label with synchronized phone:", phoneFields);
+
+      // Combinar todos los datos del formulario, asegurándonos de que no hay conflictos ni sobrescrituras
+      // Usamos los snapshots de cada paso que guardan todos los valores correctamente
       const dataToSubmit = {
-        ...step2Snapshot,
-        // Then include delivery address fields from step3, being careful not to overwrite the identity fields
-        ...step3Snapshot,
-        // Always use the properly joined phone
-        phone: finalPhone
+        // Datos de identidad del paso 2
+        ...formSnapshots[2],
+        // Datos de dirección del paso 3
+        ...formSnapshots[3],
+        // Datos actuales del formulario como respaldo
+        ...formValues,
+        // Aseguramos que los datos de teléfono son correctos y consistentes
+        phone: phoneFields.phone,
+        phoneCountry: phoneFields.phoneCountry,
+        phoneNumber: phoneFields.phoneNumber
       };
+      
+      console.log("📤 Enviando datos completos a la API:", dataToSubmit);
 
 
       const response = await fetch('/api/shipping/generate-label', {

@@ -167,9 +167,11 @@ export const customers = pgTable('customers', {
   idNumber: text('id_number'),
   ruc: text('ruc'),
   email: text('email'),
-  phone: text('phone'),
-  phoneCountry: text('phone_country'),
-  phoneNumber: text('phone_number'),
+  phone: text('phone'), // ÚNICO campo de teléfono que debería usarse (ej. +593999999999)
+  // Estos campos son legacy y deberían ser eliminados en el futuro
+  // Se conservan temporalmente para compatibilidad mientras se completa la migración
+  phoneCountry: text('phone_country'), // DEPRECATED - Solo para UI
+  phoneNumber: text('phone_number'),   // DEPRECATED - Solo para UI
   secondaryPhone: text('secondary_phone'),
   street: text('street'),
   city: text('city'),
@@ -199,9 +201,11 @@ export const leads = pgTable("leads", {
   lastName: text("last_name").notNull(), // Requerido: apellido del cliente o lead
   idNumber: text("id_number"), 
   email: text("email"),
-  phone: text("phone"),
-  phoneCountry: text("phone_country"),
-  phoneNumber: text("phone_number"), 
+  phone: text("phone"), // ÚNICO campo de teléfono que debería usarse (ej. +593999999999)
+  // Estos campos son legacy y deberían ser eliminados en el futuro
+  // Se conservan temporalmente para compatibilidad mientras se completa la migración
+  phoneCountry: text("phone_country"), // DEPRECATED - Solo para UI
+  phoneNumber: text("phone_number"),   // DEPRECATED - Solo para UI
   street: text("street"),
   city: text("city"),
   province: text("province"),

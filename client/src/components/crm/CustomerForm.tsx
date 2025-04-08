@@ -34,7 +34,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
+import { parsePhoneNumber, joinPhoneNumber, synchronizePhoneFields } from '../../utils/phone-utils';
 import { 
   Calendar, 
   Package, 
@@ -271,9 +271,15 @@ export function CustomerForm({
         lastName: customer.lastName || (customer.name?.split(' ').slice(1).join(' ') || ''),
         idNumber: customer.idNumber || '',
         email: customer.email || '',
-        // Use dedicated phone fields if available, otherwise parse combined phone field properly
-        phoneCountry: customer.phoneCountry || (customer.phone ? parsePhoneNumber(customer.phone).phoneCountry : DEFAULT_COUNTRY_CODE),
-        phoneNumber: customer.phoneNumber || (customer.phone ? parsePhoneNumber(customer.phone).phoneNumber : ''),
+        // El campo phone es la fuente de verdad. Los campos phoneCountry y phoneNumber son solo para UI
+        // Usamos parsePhoneNumber para descomponer el phone unificado en sus partes para la UI
+        ...(customer.phone 
+          ? parsePhoneNumber(customer.phone) 
+          // Si no hay phone pero hay phoneCountry/phoneNumber, sincronizamos para generar un phone válido
+          : (customer.phoneCountry || customer.phoneNumber) 
+            ? synchronizePhoneFields(null, customer.phoneCountry, customer.phoneNumber) 
+            // Si no hay datos de teléfono, usamos valores por defecto
+            : { phoneCountry: DEFAULT_COUNTRY_CODE, phoneNumber: '' }),
         secondaryPhone: customer.secondaryPhone || '',
         // Use structured address fields if available, otherwise use empty values
         // Note: The address field is commented out in schema.ts but it might exist in older records
@@ -375,8 +381,13 @@ export function CustomerForm({
     }
   }, [customer, form]);
 
+  /**
+   * Formats a phone number by removing leading zeros
+   * and ensuring proper country code handling
+   */
   const formatPhoneNumber = (value: string | undefined) => {
     if (!value) return '';
+    // Remove leading zeros (common in local number format)
     if (value.startsWith('0')) {
       return value.substring(1);
     }
@@ -422,23 +433,31 @@ export function CustomerForm({
             });
             return;
           }
-          const formattedData = {
+          // Sincronizar y normalizar datos del teléfono
+  // Usamos el campo phone unificado como fuente de verdad
+  const phoneFields = synchronizePhoneFields(
+    joinPhoneNumber(data.phoneCountry, formatPhoneNumber(data.phoneNumber)),
+    data.phoneCountry,
+    formatPhoneNumber(data.phoneNumber)
+  );
+            
+  const formattedData = {
             // Generar un nombre completo consistente a partir de firstName y lastName
             name: `${data.firstName.trim()} ${data.lastName.trim()}`,
             firstName: data.firstName.trim(),
             lastName: data.lastName.trim(),
             idNumber: data.idNumber?.trim() || null,
             email: data.email?.trim() || null,
-            phone: data.phoneNumber ? joinPhoneNumber(data.phoneCountry, formatPhoneNumber(data.phoneNumber)) : null,
-            phoneCountry: data.phoneCountry || null,
-            phoneNumber: data.phoneNumber ? formatPhoneNumber(data.phoneNumber) : null,
+            // Usar los datos de teléfono normalizados y sincronizados
+            phone: phoneFields.phone,
+            phoneCountry: phoneFields.phoneCountry,
+            phoneNumber: phoneFields.phoneNumber,
             secondaryPhone: data.secondaryPhone?.trim() || null,
             street: data.street?.trim() || null,
             city: data.city?.trim() || null,
             province: data.province || null,
             deliveryInstructions: data.deliveryInstructions?.trim() || null,
             // Removed legacy address field support since it's no longer in the schema
-            // address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
             // Billing address fields - manejo más robusto del objeto billingAddress
             billingAddress: sameAsBilling ? null : (
               // Solo creamos el objeto si al menos uno de los campos tiene valor
