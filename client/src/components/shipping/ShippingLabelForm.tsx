@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
 import { 
   Card, 
   CardContent, 
@@ -22,10 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
-import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
 
 // Schema de validación para el formulario
 const shippingFormSchema = z.object({
+  customerType: z.enum(["existing", "new"]).optional(), // Added customer type field
   firstName: z.string().min(2, {
     message: "El nombre debe tener al menos 2 caracteres",
   }),
@@ -91,10 +92,8 @@ type WizardStep = 1 | 2 | 3 | 4;
 const TOTAL_STEPS = 4;
 
 
-// Helper function to format phone number (you might need this too)
-const formatPhoneNumber = (phoneCountry: string, phoneNumber: string): string => {
-  return `+${phoneCountry}${phoneNumber}`;
-};
+// REMOVED: The old formatPhoneNumber helper function
+// We now use the correct joinPhoneNumber utility from phone-utils.ts
 
 export function ShippingLabelForm(): JSX.Element {
   const { toast } = useToast();
@@ -108,7 +107,7 @@ export function ShippingLabelForm(): JSX.Element {
   const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); 
   // Separate snapshots for each step
   const [step2Snapshot, setStep2Snapshot] = useState<Partial<ShippingFormValues>>({});
-  const [step3Snapshot, setStep3Snapshot] = useState<Partial<ShippingFormValues>>({});
+  const [step3Snapshot, setStep3Snapshot] = useState<Partial<ShippingFormValues>>({}); 
 
   const preserveStepData = (step: number) => {
     const currentValues = form.getValues();
@@ -131,13 +130,12 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  const handleFormChange = (fieldName: string, value: string) => {
-    setFormData({ ...formData, [fieldName]: value });
-  };
+  // Removed unused handleFormChange function
 
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
+      customerType: "new", // Added customerType to the defaultValues
       firstName: "",
       lastName: "",
       idNumber: "",
@@ -153,6 +151,11 @@ export function ShippingLabelForm(): JSX.Element {
     mode: "onChange" 
   });
 
+  // Effect to sync the customerType state with the form value
+  useEffect(() => {
+    form.setValue('customerType', customerType);
+  }, [customerType, form]);
+  
   useEffect(() => {
     if (currentStep === 3) {
       setTimeout(() => {
@@ -213,7 +216,6 @@ export function ShippingLabelForm(): JSX.Element {
           form.setValue('lastName', lastName);
           const fullPhone = getFieldValue('phone', 'phone', '');
           const parsedPhone = parsePhoneNumber(fullPhone);
-          const parsedPhone = parsePhoneNumber(fullPhone);
           form.setValue('phoneCountry', parsedPhone.phoneCountry);
           form.setValue('phoneNumber', parsedPhone.phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
@@ -258,13 +260,13 @@ export function ShippingLabelForm(): JSX.Element {
     preserveStepData(currentStep);
 
     if (currentStep === 1) {
-      setCurrentStep(2);
+      setCurrentStep(2 as WizardStep);
     } else if (currentStep === 2) {
       const fieldsToValidate = ["firstName", "lastName", "idNumber", "phoneNumber", "email"]; // Updated validation fields
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
-        setCurrentStep(3);
+        setCurrentStep(3 as WizardStep);
       } else {
         toast({
           title: "Datos incompletos",
@@ -276,7 +278,7 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(); // Validate all fields in step 3
 
       if (result) {
-        setCurrentStep(4);
+        setCurrentStep(4 as WizardStep);
       } else {
         toast({
           title: "Datos de dirección incompletos",
@@ -296,10 +298,21 @@ export function ShippingLabelForm(): JSX.Element {
   const resetToStep = (step: number) => {
     // Get only the fields for the current step
     const fields = preservedStepFields[step as keyof typeof preservedStepFields];
-    const values = form.getValues(fields);
-
+    
+    // When handling step 1, preserve the customer type field
+    if (step === 1) {
+      form.reset({ 
+        ...form.formState.defaultValues as any,
+        customerType: customerType
+      });
+      return;
+    }
+    
+    // For other steps, get the specific values
+    const values = form.getValues(fields as any);
+    
     // Reset form but preserve only current step fields
-    const defaultValues = form.formState.defaultValues;
+    const defaultValues = form.formState.defaultValues as any;
     form.reset({ 
       ...defaultValues,
       ...values 
@@ -309,7 +322,7 @@ export function ShippingLabelForm(): JSX.Element {
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       const previousStep = currentStep - 1;
-      setCurrentStep(previousStep);
+      setCurrentStep(previousStep as WizardStep);
       resetToStep(previousStep);
     }
   };
@@ -409,7 +422,7 @@ export function ShippingLabelForm(): JSX.Element {
         description: "La etiqueta de envío se ha descargado correctamente",
         variant: "default"
       });
-      setCurrentStep(1);
+      setCurrentStep(1 as WizardStep);
       form.reset();
       setCustomerType("new");
       setCustomerFound(false);
@@ -705,7 +718,13 @@ export function ShippingLabelForm(): JSX.Element {
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                 <FormControl>
-                  <Checkbox {...field} />
+                  <Checkbox 
+                    checked={field.value} 
+                    onCheckedChange={field.onChange}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                  />
                 </FormControl>
                 <div className="space-y-1 leading-none">
                   <FormLabel>
@@ -745,7 +764,7 @@ export function ShippingLabelForm(): JSX.Element {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Teléfono:</p>
-                  <p className="text-sm">{formatPhoneNumber(formValues.phoneCountry, formValues.phoneNumber)}</p>
+                  <p className="text-sm">{joinPhoneNumber(formValues.phoneCountry, formValues.phoneNumber)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Email:</p>

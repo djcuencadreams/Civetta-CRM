@@ -34,6 +34,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
 import { 
   Calendar, 
   Package, 
@@ -218,8 +219,10 @@ export function CustomerForm({
   // Determinar si existe una dirección de facturación diferente para el estado inicial
   const hasDifferentBillingAddress = customer 
     ? !!(customer.billingAddress && 
-        (customer.billingAddress as BillingAddress)?.street && 
-        (customer.billingAddress as BillingAddress)?.street !== customer.street)
+        (typeof customer.billingAddress === 'object' ? 
+          (customer.billingAddress as BillingAddress)?.street : null) && 
+        (typeof customer.billingAddress === 'object' ? 
+          (customer.billingAddress as BillingAddress)?.street !== customer.street : false))
     : false;
     
   // Si no tiene una dirección diferente, usamos "misma dirección"
@@ -268,27 +271,100 @@ export function CustomerForm({
         lastName: customer.lastName || (customer.name?.split(' ').slice(1).join(' ') || ''),
         idNumber: customer.idNumber || '',
         email: customer.email || '',
-        // Use dedicated phone fields if available, otherwise parse from combined phone field
-        phoneCountry: customer.phoneCountry || customer.phone?.split(/[0-9]/)[0] || DEFAULT_COUNTRY_CODE,
-        phoneNumber: customer.phoneNumber || customer.phone?.replace(/^\+\d+/, '') || '',
+        // Use dedicated phone fields if available, otherwise parse combined phone field properly
+        phoneCountry: customer.phoneCountry || (customer.phone ? parsePhoneNumber(customer.phone).phoneCountry : DEFAULT_COUNTRY_CODE),
+        phoneNumber: customer.phoneNumber || (customer.phone ? parsePhoneNumber(customer.phone).phoneNumber : ''),
         secondaryPhone: customer.secondaryPhone || '',
-        // Use structured address fields if available, otherwise parse from legacy address field
-        street: customer.street || customer.address?.split(',')[0]?.trim() || '',
-        city: customer.city || customer.address?.split(',')[1]?.trim() || '',
-        province: customer.province || customer.address?.split(',')[2]?.split('\n')[0]?.trim() || '',
-        deliveryInstructions: customer.deliveryInstructions || customer.address?.split('\n')[1]?.trim() || '',
+        // Use structured address fields if available, otherwise use empty values
+        // Note: The address field is commented out in schema.ts but it might exist in older records
+        street: customer.street || '',
+        city: customer.city || '',
+        province: customer.province || '',
+        deliveryInstructions: customer.deliveryInstructions || '',
         // Billing address fields
-        billingStreet: (customer.billingAddress as BillingAddress)?.street || customer.street || '',
-        billingCity: (customer.billingAddress as BillingAddress)?.city || customer.city || '',
-        billingProvince: (customer.billingAddress as BillingAddress)?.province || customer.province || '',
-        billingPostalCode: (customer.billingAddress as BillingAddress)?.postalCode || '',
-        billingCountry: (customer.billingAddress as BillingAddress)?.country || 'Ecuador',
+        billingStreet: (() => {
+          if (typeof customer.billingAddress === 'object' && customer.billingAddress) {
+            return (customer.billingAddress as BillingAddress).street || '';
+          } else if (typeof customer.billingAddress === 'string') {
+            try {
+              // Try to parse it as JSON if it's a string
+              const parsedAddress = JSON.parse(customer.billingAddress);
+              return parsedAddress?.street || customer.street || '';
+            } catch {
+              return customer.street || '';
+            }
+          } else {
+            return customer.street || '';
+          }
+        })(),
+        billingCity: (() => {
+          if (typeof customer.billingAddress === 'object' && customer.billingAddress) {
+            return (customer.billingAddress as BillingAddress).city || '';
+          } else if (typeof customer.billingAddress === 'string') {
+            try {
+              const parsedAddress = JSON.parse(customer.billingAddress);
+              return parsedAddress?.city || customer.city || '';
+            } catch {
+              return customer.city || '';
+            }
+          } else {
+            return customer.city || '';
+          }
+        })(),
+        billingProvince: (() => {
+          if (typeof customer.billingAddress === 'object' && customer.billingAddress) {
+            return (customer.billingAddress as BillingAddress).province || '';
+          } else if (typeof customer.billingAddress === 'string') {
+            try {
+              const parsedAddress = JSON.parse(customer.billingAddress);
+              return parsedAddress?.province || customer.province || '';
+            } catch {
+              return customer.province || '';
+            }
+          } else {
+            return customer.province || '';
+          }
+        })(),
+        billingPostalCode: (() => {
+          if (typeof customer.billingAddress === 'object' && customer.billingAddress) {
+            return (customer.billingAddress as BillingAddress).postalCode || '';
+          } else if (typeof customer.billingAddress === 'string') {
+            try {
+              const parsedAddress = JSON.parse(customer.billingAddress);
+              return parsedAddress?.postalCode || '';
+            } catch {
+              return '';
+            }
+          } else {
+            return '';
+          }
+        })(),
+        billingCountry: (() => {
+          if (typeof customer.billingAddress === 'object' && customer.billingAddress) {
+            return (customer.billingAddress as BillingAddress).country || 'Ecuador';
+          } else if (typeof customer.billingAddress === 'string') {
+            try {
+              const parsedAddress = JSON.parse(customer.billingAddress);
+              return parsedAddress?.country || 'Ecuador';
+            } catch {
+              return 'Ecuador';
+            }
+          } else {
+            return 'Ecuador';
+          }
+        })(),
         // Customer type and status
-        type: customer.type as any || customerTypeEnum.PERSON,
-        status: customer.status || customerStatusEnum.ACTIVE,
+        type: (customer.type && typeof customer.type === 'string' && Object.values(customerTypeEnum).includes(customer.type as any)) 
+          ? customer.type as any 
+          : customerTypeEnum.PERSON,
+        status: (customer.status && typeof customer.status === 'string' && Object.values(customerStatusEnum).includes(customer.status as any))
+          ? customer.status as any
+          : customerStatusEnum.ACTIVE,
         // Other fields
         source: customer.source || 'instagram',
-        brand: customer.brand || brandEnum.SLEEPWEAR,
+        brand: (customer.brand && typeof customer.brand === 'string' && Object.values(brandEnum).includes(customer.brand as any))
+          ? customer.brand as any
+          : brandEnum.SLEEPWEAR,
         notes: customer.notes || ''
       });
       
@@ -353,7 +429,7 @@ export function CustomerForm({
             lastName: data.lastName.trim(),
             idNumber: data.idNumber?.trim() || null,
             email: data.email?.trim() || null,
-            phone: data.phoneNumber ? `${data.phoneCountry}${formatPhoneNumber(data.phoneNumber)}` : null,
+            phone: data.phoneNumber ? joinPhoneNumber(data.phoneCountry, formatPhoneNumber(data.phoneNumber)) : null,
             phoneCountry: data.phoneCountry || null,
             phoneNumber: data.phoneNumber ? formatPhoneNumber(data.phoneNumber) : null,
             secondaryPhone: data.secondaryPhone?.trim() || null,
@@ -361,8 +437,8 @@ export function CustomerForm({
             city: data.city?.trim() || null,
             province: data.province || null,
             deliveryInstructions: data.deliveryInstructions?.trim() || null,
-            // Keep backward compatibility with address field
-            address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
+            // Removed legacy address field support since it's no longer in the schema
+            // address: data.street ? `${data.street.trim()}, ${data.city?.trim() || ''}, ${data.province || ''}\n${data.deliveryInstructions?.trim() || ''}`.trim() : null,
             // Billing address fields - manejo más robusto del objeto billingAddress
             billingAddress: sameAsBilling ? null : (
               // Solo creamos el objeto si al menos uno de los campos tiene valor

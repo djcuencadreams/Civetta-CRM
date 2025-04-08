@@ -10,45 +10,84 @@ export function parsePhoneNumber(fullNumber: string): {
   phoneCountry: string;
   phoneNumber: string;
 } {
+  // Handle empty or undefined input
+  if (!fullNumber) {
+    return {
+      phoneCountry: '+593',
+      phoneNumber: '',
+    };
+  }
+  
   // Remove all non-digit characters except '+'
   const cleaned = fullNumber.replace(/[^\d+]/g, "");
+  
+  // Standard country codes for Ecuador (default), USA, and common countries
+  const commonCountryCodes = ['1', '44', '34', '52', '57', '593', '54', '56'];
   
   // Handle numbers that already include '+'
   if (cleaned.startsWith('+')) {
     const withoutPlus = cleaned.substring(1);
-    const match = withoutPlus.match(/^(\d{1,4})(\d{6,15})$/);
-    if (!match) {
-      return {
-        phoneCountry: '+593',
-        phoneNumber: withoutPlus,
-      };
+    
+    // Try to match country code patterns (1-3 digits for country code)
+    for (let i = 3; i >= 1; i--) {
+      const countryCode = withoutPlus.substring(0, i);
+      // Prefer known country codes if they match
+      if (commonCountryCodes.includes(countryCode) || i === 3) {
+        return {
+          phoneCountry: `+${countryCode}`,
+          phoneNumber: withoutPlus.substring(i),
+        };
+      }
     }
+    
+    // Default fallback
     return {
-      phoneCountry: `+${match[1]}`,
-      phoneNumber: match[2],
+      phoneCountry: '+593',
+      phoneNumber: withoutPlus,
     };
   }
 
   // Handle numbers without '+'
-  const match = cleaned.match(/^(\d{1,4})(\d{6,15})$/);
-  if (!match) {
-    return {
-      phoneCountry: '+593',
-      phoneNumber: cleaned,
-    };
+  // Try to match country code patterns (1-3 digits for country code)
+  for (let i = 3; i >= 1; i--) {
+    const countryCode = cleaned.substring(0, i);
+    // Prefer known country codes if they match
+    if (commonCountryCodes.includes(countryCode) || i === 3) {
+      return {
+        phoneCountry: `+${countryCode}`,
+        phoneNumber: cleaned.substring(i),
+      };
+    }
   }
-
+  
+  // Default fallback
   return {
-    phoneCountry: `+${match[1]}`,
-    phoneNumber: match[2],
+    phoneCountry: '+593',
+    phoneNumber: cleaned,
   };
 }
 
 export function joinPhoneNumber(country: string, number: string): string {
-  // Remove any existing + and clean the inputs
-  const cleanCountry = country.replace(/[^\d]/g, "");
-  const cleanNumber = number.replace(/[^\d]/g, "");
+  // Handle empty values to prevent "+undefined" or "+null"
+  if (!country && !number) {
+    return '';
+  }
   
-  // Always prefix with + 
+  // Handle missing parts with defaults
+  const countryInput = country || '593';
+  const numberInput = number || '';
+  
+  // Check if country already has + and remove it to avoid duplicate + symbols
+  const cleanCountry = countryInput.startsWith('+') 
+    ? countryInput.substring(1).replace(/[^\d]/g, "") 
+    : countryInput.replace(/[^\d]/g, "");
+  const cleanNumber = numberInput.replace(/[^\d]/g, "");
+  
+  // Return empty string if both parts are empty after cleaning
+  if (!cleanCountry && !cleanNumber) {
+    return '';
+  }
+  
+  // Always prefix with single + 
   return `+${cleanCountry}${cleanNumber}`;
 }
