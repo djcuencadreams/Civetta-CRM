@@ -1,0 +1,39 @@
+Corrige estos 2 bugs siguiendo buenas prácticas, sin duplicar valores ni sobrescribir campos. Usa código limpio, validado y con los nombres correctos. Aquí está el detalle:
+
+⸻
+
+✅ BUG 1: Teléfono mal guardado / mostrado
+1. En CustomerForm.tsx:
+• Al hacer submit, une correctamente countryCode y phoneNumber usando joinPhoneNumber() y guarda como phone.
+• Asegúrate que al cargar un cliente, se divida phone usando parsePhoneNumber() y llene correctamente los dos campos.
+2. En ShippingLabelForm.tsx:
+• Usa parsePhoneNumber() para separar phone y mostrarlo como Código País + Teléfono.
+• Al guardar, usa joinPhoneNumber() para reconstruir phone y guardarlo correctamente.
+• Quita duplicación de + en phoneCountry.
+3. En phone-utils.ts:
+• Asegúrate que joinPhoneNumber() elimine el + si phoneCountry ya lo tiene.
+
+Ejemplo para validar: const phone = joinPhoneNumber(phoneCountry, phoneNumber); // resultado: +593999999999
+⸻
+
+✅ BUG 2: Campos del paso 3 sobrescriben paso 2
+1. En ShippingLabelForm.tsx:
+• Usa un estado formSnapshot que haga un backup limpio del estado del paso anterior antes de ir al paso siguiente.
+• Asegúrate de no sobrescribir campos de paso 2 (como identification, name, email) con los valores de paso 3.
+• Corrige la función que mapea formData desde los inputs del paso 3.
+2. Verifica que cada setFormData({...formData, campoNuevo: valor}) no borre lo anterior y no confunda los nombres (city NO debe pisar identification, por ejemplo).
+
+⸻
+
+🧼 Mejora de práctica adicional:
+• En la base de datos o API, el campo phone debe ser único y limpio (ej. +593999999999) y nunca guardar countryCode ni phoneNumber como campos separados en DB.
+• En la interfaz (cliente), está bien separarlos para UX pero debe unificarse al guardar o actualizar.
+
+⸻
+
+🧪 Verificación
+
+Una vez corregido:
+• El número debe mostrarse igual en ficha cliente, lista y wizard.
+• Al editar debe conservarse sin duplicaciones (++).
+• Al volver atrás del paso 3 al paso 2, todos los campos deben estar igual como estaban antes.
