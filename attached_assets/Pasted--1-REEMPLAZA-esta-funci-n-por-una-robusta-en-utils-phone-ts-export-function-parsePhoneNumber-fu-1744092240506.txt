@@ -1,0 +1,68 @@
+// ✅ 1. REEMPLAZA esta función por una robusta en utils/phone.ts
+export function parsePhoneNumber(fullNumber: string): {
+  phoneCountry: string;
+  phoneNumber: string;
+} {
+  const cleaned = fullNumber.replace(/[^\d]/g, "");
+  const match = cleaned.match(/^(\d{1,4})(\d{6,15})$/);
+  if (!match) {
+    return {
+      phoneCountry: '+593', // default fallback
+      phoneNumber: fullNumber,
+    };
+  }
+  return {
+    phoneCountry: `+${match[1]}`,
+    phoneNumber: match[2],
+  };
+}
+
+export function joinPhoneNumber(country: string, number: string): string {
+  if (!country.startsWith('+')) country = '+' + country;
+  return `${country}${number}`;
+}
+
+// ✅ 2. En ShippingLabelForm.tsx
+// AL INICIO: importa las funciones nuevas
+import { parsePhoneNumber, joinPhoneNumber } from '@/utils/phone';
+
+// ✅ 3. CUANDO CARGUES un cliente (después de verificar), haz esto:
+const fullPhone = customer?.phone || '';
+const parsedPhone = parsePhoneNumber(fullPhone);
+
+form.setValue('phoneCountry', parsedPhone.phoneCountry);
+form.setValue('phoneNumber', parsedPhone.phoneNumber);
+
+// ✅ 4. CUANDO GUARDES al cliente (paso final o confirmación), HAZ ESTO:
+const finalPhone = joinPhoneNumber(form.getValues('phoneCountry'), form.getValues('phoneNumber'));
+
+dataToSubmit.phone = finalPhone;
+
+// ✅ 5. Arregla los nombres de los campos en tu formulario paso 2:
+<input {...register("phoneCountry")} />
+<input {...register("phoneNumber")} />
+
+// ✅ 6. Corrige bug de mezcla de datos entre pasos con este hook
+useEffect(() => {
+  if (currentStep === 2) {
+    form.setValue("street", '');
+    form.setValue("city", '');
+    form.setValue("province", '');
+    form.setValue("deliveryInstructions", '');
+  }
+}, [currentStep]);
+
+// ✅ 7. (Opcional) Limpieza al retroceder:
+const preservedStepFields = {
+  1: ["clientType"],
+  2: ["firstName", "lastName", "email", "idNumber", "phoneCountry", "phoneNumber"],
+  3: ["street", "city", "province", "deliveryInstructions"],
+};
+
+function resetToStep(step: number) {
+  const fields = preservedStepFields[step];
+  const values = form.getValues(fields);
+  form.reset({ ...values });
+}
+
+// Ejecutar resetToStep(currentStep) cuando retrocedes en el wizard
