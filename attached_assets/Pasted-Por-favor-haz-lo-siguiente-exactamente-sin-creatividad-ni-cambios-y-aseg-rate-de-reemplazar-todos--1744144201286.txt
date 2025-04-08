@@ -1,0 +1,43 @@
+Por favor haz lo siguiente exactamente, sin creatividad ni cambios, y asegúrate de reemplazar todos los campos relacionados a teléfono en el Wizard, CRM y API para que quede funcionando de forma profesional y robusta, como en los mejores CRMs del mundo:
+
+1. Reemplaza los campos `phoneCountry` y `phoneNumber` en los formularios de cliente por el componente profesional `react-phone-number-input`, que ya tenemos instalado. Usa la versión `react-phone-number-input/input` para simplificar integración con formularios existentes.
+
+2. Asegúrate de que:
+   - El componente tenga el dropdown de país con banderas (por defecto ya lo incluye).
+   - La validación se realice en tiempo real para el país seleccionado.
+   - El número se guarde siempre en formato internacional limpio (ej: `+593999999999`).
+
+3. En el formulario del Wizard (`ShippingLabelForm.tsx`) y en el CRM (`CustomerForm.tsx`):
+   - Usa un solo campo: `phone`, que almacene el valor como `string`.
+   - Borra los campos separados `phoneCountry` y `phoneNumber` del frontend y de los estados de formulario.
+
+4. En el backend:
+   - El campo `phone` en la base de datos debe almacenar el número en formato E.164, como texto (`+593999999999`).
+   - Añade validación para asegurarse que el campo `phone`:
+     - comience con `+`
+     - tenga mínimo 10 y máximo 15 dígitos (ajustable si usamos librerías más avanzadas como `libphonenumber-js`)
+   - Asegura que no se dupliquen números iguales con y sin el 0 inicial o sin `+`.
+
+5. En la interfaz (formulario del CRM y del Wizard):
+   - Muestra un placeholder que diga: `Ej. 0999999999 (se convertirá automáticamente a formato internacional)`
+   - Si el número ingresado tiene un `0` inicial y el país es Ecuador (`+593`), asegúrate de eliminar el `0` antes de guardar (esto ya lo hace automáticamente `react-phone-number-input` para Ecuador).
+   - Para Estados Unidos o cualquier otro país, confía en la validación nativa del componente.
+
+6. Al guardar o actualizar clientes:
+   - Asegúrate que en la base de datos solo se guarde el campo `phone`, limpio, sin campos duplicados ni separados.
+   - Usa `react-hook-form` o el sistema actual para conectar este input con el estado del formulario.
+
+7. Revisa también los endpoints `/api/customers`, `/api/orders`, `/api/shipping/save-data` y cualquier otro que use teléfonos, para asegurar que el dato `phone` se maneje correctamente con este nuevo enfoque.
+
+IMPORTANTE:
+✅ No modifiques ni dupliques lógica innecesariamente  
+✅ Asegúrate de borrar referencias obsoletas como `phoneCountry`, `phoneNumber` y estados relacionados  
+✅ Usa solo `phone` y valida que se guarde correctamente  
+✅ Asegura la compatibilidad total con la ficha del cliente, el wizard, y las listas de clientes
+
+Este cambio debe dejar todo funcionando perfectamente, sin errores visuales ni en el guardado de datos, y con validación profesional y estándar.
+
+Si necesitas probar, crea un cliente nuevo con número ecuatoriano y uno de EE.UU., y verifica:
+- Que el dropdown muestre el país correcto
+- Que el número se guarde como `+593...` o `+1...` sin errores
+- Que se muestre correctamente en la lista, ficha y wizard

@@ -8,7 +8,6 @@ import { validateParams } from "../validation";
 import { appEvents, EventTypes } from "../lib/event-emitter";
 import { Customer } from "@db/schema";
 import { generateFullName, ensureNameField } from "../utils/name-utils";
-import { normalizePhoneNumber, isValidPhoneNumber, buildPhoneNumber } from "../utils/phone-utils";
 
 /**
  * Interfaz para la dirección de facturación
@@ -46,9 +45,8 @@ export class CustomersService implements Service {
     // Create new customer
     app.post("/api/customers", this.createCustomer.bind(this));
     
-    // Update customer - support both PATCH and PUT methods
+    // Update customer
     app.patch("/api/customers/:id", validateParams(customerIdSchema), this.updateCustomer.bind(this));
-    app.put("/api/customers/:id", validateParams(customerIdSchema), this.updateCustomer.bind(this));
     
     // Delete customer
     app.delete("/api/customers/:id", validateParams(customerIdSchema), this.deleteCustomer.bind(this));
@@ -305,22 +303,6 @@ export class CustomersService implements Service {
         lastName
       });
 
-      // Validate and normalize phone number if provided
-      let normalizedPhone = null;
-      if (phone) {
-        normalizedPhone = normalizePhoneNumber(phone);
-        if (!normalizedPhone) {
-          res.status(400).json({ error: "El número de teléfono proporcionado no es válido" });
-          return;
-        }
-      } else if (phoneCountry && phoneNumber) {
-        normalizedPhone = buildPhoneNumber({ phoneCountry, phoneNumber });
-        if (!normalizedPhone) {
-          res.status(400).json({ error: "El número de teléfono proporcionado no es válido" });
-          return;
-        }
-      }
-
       // Creamos un objeto sin el campo tags para la inserción principal
       // Esto evita problemas con el tipo de datos (array en el schema vs. JSONB en la BD)
       const customerData2Insert = {
@@ -328,7 +310,7 @@ export class CustomersService implements Service {
         firstName,
         lastName,
         email: email?.trim() || null,
-        phone: normalizedPhone,
+        phone: phone?.trim() || null,
         phoneCountry: phoneCountry || null,
         phoneNumber: phoneNumber || null,
         secondaryPhone: secondaryPhone || null,
@@ -391,24 +373,15 @@ export class CustomersService implements Service {
    */
   async updateCustomer(req: Request, res: Response): Promise<void> {
     try {
-      console.log("[DEBUG] updateCustomer - Request body:", JSON.stringify(req.body, null, 2));
-      
       const { id } = req.params;
       const customerId = parseInt(id);
       
       const { 
-        firstName, lastName, name, email, phone, street, city, province, 
+        firstName, lastName, email, phone, street, city, province, 
         deliveryInstructions, source, brand, notes, idNumber,
         billingAddress, phoneCountry, phoneNumber, secondaryPhone,
         status, type, tags 
       } = req.body;
-
-      console.log("[DEBUG] updateCustomer - Extracted fields:", { 
-        firstName, 
-        lastName, 
-        name,
-        phone 
-      });
 
       // Validaciones básicas
       if (!firstName?.trim() || !lastName?.trim()) {
@@ -428,23 +401,6 @@ export class CustomersService implements Service {
 
       // Generar el nombre completo
       const customerData = ensureNameField({ firstName, lastName });
-      
-      // Validate and normalize phone number
-      let normalizedPhone = null;
-      
-      if (phone) {
-        normalizedPhone = normalizePhoneNumber(phone);
-        if (!normalizedPhone) {
-          res.status(400).json({ error: "El número de teléfono proporcionado no es válido" });
-          return;
-        }
-      } else if (phoneCountry && phoneNumber) {
-        normalizedPhone = buildPhoneNumber({ phoneCountry, phoneNumber });
-        if (!normalizedPhone) {
-          res.status(400).json({ error: "El número de teléfono proporcionado no es válido" });
-          return;
-        }
-      }
 
       // Preparar datos de actualización
       const updateData = {
@@ -454,7 +410,7 @@ export class CustomersService implements Service {
         email: email?.trim() || null,
         phoneCountry: phoneCountry || null,
         phoneNumber: phoneNumber || null,
-        phone: normalizedPhone,
+        phone: buildPhoneNumber({ phoneCountry, phoneNumber }),
         secondaryPhone: secondaryPhone || null,
         street: street?.trim() || null,
         city: city?.trim() || null,
