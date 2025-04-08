@@ -281,9 +281,16 @@ export function ShippingLabelForm(): JSX.Element {
   } as const;
 
   const resetToStep = (step: number) => {
+    // Get only the fields for the current step
     const fields = preservedStepFields[step as keyof typeof preservedStepFields];
     const values = form.getValues(fields);
-    form.reset({ ...values });
+    
+    // Reset form but preserve only current step fields
+    const defaultValues = form.formState.defaultValues;
+    form.reset({ 
+      ...defaultValues,
+      ...values 
+    });
   };
 
   const handlePreviousStep = () => {
