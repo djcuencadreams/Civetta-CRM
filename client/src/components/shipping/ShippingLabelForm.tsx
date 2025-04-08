@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
+import { parsePhoneNumber, joinPhoneNumber } from '@/server/utils/phone-utils';
 
 // Schema de validación para el formulario
 const shippingFormSchema = z.object({
@@ -89,17 +90,6 @@ const provinciasEcuador = [
 type WizardStep = 1 | 2 | 3 | 4;
 const TOTAL_STEPS = 4;
 
-// Helper function to parse phone number (you'll need to implement this)
-const parsePhoneNumber = (phoneNumber: string): { phoneCountry: string; phoneNumber: string } => {
-  // Implement your phone number parsing logic here.  This example assumes
-  // a '+' followed by the country code.  You may need a more robust solution.
-  const parts = phoneNumber.split('+');
-  if (parts.length === 2) {
-    return { phoneCountry: '+' + parts[1].substring(0,3), phoneNumber: parts[1].substring(3) };
-  } else {
-    return { phoneCountry: '', phoneNumber: phoneNumber };
-  }
-};
 
 // Helper function to format phone number (you might need this too)
 const formatPhoneNumber = (phoneCountry: string, phoneNumber: string): string => {
@@ -284,15 +274,35 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  const goToPreviousStep = () => {
+  const preservedStepFields = {
+    1: ["customerType"],
+    2: ["firstName", "lastName", "email", "idNumber", "phoneCountry", "phoneNumber"],
+    3: ["street", "city", "province", "deliveryInstructions"],
+  } as const;
+
+  const resetToStep = (step: number) => {
+    const fields = preservedStepFields[step as keyof typeof preservedStepFields];
+    const values = form.getValues(fields);
+    form.reset({ ...values });
+  };
+
+  const handlePreviousStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(prev => (prev - 1) as WizardStep);
-      // Restore previous form state if available
-      if (formSnapshot) {
-        form.reset(formSnapshot);
-      }
+      const previousStep = currentStep - 1;
+      setCurrentStep(previousStep);
+      resetToStep(previousStep);
     }
   };
+
+  // Effect to clean address fields when moving to step 2
+  useEffect(() => {
+    if (currentStep === 2) {
+      form.setValue("street", '');
+      form.setValue("city", '');
+      form.setValue("province", '');
+      form.setValue("deliveryInstructions", '');
+    }
+  }, [currentStep, form]);
 
   const updateCustomerFromWizard = async (customerId: number) => {
     const { firstName, lastName, phoneCountry, phoneNumber, email, street, city, province, deliveryInstructions, idNumber } = form.getValues();
@@ -301,7 +311,7 @@ export function ShippingLabelForm(): JSX.Element {
         name: `${firstName} ${lastName}`,
         firstName,
         lastName,
-        phone: formatPhoneNumber(phoneCountry, phoneNumber), // Recompose phone number
+        phone: joinPhoneNumber(phoneCountry, phoneNumber), // Recompose phone number
         email,
         street,
         city, 
@@ -339,28 +349,21 @@ export function ShippingLabelForm(): JSX.Element {
           throw new Error('Failed to update customer data');
         }
       }
-      const formData = {
-        name: `${data.firstName} ${data.lastName}`,
-        phone: formatPhoneNumber(data.phoneCountry, data.phoneNumber), // Recompose phone number
-        email: data.email,
-        street: data.street,
-        city: data.city,
-        province: data.province,
-        idNumber: data.idNumber,
-        companyName: "Civetta", 
-        deliveryInstructions: data.deliveryInstructions,
-        orderNumber: "", 
-        saveToDatabase: data.saveToDatabase,
-        updateCustomerInfo: true, 
-        alwaysUpdateCustomer: customerType === "existing" 
+      const formData = form.getValues();
+      const finalPhone = joinPhoneNumber(formData.phoneCountry, formData.phoneNumber);
+
+      const dataToSubmit = {
+        ...formData,
+        phone: finalPhone
       };
+
 
       const response = await fetch('/api/shipping/generate-label', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSubmit)
       });
 
       if (!response.ok) {
@@ -842,7 +845,7 @@ export function ShippingLabelForm(): JSX.Element {
         <CardFooter className="flex justify-between">
           <Button
             variant="outline"
-            onClick={goToPreviousStep}
+            onClick={handlePreviousStep}
             disabled={currentStep === 1}
             className="gap-1"
           >
