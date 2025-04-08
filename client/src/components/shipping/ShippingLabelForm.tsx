@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
-import { parsePhoneNumber, joinPhoneNumber } from '@/utils/phone';
+import { parsePhoneNumber, joinPhoneNumber } from '@/../../server/utils/phone-utils';
 
 // Schema de validación para el formulario
 const shippingFormSchema = z.object({
