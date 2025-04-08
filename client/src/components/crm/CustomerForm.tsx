@@ -99,6 +99,13 @@ const brandOptions = [
   { id: `${brandEnum.SLEEPWEAR},${brandEnum.BRIDE}`, name: "Ambas marcas" }
 ];
 
+//Added isValidPhoneNumber function.  This is a placeholder, replace with actual validation.
+const isValidPhoneNumber = (value: string) => {
+    //Replace with your actual phone number validation logic.  This is a dummy example.
+    return value.length > 5;
+};
+
+
 export function CustomerForm({
   customerId,
   onComplete,
@@ -672,20 +679,27 @@ export function CustomerForm({
             )}
           />
 
+          {/* Updated Phone Input */}
           <div className="grid grid-cols-12 gap-4">
             <FormField
               control={form.control}
               name="phone"
               render={({ field }) => (
                 <FormItem className="col-span-12">
-                  <FormLabel>Teléfono celular</FormLabel>
+                  <FormLabel>Teléfono celular *</FormLabel>
                   <FormControl>
                     <PhoneInput
-                      {...field}
-                      international
                       defaultCountry="EC"
-                      placeholder="Ej. 0999999999 (se convertirá automáticamente a formato internacional)"
-                      onChange={(value) => field.onChange(value)}
+                      value={form.watch('phone')}
+                      onChange={(value) => form.setValue('phone', value || '')}
+                      international
+                      countryCallingCodeEditable={true}
+                      placeholder="Ej. 0999999999 (se convertirá a formato internacional)"
+                      {...form.register('phone', {
+                        required: 'Este campo es obligatorio',
+                        validate: value =>
+                          isValidPhoneNumber(value || '') || 'Número de teléfono inválido'
+                      })}
                     />
                   </FormControl>
                   <FormMessage />
@@ -693,6 +707,7 @@ export function CustomerForm({
               )}
             />
           </div>
+
 
           <div className="space-y-4">
             <h3 className="font-medium">Dirección de Entrega</h3>
@@ -898,6 +913,8 @@ export function CustomerForm({
                         disabled={isViewMode} 
                       >
                         <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

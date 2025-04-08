@@ -1,22 +1,8 @@
-import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js/min';
 
-export function validatePhoneNumber(phone: string): boolean {
-  if (!phone) return false;
-  if (!phone.startsWith('+')) return false;
+import { parsePhoneNumberFromString } from 'libphonenumber-js'
 
-  try {
-    return isValidPhoneNumber(phone);
-  } catch (e) {
-    return false;
-  }
-}
-
-export function normalizePhoneNumber(phone: string, country = 'EC'): string | null {
-  try {
-    const parsed = parsePhoneNumber(phone, country);
-    if (!parsed) return null;
-    return parsed.format('E.164'); // Returns in format +593999999999
-  } catch (e) {
-    return null;
-  }
+export function normalizePhoneNumber(raw: string): string | null {
+  const parsed = parsePhoneNumberFromString(raw)
+  if (!parsed || !parsed.isValid()) return null
+  return parsed.number // formato E.164: ej. +593999999999
 }

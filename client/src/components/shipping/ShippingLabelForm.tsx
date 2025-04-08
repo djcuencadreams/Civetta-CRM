@@ -23,6 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
+import PhoneInput from 'react-phone-number-input'
+//import 'react-phone-number-input/rhn-style.css'
+
+// Added isValidPhoneNumber function (placeholder - replace with actual validation)
+const isValidPhoneNumber = (value: string): boolean => {
+  // Replace this with your actual phone number validation logic
+  return value.length >= 7; 
+};
 
 // Schema de validación para el formulario
 const shippingFormSchema = z.object({
@@ -233,7 +241,7 @@ export function ShippingLabelForm(): JSX.Element {
 
         toast({
           title: "Cliente encontrado",
-          description: "Los datos del cliente han sido cargados automáticamente",
+          description: "Los datos del cliente han been cargados automáticamente",
           variant: "default"
         });
       } else {
@@ -907,7 +915,7 @@ export function ShippingLabelForm(): JSX.Element {
                   <p className="text-sm font-medium">Dirección completa:</p>
                   <p className="text-sm">{formValues.street}</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Ciudad:</p>
                     <p className="text-sm">{formValues.city}</p>
