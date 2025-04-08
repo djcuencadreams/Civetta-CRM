@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 export const phoneSchema = z.object({
-  phoneCountry: z.string().min(2).startsWith('+'),
+  phoneCountry: z.string().min(2),
   phoneNumber: z.string().min(6).max(15)
 });
 
@@ -19,7 +19,7 @@ export function parsePhoneNumber(fullNumber: string): {
     const match = withoutPlus.match(/^(\d{1,4})(\d{6,15})$/);
     if (!match) {
       return {
-        phoneCountry: '+593', // Ecuador default
+        phoneCountry: '+593',
         phoneNumber: withoutPlus,
       };
     }
@@ -45,15 +45,10 @@ export function parsePhoneNumber(fullNumber: string): {
 }
 
 export function joinPhoneNumber(country: string, number: string): string {
-  const phoneCountry = country.startsWith('+') ? country : `+${country}`;
-  const phoneNumber = number.replace(/[^\d]/g, "");
+  // Remove any existing + and clean the inputs
+  const cleanCountry = country.replace(/[^\d]/g, "");
+  const cleanNumber = number.replace(/[^\d]/g, "");
   
-  try {
-    // Validate using schema
-    phoneSchema.parse({ phoneCountry, phoneNumber });
-    return `${phoneCountry}${phoneNumber}`;
-  } catch (error) {
-    console.error('Invalid phone number format:', error);
-    return `${phoneCountry}${phoneNumber}`; // Return anyway but logged error
-  }
+  // Always prefix with + 
+  return `+${cleanCountry}${cleanNumber}`;
 }

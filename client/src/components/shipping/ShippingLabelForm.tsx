@@ -106,19 +106,30 @@ export function ShippingLabelForm(): JSX.Element {
   const [customerType, setCustomerType] = useState<"existing" | "new">("new");
   const [customerFound, setCustomerFound] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); 
-  const [formSnapshot, setFormSnapshot] = useState<ShippingFormValues | null>(null); // Added state to store form values
-  const [formData, setFormData] = useState<ShippingFormValues>({
-    firstName: "",
-    lastName: "",
-    phoneCountry: "",
-    phoneNumber: "",
-    idNumber: "",
-    email: "",
-    city: "",
-    province: "",
-    street: "",
-    deliveryInstructions: ""
-  });
+  // Separate snapshots for each step
+  const [step2Snapshot, setStep2Snapshot] = useState<Partial<ShippingFormValues>>({});
+  const [step3Snapshot, setStep3Snapshot] = useState<Partial<ShippingFormValues>>({});
+
+  const preserveStepData = (step: number) => {
+    const currentValues = form.getValues();
+    if (step === 2) {
+      setStep2Snapshot({
+        firstName: currentValues.firstName,
+        lastName: currentValues.lastName,
+        phoneCountry: currentValues.phoneCountry,
+        phoneNumber: currentValues.phoneNumber,
+        idNumber: currentValues.idNumber,
+        email: currentValues.email
+      });
+    } else if (step === 3) {
+      setStep3Snapshot({
+        street: currentValues.street,
+        city: currentValues.city,
+        province: currentValues.province,
+        deliveryInstructions: currentValues.deliveryInstructions
+      });
+    }
+  };
 
   const handleFormChange = (fieldName: string, value: string) => {
     setFormData({ ...formData, [fieldName]: value });
@@ -202,6 +213,7 @@ export function ShippingLabelForm(): JSX.Element {
           form.setValue('lastName', lastName);
           const fullPhone = getFieldValue('phone', 'phone', '');
           const parsedPhone = parsePhoneNumber(fullPhone);
+          const parsedPhone = parsePhoneNumber(fullPhone);
           form.setValue('phoneCountry', parsedPhone.phoneCountry);
           form.setValue('phoneNumber', parsedPhone.phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
@@ -243,7 +255,7 @@ export function ShippingLabelForm(): JSX.Element {
   };
 
   const goToNextStep = async () => {
-    setFormSnapshot(form.getValues()); // Save form values before proceeding
+    preserveStepData(currentStep);
 
     if (currentStep === 1) {
       setCurrentStep(2);
@@ -357,14 +369,15 @@ export function ShippingLabelForm(): JSX.Element {
           throw new Error('Failed to update customer data');
         }
       }
-      const formData = form.getValues();
+      const formValues = form.getValues();
       const finalPhone = joinPhoneNumber(
-        formData.phoneCountry,
-        formData.phoneNumber
+        formValues.phoneCountry,
+        formValues.phoneNumber
       );
 
       const dataToSubmit = {
-        ...formData,
+        ...step2Snapshot,
+        ...step3Snapshot,
         phone: finalPhone
       };
 
