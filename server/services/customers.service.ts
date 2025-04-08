@@ -376,41 +376,20 @@ export class CustomersService implements Service {
       const { id } = req.params;
       const customerId = parseInt(id);
       
-      // Petición de actualización del cliente
-      
       const { 
         firstName, lastName, email, phone, street, city, province, 
         deliveryInstructions, source, brand, notes, idNumber,
-        billingAddress, // Campos para la dirección de facturación
-        phoneCountry, phoneNumber, secondaryPhone, // Campos adicionales
-        name, // Mantener para compatibilidad temporal
-        status, type, tags // Campos de clasificación
+        billingAddress, phoneCountry, phoneNumber, secondaryPhone,
+        status, type, tags 
       } = req.body;
 
-      console.log("[DEBUG] updateCustomer - Datos recibidos:", {
-        firstName, lastName, email, source,
-        tagsType: typeof tags,
-        tagsValue: tags
-      });
-
-      // Validar que se proporcionaron firstName y lastName
-      if (!firstName || !firstName.trim()) {
-        res.status(400).json({ error: "El nombre (firstName) es requerido" });
+      // Validaciones básicas
+      if (!firstName?.trim() || !lastName?.trim()) {
+        res.status(400).json({ error: "El nombre y apellido son requeridos" });
         return;
       }
 
-      if (!lastName || !lastName.trim()) {
-        res.status(400).json({ error: "El apellido (lastName) es requerido" });
-        return;
-      }
-      
-      // Generar el campo name a partir de firstName y lastName usando la función de utilidad
-      const customerData = ensureNameField({
-        firstName,
-        lastName
-      });
-
-      // Check if customer exists
+      // Verificar existencia del cliente
       const existingCustomer = await db.query.customers.findFirst({
         where: eq(customers.id, customerId)
       }) as Customer;
@@ -419,39 +398,31 @@ export class CustomersService implements Service {
         res.status(404).json({ error: "Customer not found" });
         return;
       }
-      
-      // Asegurar que los campos complejos estén inicializados
-      const existingBillingAddress = existingCustomer.billingAddress || {};
-      // FIXME: El campo tags está definido como array pero en la BD es JSONB
-      // Para evitar errores de tipo, no lo incluimos directamente en la actualización
-      const existingStatus = existingCustomer.status || 'active';
-      const existingType = existingCustomer.type || 'person';
 
-      // Procesar correctamente el campo idNumber
-      const updatedIdNumber = idNumber !== undefined ? (idNumber?.trim() || null) : existingCustomer.idNumber;
+      // Generar el nombre completo
+      const customerData = ensureNameField({ firstName, lastName });
 
-      // Creamos un objeto de actualización sin el campo tags para evitar errores
+      // Preparar datos de actualización
       const updateData = {
-        name: customerData.name, // Usar el nombre completo generado con ensureNameField
+        name: customerData.name,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email?.trim() || existingCustomer.email || null,
-        phone: phone?.trim() || existingCustomer.phone || null,
-        phoneCountry: phoneCountry || existingCustomer.phoneCountry || null,
-        phoneNumber: phoneNumber || existingCustomer.phoneNumber || null,
-        secondaryPhone: secondaryPhone || existingCustomer.secondaryPhone || null,
-        street: street !== undefined ? (street?.trim() || null) : existingCustomer.street,
-        city: city !== undefined ? (city?.trim() || null) : existingCustomer.city,
-        province: province !== undefined ? province || null : existingCustomer.province,
-        deliveryInstructions: deliveryInstructions !== undefined ? (deliveryInstructions?.trim() || null) : existingCustomer.deliveryInstructions,
-        idNumber: updatedIdNumber,
-        // Actualizar la dirección de facturación y preservar los campos no proporcionados
-        billingAddress: billingAddress !== undefined ? billingAddress : existingBillingAddress,
-        status: status || existingStatus,
-        type: type || existingType,
-        source: source || existingCustomer.source || 'direct',
-        brand: brand || existingCustomer.brand || 'sleepwear',
-        notes: notes !== undefined ? (notes?.trim() || null) : existingCustomer.notes,
+        email: email?.trim() || null,
+        phoneCountry: phoneCountry || null,
+        phoneNumber: phoneNumber || null,
+        phone: buildPhoneNumber({ phoneCountry, phoneNumber }),
+        secondaryPhone: secondaryPhone || null,
+        street: street?.trim() || null,
+        city: city?.trim() || null,
+        province: province || null,
+        deliveryInstructions: deliveryInstructions?.trim() || null,
+        idNumber: idNumber?.trim() || null,
+        billingAddress: billingAddress || null,
+        status: status || 'active',
+        type: type || 'person',
+        source: source || 'direct',
+        brand: brand || 'sleepwear',
+        notes: notes?.trim() || null,
         updatedAt: new Date()
       };
 
