@@ -112,9 +112,14 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/customers", async (req, res) => {
     try {
-      if (!req.body.name?.trim()) {
-        return res.status(400).json({ error: "Name is required" });
+      // Instead of requiring name directly, check for firstName and lastName
+      if (!req.body.firstName?.trim() || !req.body.lastName?.trim()) {
+        return res.status(400).json({ error: "First name and last name are required" });
       }
+      
+      // Generate name from firstName and lastName
+      const { firstName, lastName } = req.body;
+      req.body.name = `${firstName.trim()} ${lastName.trim()}`;
 
       const customer = await db.insert(customers).values(req.body).returning();
       res.json(customer[0]);
@@ -141,12 +146,21 @@ export function registerRoutes(app: Express): Server {
 
   app.put("/api/customers/:id", async (req, res) => {
     try {
-      if (!req.body.name?.trim()) {
-        return res.status(400).json({ error: "Name is required" });
+      // Instead of checking name directly, check for firstName and lastName
+      // and generate name from them using ensureNameField
+      if (!req.body.firstName?.trim() || !req.body.lastName?.trim()) {
+        return res.status(400).json({ error: "First name and last name are required" });
       }
+      
+      // Generate name from firstName and lastName
+      const { firstName, lastName } = req.body;
+      const name = `${firstName.trim()} ${lastName.trim()}`;
       
       // Extraemos tags del body para manejarlos separadamente
       const { tags, ...updateData } = req.body;
+      
+      // Ensure name is included in the update data
+      updateData.name = name;
       
       // Primero actualizamos los datos básicos del cliente sin tags
       const customer = await db.update(customers)
