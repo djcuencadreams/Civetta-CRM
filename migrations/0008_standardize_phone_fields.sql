@@ -1,12 +1,14 @@
 
--- Drop old phone fields
-ALTER TABLE customers DROP COLUMN IF EXISTS phone_country;
-ALTER TABLE customers DROP COLUMN IF EXISTS phone_number;
-ALTER TABLE customers DROP COLUMN IF EXISTS country_code;
+-- Estandarizar campos de teléfono
+ALTER TABLE customers 
+DROP COLUMN IF EXISTS phone_country,
+DROP COLUMN IF EXISTS phone_number,
+ADD COLUMN IF NOT EXISTS phone TEXT;
 
--- Ensure phone column exists and has correct type
-ALTER TABLE customers ALTER COLUMN phone TYPE text;
-
--- Add unique constraint
-ALTER TABLE customers DROP CONSTRAINT IF EXISTS unique_customer_phone;
-ALTER TABLE customers ADD CONSTRAINT unique_customer_phone UNIQUE (phone);
+-- Convertir datos existentes
+UPDATE customers 
+SET phone = CASE 
+  WHEN phone_country IS NOT NULL AND phone_number IS NOT NULL 
+  THEN phone_country || phone_number
+  ELSE NULL 
+END;
