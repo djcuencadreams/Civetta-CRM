@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
-import { parsePhoneNumber, joinPhoneNumber } from '@/server/utils/phone-utils';
+import { parsePhoneNumber, joinPhoneNumber } from '@/utils/phone';
 
 // Schema de validación para el formulario
 const shippingFormSchema = z.object({
@@ -200,9 +200,10 @@ export function ShippingLabelForm(): JSX.Element {
 
           form.setValue('firstName', firstName);
           form.setValue('lastName', lastName);
-          const { phoneCountry, phoneNumber } = parsePhoneNumber(getFieldValue('phone', 'phone', ''));
-          form.setValue('phoneCountry', phoneCountry);
-          form.setValue('phoneNumber', phoneNumber);
+          const fullPhone = getFieldValue('phone', 'phone', '');
+          const parsedPhone = parsePhoneNumber(fullPhone);
+          form.setValue('phoneCountry', parsedPhone.phoneCountry);
+          form.setValue('phoneNumber', parsedPhone.phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
           form.setValue('idNumber', getFieldValue('idNumber', 'id_number'));
           form.setValue('street', getFieldValue('street', 'street_address', ''));
@@ -357,7 +358,10 @@ export function ShippingLabelForm(): JSX.Element {
         }
       }
       const formData = form.getValues();
-      const finalPhone = joinPhoneNumber(formData.phoneCountry, formData.phoneNumber);
+      const finalPhone = joinPhoneNumber(
+        formData.phoneCountry,
+        formData.phoneNumber
+      );
 
       const dataToSubmit = {
         ...formData,
