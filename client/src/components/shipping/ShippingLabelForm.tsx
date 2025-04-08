@@ -117,7 +117,22 @@ export function ShippingLabelForm(): JSX.Element {
   const [customerFound, setCustomerFound] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); 
   const [formSnapshot, setFormSnapshot] = useState<ShippingFormValues | null>(null); // Added state to store form values
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phoneCountry: "",
+    phoneNumber: "",
+    cedula: "",
+    email: "",
+    city: "",
+    province: "",
+    address: "",
+    deliveryInstructions: ""
+  });
 
+  const handleFormChange = (fieldName: string, value: string) => {
+    setFormData({ ...formData, [fieldName]: value });
+  };
 
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
@@ -657,7 +672,11 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Nombres *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nombres" {...field} />
+                    <Input 
+                      placeholder="Nombres" 
+                      value={formData.firstName}
+                      onChange={(e) => handleFormChange('firstName', e.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -670,7 +689,11 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Apellidos *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Apellidos" {...field} />
+                    <Input 
+                      placeholder="Apellidos" 
+                      value={formData.lastName}
+                      onChange={(e) => handleFormChange('lastName', e.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -686,7 +709,11 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Cédula/Pasaporte/RUC *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Documento de identidad" {...field} />
+                    <Input 
+                      placeholder="Documento de identidad" 
+                      value={formData.cedula}
+                      onChange={(e) => handleFormChange('cedula', e.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -700,7 +727,11 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormItem>
                     <FormLabel>Código País *</FormLabel>
                     <FormControl>
-                      <Input placeholder="+593" {...field} />
+                      <Input 
+                        placeholder="+593" 
+                        value={formData.phoneCountry}
+                        onChange={(e) => handleFormChange('phoneCountry', e.target.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -713,7 +744,11 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormItem>
                     <FormLabel>Teléfono *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Número de teléfono" {...field} />
+                      <Input 
+                        placeholder="Número de teléfono" 
+                        value={formData.phoneNumber}
+                        onChange={(e) => handleFormChange('phoneNumber', e.target.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -729,7 +764,12 @@ export function ShippingLabelForm(): JSX.Element {
               <FormItem>
                 <FormLabel>Email *</FormLabel>
                 <FormControl>
-                  <Input placeholder="Email" type="email" {...field} />
+                  <Input 
+                    placeholder="Email" 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => handleFormChange('email', e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -839,7 +879,8 @@ export function ShippingLabelForm(): JSX.Element {
                     <Textarea 
                       placeholder="Escriba aquí la calle principal, intersección y número de casa. Agregue alguna referencia de ser necesario." 
                       rows={3} 
-                      {...field} 
+                      value={formData.address}
+                      onChange={(e) => handleFormChange('address', e.target.value)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -855,7 +896,11 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormItem>
                     <FormLabel>Ciudad *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ciudad" {...field} />
+                      <Input 
+                        placeholder="Ciudad" 
+                        value={formData.city}
+                        onChange={(e) => handleFormChange('city', e.target.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -869,8 +914,8 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormLabel>Provincia *</FormLabel>
                   <FormControl>
                     <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
+                      value={formData.province}
+                      onValueChange={(e) => handleFormChange('province', e.target.value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccione una provincia" />
@@ -900,7 +945,8 @@ export function ShippingLabelForm(): JSX.Element {
                   <Textarea 
                     placeholder="Referencias adicionales o instrucciones especiales para la entrega" 
                     rows={2} 
-                    {...field} 
+                    value={formData.deliveryInstructions}
+                    onChange={(e) => handleFormChange('deliveryInstructions', e.target.value)}
                   />
                 </FormControl>
                 <FormMessage />
