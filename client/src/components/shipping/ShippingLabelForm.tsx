@@ -112,6 +112,7 @@ export function ShippingLabelForm(): JSX.Element {
   const preserveStepData = (step: number) => {
     const currentValues = form.getValues();
     if (step === 2) {
+      // In step 2, preserve customer identification fields
       setStep2Snapshot({
         firstName: currentValues.firstName,
         lastName: currentValues.lastName,
@@ -120,13 +121,16 @@ export function ShippingLabelForm(): JSX.Element {
         idNumber: currentValues.idNumber,
         email: currentValues.email
       });
+      console.log("Step 2 snapshot saved:", currentValues.firstName, currentValues.lastName);
     } else if (step === 3) {
+      // In step 3, preserve only address fields to avoid overwriting step 2 fields
       setStep3Snapshot({
         street: currentValues.street,
         city: currentValues.city,
         province: currentValues.province,
         deliveryInstructions: currentValues.deliveryInstructions
       });
+      console.log("Step 3 snapshot saved: Address fields only");
     }
   };
 
@@ -215,7 +219,11 @@ export function ShippingLabelForm(): JSX.Element {
           form.setValue('firstName', firstName);
           form.setValue('lastName', lastName);
           const fullPhone = getFieldValue('phone', 'phone', '');
+          console.log("🔍 Phone from customer:", fullPhone);
+          // Properly parse the phone number to separate country code and number
           const parsedPhone = parsePhoneNumber(fullPhone);
+          console.log("📱 Parsed phone:", parsedPhone);
+          // Set phone country and number separately to avoid duplicating "+" prefix
           form.setValue('phoneCountry', parsedPhone.phoneCountry);
           form.setValue('phoneNumber', parsedPhone.phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
@@ -344,7 +352,9 @@ export function ShippingLabelForm(): JSX.Element {
         name: `${firstName} ${lastName}`,
         firstName,
         lastName,
-        phone: joinPhoneNumber(phoneCountry, phoneNumber), // Recompose phone number
+        phone: joinPhoneNumber(phoneCountry, phoneNumber), // Recompose phone number correctly with joinPhoneNumber
+        phoneCountry: phoneCountry, // Store the individual parts as well
+        phoneNumber: phoneNumber,
         email,
         street,
         city, 
@@ -388,9 +398,12 @@ export function ShippingLabelForm(): JSX.Element {
         formValues.phoneNumber
       );
 
+      // First include all step2 data which has customer identity fields
       const dataToSubmit = {
         ...step2Snapshot,
+        // Then include delivery address fields from step3, being careful not to overwrite the identity fields
         ...step3Snapshot,
+        // Always use the properly joined phone
         phone: finalPhone
       };
 

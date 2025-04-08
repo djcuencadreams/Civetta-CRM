@@ -68,8 +68,13 @@ export function parsePhoneNumber(fullNumber: string): {
 }
 
 export function joinPhoneNumber(country: string, number: string): string {
-  // Handle empty values to prevent "+undefined" or "+null"
+  // Handle empty or undefined inputs to prevent "+undefined" or "+null"
   if (!country && !number) {
+    return '';
+  }
+  
+  // Handle empty inputs explicitly
+  if (country === '' && number === '') {
     return '';
   }
   
