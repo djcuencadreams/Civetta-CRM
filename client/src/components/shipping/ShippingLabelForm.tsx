@@ -117,16 +117,16 @@ export function ShippingLabelForm(): JSX.Element {
   const [customerFound, setCustomerFound] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState<{ id: number; name: string } | null>(null); 
   const [formSnapshot, setFormSnapshot] = useState<ShippingFormValues | null>(null); // Added state to store form values
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ShippingFormValues>({
     firstName: "",
     lastName: "",
     phoneCountry: "",
     phoneNumber: "",
-    cedula: "",
+    idNumber: "",
     email: "",
     city: "",
     province: "",
-    address: "",
+    street: "",
     deliveryInstructions: ""
   });
 
@@ -155,26 +155,7 @@ export function ShippingLabelForm(): JSX.Element {
   useEffect(() => {
     if (currentStep === 3) {
       setTimeout(() => {
-        const formValues = form.getValues();
-        let correctionsMade = false;
-        let cityValue = formValues.city;
-        let instructionsValue = formValues.deliveryInstructions;
-
-        if (cityValue === formValues.idNumber || cityValue === "" || cityValue === null) {
-          cityValue = "Cuenca"; 
-          correctionsMade = true;
-        }
-
-        if (instructionsValue === formValues.email) {
-          instructionsValue = ""; 
-          correctionsMade = true;
-        }
-
-        if (correctionsMade) {
-          form.setValue('city', cityValue, { shouldTouch: true });
-          form.setValue('deliveryInstructions', instructionsValue);
-          form.trigger(['city', 'deliveryInstructions']);
-        } 
+        //Removed unnecessary correction logic for step 3.  Zod validation handles this now.
       }, 100); 
     }
   }, [currentStep, form]);
@@ -224,18 +205,6 @@ export function ShippingLabelForm(): JSX.Element {
               data.customer[snakeCase.toLowerCase()] || 
               defaultValue; 
 
-            const idValue = data.customer.idNumber || data.customer.id_number || '';
-            const emailValue = data.customer.email || '';
-
-            if (camelCase === 'city' && value === idValue) {
-              value = defaultValue || 'Cuenca';
-            }
-
-            if ((camelCase === 'deliveryInstructions' || snakeCase === 'delivery_instructions') 
-                && value === emailValue) {
-              value = defaultValue;
-            }
-
             return value;
           };
 
@@ -246,16 +215,10 @@ export function ShippingLabelForm(): JSX.Element {
           form.setValue('phoneNumber', phoneNumber);
           form.setValue('email', getFieldValue('email', 'email'));
           form.setValue('idNumber', getFieldValue('idNumber', 'id_number'));
-
-          const streetValue = getFieldValue('street', 'street_address', '');
-          const cityValue = getFieldValue('city', 'city_name', 'Cuenca');
-          const provinceValue = getFieldValue('province', 'province_name', 'Azuay');
-          const instructionsValue = getFieldValue('deliveryInstructions', 'delivery_instructions', '');
-
-          form.setValue('street', streetValue, { shouldTouch: true });
-          form.setValue('city', cityValue, { shouldTouch: true });
-          form.setValue('province', provinceValue, { shouldTouch: true });
-          form.setValue('deliveryInstructions', instructionsValue, { shouldTouch: true });
+          form.setValue('street', getFieldValue('street', 'street_address', ''));
+          form.setValue('city', getFieldValue('city', 'city_name', ''));
+          form.setValue('province', getFieldValue('province', 'province_name', ''));
+          form.setValue('deliveryInstructions', getFieldValue('deliveryInstructions', 'delivery_instructions', ''));
 
           setExistingCustomer(data.customer); 
         setCustomerFound(true);
@@ -298,82 +261,7 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
-        console.log("🛑 INICIANDO ENFOQUE RADICAL PARA TRANSICIÓN AL PASO 3");
-
-        const formValues = form.getValues();
-        console.log("📊 Estado inicial de los datos:", {
-          idNumber: formValues.idNumber,
-          email: formValues.email,
-          ciudad: formValues.city || "(vacío)",
-          calle: formValues.street || "(vacío)",
-          provincia: formValues.province || "(vacío)",
-          instrucciones: formValues.deliveryInstructions || "(vacío)"
-        });
-
-        form.unregister('street');
-        form.unregister('city');
-        form.unregister('province');
-        form.unregister('deliveryInstructions');
-
-        const cleanAddressData = {
-          street: formValues.street || "",
-          city: (formValues.city === formValues.idNumber || 
-                 formValues.city === formValues.email || 
-                 !formValues.city || 
-                 formValues.city.includes('@')) 
-                ? "Cuenca"  
-                : formValues.city || "Cuenca",
-          province: (!formValues.province || 
-                    formValues.province.length < 2 || 
-                    formValues.province === formValues.idNumber ||
-                    formValues.province === formValues.email ||
-                    formValues.province.includes('@'))
-                   ? "Azuay"  
-                   : formValues.province,
-          deliveryInstructions: (formValues.deliveryInstructions === formValues.email ||
-                                formValues.deliveryInstructions === formValues.idNumber ||
-                                (formValues.deliveryInstructions && formValues.deliveryInstructions.includes('@')))
-                               ? ""  
-                               : formValues.deliveryInstructions || ""
-        };
-
-        console.log("✅ Datos de dirección preparados:", cleanAddressData);
         setCurrentStep(3);
-
-        setTimeout(() => {
-          console.log("⚙️ Restableciendo campos de dirección de manera forzada...");
-          form.setValue('street', cleanAddressData.street, { 
-            shouldValidate: true, 
-            shouldDirty: false, 
-            shouldTouch: true 
-          });
-          form.setValue('city', cleanAddressData.city, { 
-            shouldValidate: true, 
-            shouldDirty: false, 
-            shouldTouch: true 
-          });
-          form.setValue('province', cleanAddressData.province, { 
-            shouldValidate: true, 
-            shouldDirty: false, 
-            shouldTouch: true 
-          });
-          form.setValue('deliveryInstructions', cleanAddressData.deliveryInstructions, { 
-            shouldDirty: false, 
-            shouldTouch: true 
-          });
-          form.register('street', { required: true });
-          form.register('city', { required: true });
-          form.register('province', { required: true });
-          form.register('deliveryInstructions');
-
-          const updatedValues = form.getValues();
-          console.log("🔍 VERIFICACIÓN FINAL DESPUÉS DE TRANSICIÓN:", {
-            city_antes: formValues.city,
-            city_ahora: updatedValues.city,
-            instrucciones_antes: formValues.deliveryInstructions,
-            instrucciones_ahora: updatedValues.deliveryInstructions
-          });
-        }, 100); 
       } else {
         toast({
           title: "Datos incompletos",
@@ -382,17 +270,9 @@ export function ShippingLabelForm(): JSX.Element {
         });
       }
     } else if (currentStep === 3) {
-      const fieldsToValidate = ["street", "city", "province"];
-      const result = await form.trigger(fieldsToValidate as any);
+      const result = await form.trigger(); // Validate all fields in step 3
 
       if (result) {
-        const addressValues = form.getValues();
-        console.log("✓ Valores de dirección para el resumen:", {
-          calle: addressValues.street,
-          ciudad: addressValues.city, 
-          provincia: addressValues.province,
-          instrucciones: addressValues.deliveryInstructions
-        });
         setCurrentStep(4);
       } else {
         toast({
@@ -520,53 +400,6 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  useEffect(() => {
-    if (currentStep === 3) {
-      console.log("🚨 INTERVENCIÓN PROACTIVA: Tomando control total del paso 3");
-      const formValues = form.getValues();
-      console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales:", {
-        idNumber: formValues.idNumber,
-        email: formValues.email,
-        city: formValues.city,
-        street: formValues.street,
-        province: formValues.province,
-        deliveryInstructions: formValues.deliveryInstructions
-      });
-
-      console.log("🧹 Limpiando campos anteriores...");
-      form.unregister('street');
-      form.unregister('city');
-      form.unregister('province');
-      form.unregister('deliveryInstructions');
-
-      const defaultValues = {
-        street: formValues.street || "",
-        city: (formValues.city === formValues.idNumber) ? "Cuenca" : (formValues.city || "Cuenca"),
-        province: formValues.province || "Azuay",
-        deliveryInstructions: (formValues.deliveryInstructions === formValues.email) ? "" : formValues.deliveryInstructions || ""
-      };
-
-      console.log("🔄 Re-registrando campos con valores seguros:", defaultValues);
-      setTimeout(() => {
-        form.setValue('street', defaultValues.street, { shouldValidate: true, shouldTouch: true });
-        form.setValue('city', defaultValues.city, { shouldValidate: true, shouldTouch: true });
-        form.setValue('province', defaultValues.province, { shouldValidate: true, shouldTouch: true });
-        form.setValue('deliveryInstructions', defaultValues.deliveryInstructions, { shouldTouch: true });
-        form.register('street', { required: true });
-        form.register('city', { required: true });
-        form.register('province', { required: true });
-        form.register('deliveryInstructions');
-
-        const finalValues = form.getValues();
-        console.log("✅ VERIFICACIÓN FINAL - Campos después de reinicio total:", {
-          calle: finalValues.street,
-          ciudad: finalValues.city,
-          provincia: finalValues.province,
-          instrucciones: finalValues.deliveryInstructions
-        });
-      }, 50);
-    }
-  }, [currentStep, form]);
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -672,11 +505,7 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Nombres *</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Nombres" 
-                      value={formData.firstName}
-                      onChange={(e) => handleFormChange('firstName', e.target.value)}
-                    />
+                    <Input {...field} placeholder="Nombres" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -689,11 +518,7 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Apellidos *</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Apellidos" 
-                      value={formData.lastName}
-                      onChange={(e) => handleFormChange('lastName', e.target.value)}
-                    />
+                    <Input {...field} placeholder="Apellidos" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -709,11 +534,7 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Cédula/Pasaporte/RUC *</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Documento de identidad" 
-                      value={formData.cedula}
-                      onChange={(e) => handleFormChange('cedula', e.target.value)}
-                    />
+                    <Input {...field} placeholder="Documento de identidad" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -727,11 +548,7 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormItem>
                     <FormLabel>Código País *</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="+593" 
-                        value={formData.phoneCountry}
-                        onChange={(e) => handleFormChange('phoneCountry', e.target.value)}
-                      />
+                      <Input {...field} placeholder="+593" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -744,11 +561,7 @@ export function ShippingLabelForm(): JSX.Element {
                   <FormItem>
                     <FormLabel>Teléfono *</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Número de teléfono" 
-                        value={formData.phoneNumber}
-                        onChange={(e) => handleFormChange('phoneNumber', e.target.value)}
-                      />
+                      <Input {...field} placeholder="Número de teléfono" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -764,12 +577,7 @@ export function ShippingLabelForm(): JSX.Element {
               <FormItem>
                 <FormLabel>Email *</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="Email" 
-                    type="email" 
-                    value={formData.email}
-                    onChange={(e) => handleFormChange('email', e.target.value)}
-                  />
+                  <Input {...field} placeholder="Email" type="email" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -780,132 +588,50 @@ export function ShippingLabelForm(): JSX.Element {
     </div>
   );
 
-  const renderStep3 = () => {
-    console.log("🚀 INICIANDO RENDERIZADO ULTRA-SEGURO DEL PASO 3");
-    const formValues = form.getValues();
-    console.log("🔍 DIAGNÓSTICO PASO 3 - Valores actuales:", {
-      idNumber: formValues.idNumber,
-      email: formValues.email,
-      city: formValues.city,
-      street: formValues.street,
-      province: formValues.province,
-      deliveryInstructions: formValues.deliveryInstructions
-    });
+  const renderStep3 = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold">Dirección de Envío</h3>
+        <p className="text-sm text-muted-foreground">Ingrese los datos de entrega del pedido</p>
+      </div>
 
-    let safeCity = formValues.city;
-    let safeInstructions = formValues.deliveryInstructions;
-    let safeProvince = formValues.province || "Azuay";
-    let correctedData = false;
-
-    if (
-      formValues.city === formValues.idNumber || 
-      formValues.city === formValues.email ||
-      formValues.city === null || 
-      formValues.city === undefined || 
-      formValues.city === "" ||
-      formValues.city?.length < 2 
-    ) {
-      console.log("🛠️ CORRECCIÓN SEVERA: Ciudad inválida:", formValues.city);
-      safeCity = "Cuenca";
-      correctedData = true;
-      form.setValue('city', safeCity, { shouldValidate: true, shouldTouch: true });
-    }
-
-    if (
-      formValues.deliveryInstructions && (
-        formValues.deliveryInstructions === formValues.email || 
-        formValues.deliveryInstructions === formValues.idNumber ||
-        formValues.deliveryInstructions === formValues.phoneNumber // Posible valor incorrecto adicional
-      )
-    ) {
-      console.log("🛠️ CORRECCIÓN SEVERA: Instrucciones inválidas:", formValues.deliveryInstructions);
-      safeInstructions = "";
-      correctedData = true;
-      form.setValue('deliveryInstructions', safeInstructions, { shouldValidate: true, shouldTouch: true });
-    }
-
-    if (!formValues.province || formValues.province.length < 2) {
-      console.log("🛠️ CORRECCIÓN SEVERA: Provincia inválida:", formValues.province);
-      form.setValue('province', safeProvince, { shouldValidate: true, shouldTouch: true });
-      correctedData = true;
-    }
-
-    if (correctedData) {
-      const finalValues = form.getValues();
-      console.log("✅ VALORES FINALES DESPUÉS DE CORRECCIONES:", {
-        ciudad_final: finalValues.city,
-        instrucciones_final: finalValues.deliveryInstructions,
-        provincia_final: finalValues.province
-      });
-
-      if (finalValues.city !== safeCity || 
-          (safeProvince && finalValues.province !== safeProvince) ||
-          (formValues.deliveryInstructions !== undefined && 
-           safeInstructions !== undefined &&
-           formValues.deliveryInstructions !== safeInstructions && 
-           finalValues.deliveryInstructions !== safeInstructions)) {
-        console.log("⚠️ ALERTA: Los valores corregidos no fueron aplicados correctamente, reintentando...");
-        setTimeout(() => {
-          form.setValue('city', safeCity, { shouldValidate: true, shouldTouch: true });
-          form.setValue('province', safeProvince, { shouldValidate: true, shouldTouch: true });
-          form.setValue('deliveryInstructions', safeInstructions, { shouldTouch: true });
-        }, 0);
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold">Dirección de Envío</h3>
-          <p className="text-sm text-muted-foreground">Ingrese los datos de entrega del pedido</p>
+      {customerType === "existing" && customerFound && (form.getValues("street") || form.getValues("city") || form.getValues("province")) && (
+        <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="text-sm">Se ha cargado la dirección guardada en su perfil. Puede editarla si necesita actualizarla.</span>
         </div>
+      )}
 
-        {customerType === "existing" && customerFound && (form.getValues("street") || form.getValues("city") || form.getValues("province")) && (
-          <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-sm">Se ha cargado la dirección guardada en su perfil. Puede editarla si necesita actualizarla.</span>
-          </div>
-        )}
+      <Form {...form}>
+        <div className="space-y-6">
+          <FormField
+            control={form.control}
+            name="street"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Dirección de Entrega Calle, Intersección y Número de Casa *</FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder="Escriba aquí la calle principal, intersección y número de casa. Agregue alguna referencia de ser necesario." rows={3} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <Form {...form}>
-          <div className="space-y-6">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <FormField
               control={form.control}
-              name="street"
+              name="city"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dirección de Entrega Calle, Intersección y Número de Casa *</FormLabel>
+                  <FormLabel>Ciudad *</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Escriba aquí la calle principal, intersección y número de casa. Agregue alguna referencia de ser necesario." 
-                      rows={3} 
-                      value={formData.address}
-                      onChange={(e) => handleFormChange('address', e.target.value)}
-                    />
+                    <Input {...field} placeholder="Ciudad" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ciudad *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Ciudad" 
-                        value={formData.city}
-                        onChange={(e) => handleFormChange('city', e.target.value)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             <FormField
               control={form.control}
               name="province"
@@ -913,10 +639,7 @@ export function ShippingLabelForm(): JSX.Element {
                 <FormItem>
                   <FormLabel>Provincia *</FormLabel>
                   <FormControl>
-                    <Select
-                      value={formData.province}
-                      onValueChange={(e) => handleFormChange('province', e.target.value)}
-                    >
+                    <Select {...field}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccione una provincia" />
                       </SelectTrigger>
@@ -942,12 +665,7 @@ export function ShippingLabelForm(): JSX.Element {
               <FormItem>
                 <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Referencias adicionales o instrucciones especiales para la entrega" 
-                    rows={2} 
-                    value={formData.deliveryInstructions}
-                    onChange={(e) => handleFormChange('deliveryInstructions', e.target.value)}
-                  />
+                  <Textarea {...field} placeholder="Referencias adicionales o instrucciones especiales para la entrega" rows={2} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -960,10 +678,7 @@ export function ShippingLabelForm(): JSX.Element {
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                 <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
+                  <Checkbox {...field} />
                 </FormControl>
                 <div className="space-y-1 leading-none">
                   <FormLabel>
@@ -973,11 +688,10 @@ export function ShippingLabelForm(): JSX.Element {
               </FormItem>
             )}
           />
-          </div>
-        </Form>
-      </div>
-    );
-  };
+        </div>
+      </Form>
+    </div>
+  );
 
   const renderStep4 = () => {
     const formValues = form.getValues();
