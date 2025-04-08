@@ -285,7 +285,7 @@ export function ShippingLabelForm(): JSX.Element {
     // Get only the fields for the current step
     const fields = preservedStepFields[step as keyof typeof preservedStepFields];
     const values = form.getValues(fields);
-    
+
     // Reset form but preserve only current step fields
     const defaultValues = form.formState.defaultValues;
     form.reset({ 
