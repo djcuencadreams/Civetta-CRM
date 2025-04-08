@@ -16,29 +16,100 @@ export const phoneSchema = z.object({
   phoneNumber: z.string().min(6).max(15)
 });
 
-// New function for normalizing phone numbers to E.164 format using libphonenumber-js
+/**
+ * Normalizes a phone number to the E.164 international format
+ * E.164 format example: +593995815652
+ * 
+ * This function handles various input formats:
+ * - With or without country code
+ * - With or without + prefix
+ * - With or without spaces, dashes, or parentheses
+ * - With or without leading zero (for countries like Ecuador where mobile numbers start with 0)
+ * 
+ * @param raw - Raw phone number input in any format
+ * @returns Normalized E.164 phone number or null if invalid
+ */
 export function normalizePhoneNumber(raw: string): string | null {
   if (!raw || typeof raw !== 'string') return null;
   
-  // Try with libphonenumber-js if available
+  // Remove all whitespace, dashes, parentheses
+  const cleanedInput = raw.trim().replace(/[\s\-\(\)\.]/g, '');
+  
+  // If input is too short, it's definitely invalid
+  if (cleanedInput.length < 5) return null;
+  
+  // Try with libphonenumber-js if available (most accurate)
   if (parsePhoneNumberFromString) {
     try {
-      const parsed = parsePhoneNumberFromString(raw);
-      if (!parsed || !parsed.isValid()) return null;
-      return parsed.number; // E.164 format: e.g., +593999999999
+      // For Ecuador numbers that start with 0, try adding country code
+      let numberToTry = cleanedInput;
+      if (cleanedInput.startsWith('0') && !cleanedInput.startsWith('+') && !cleanedInput.startsWith('00')) {
+        // Try with Ecuador country code if it looks like a local Ecuador number
+        numberToTry = '+593' + cleanedInput.substring(1);
+      }
+      
+      const parsed = parsePhoneNumberFromString(numberToTry);
+      if (parsed && parsed.isValid()) {
+        return parsed.format('E.164'); // E.164 format: e.g., +593999999999
+      }
+      
+      // If the modified number didn't work, try the original
+      if (numberToTry !== cleanedInput) {
+        const originalParsed = parsePhoneNumberFromString(cleanedInput);
+        if (originalParsed && originalParsed.isValid()) {
+          return originalParsed.format('E.164');
+        }
+      }
+      
+      // Fall back to custom implementation
     } catch (error) {
-      console.error('Error parsing phone number with libphonenumber-js:', error);
-      // Fall back to our custom implementation
+      console.warn('Error parsing phone number with libphonenumber-js:', error);
+      // Continue to fallback implementation
     }
   }
   
-  // Legacy fallback if libphonenumber-js is not available
-  const formatted = joinPhoneNumber(extractCountryCode(raw), extractPhoneNumber(raw));
+  // Custom implementation fallback
+  let formatted: string;
+  
+  // Handle common international prefixes
+  if (cleanedInput.startsWith('00')) {
+    // International prefix "00" - replace with +
+    formatted = '+' + cleanedInput.substring(2);
+  } else if (cleanedInput.startsWith('+')) {
+    // Already has + prefix
+    formatted = cleanedInput;
+  } else if (cleanedInput.startsWith('0')) {
+    // For numbers starting with 0 (common in Ecuador, Mexico, etc.)
+    // Assume it's an Ecuador number (default country) unless we have evidence otherwise
+    formatted = '+593' + cleanedInput.substring(1);
+  } else if (/^[1-9]\d{9,14}$/.test(cleanedInput)) {
+    // Number without + but starts with a digit 1-9 and has 10-15 digits total
+    // This is likely a full international number without the + prefix
+    
+    // Try to extract country code intelligently
+    const { phoneCountry, phoneNumber } = parsePhoneNumber(cleanedInput);
+    formatted = phoneCountry + phoneNumber;
+  } else {
+    // For all other formats, use our general parsing function
+    formatted = joinPhoneNumber(extractCountryCode(cleanedInput), extractPhoneNumber(cleanedInput));
+  }
   
   // Ensure the formatted number is valid before returning it
-  return isValidPhoneNumber(formatted) ? formatted : null;
+  // This creates a cleaner database by rejecting clearly invalid numbers
+  if (!isValidPhoneNumber(formatted)) {
+    return null;
+  }
+  
+  return formatted;
 }
 
+/**
+ * Parses a phone number string into country code and national number components
+ * Implements robust parsing logic based on E.164 standard
+ * 
+ * @param fullNumber - Phone number to parse (can be in various formats)
+ * @returns Object with phoneCountry (country code with +) and phoneNumber (national number)
+ */
 export function parsePhoneNumber(fullNumber: string): {
   phoneCountry: string;
   phoneNumber: string;
@@ -46,7 +117,7 @@ export function parsePhoneNumber(fullNumber: string): {
   // Handle empty or undefined input
   if (!fullNumber) {
     return {
-      phoneCountry: '+593',
+      phoneCountry: '+593', // Default to Ecuador
       phoneNumber: '',
     };
   }
@@ -54,20 +125,70 @@ export function parsePhoneNumber(fullNumber: string): {
   // Remove all non-digit characters except '+'
   const cleaned = fullNumber.replace(/[^\d+]/g, "");
   
-  // Standard country codes for Ecuador (default), USA, and common countries
-  const commonCountryCodes = ['1', '44', '34', '52', '57', '593', '54', '56'];
+  if (cleaned.length < 5) {
+    // Too short to be a valid international phone number
+    return {
+      phoneCountry: '+593', // Default to Ecuador
+      phoneNumber: cleaned,
+    };
+  }
+  
+  // Define country codes with more specific prioritization
+  // Order matters - we check longer codes first to avoid ambiguity
+  const countryCodes = [
+    // Latin America
+    '593', // Ecuador
+    '591', // Bolivia
+    '57', // Colombia
+    '56', // Chile
+    '51', // Peru
+    '54', // Argentina
+    '52', // Mexico
+    '58', // Venezuela
+    '55', // Brazil
+    '507', // Panama
+    '506', // Costa Rica
+    '504', // Honduras
+    // North America
+    '1', // USA/Canada
+    // Europe
+    '44', // UK
+    '49', // Germany
+    '34', // Spain
+    '33', // France
+    '39', // Italy
+    // Others
+    '7', // Russia
+    '86', // China
+    '81', // Japan
+    '82', // South Korea
+  ];
   
   // Handle numbers that already include '+'
   if (cleaned.startsWith('+')) {
     const withoutPlus = cleaned.substring(1);
     
-    // Try to match country code patterns (1-3 digits for country code)
-    for (let i = 3; i >= 1; i--) {
-      const countryCode = withoutPlus.substring(0, i);
-      // Prefer known country codes if they match
-      if (commonCountryCodes.includes(countryCode) || i === 3) {
+    // Special handling for numbers starting with double zero (international prefix)
+    if (withoutPlus.startsWith('00')) {
+      return parsePhoneNumber(withoutPlus.substring(2));
+    }
+    
+    // Match against known country codes, prioritizing longer codes
+    for (const code of countryCodes) {
+      if (withoutPlus.startsWith(code)) {
         return {
-          phoneCountry: `+${countryCode}`,
+          phoneCountry: `+${code}`,
+          phoneNumber: withoutPlus.substring(code.length),
+        };
+      }
+    }
+    
+    // If we can't match a specific country code, try a generic approach
+    // Most country codes are 1-3 digits
+    for (let i = 3; i >= 1; i--) {
+      if (withoutPlus.length > i + 4) { // Ensure we have enough digits for a valid number
+        return {
+          phoneCountry: `+${withoutPlus.substring(0, i)}`,
           phoneNumber: withoutPlus.substring(i),
         };
       }
@@ -80,20 +201,46 @@ export function parsePhoneNumber(fullNumber: string): {
     };
   }
 
-  // Handle numbers without '+'
-  // Try to match country code patterns (1-3 digits for country code)
-  for (let i = 3; i >= 1; i--) {
-    const countryCode = cleaned.substring(0, i);
-    // Prefer known country codes if they match
-    if (commonCountryCodes.includes(countryCode) || i === 3) {
+  // Handle numbers without '+' prefix
+  
+  // Special case for Ecuador: numbers starting with 0 are domestic (strip the 0)
+  if (cleaned.startsWith('0') && (cleaned.length === 10 || cleaned.length === 9)) {
+    return {
+      phoneCountry: '+593',
+      phoneNumber: cleaned.substring(1),
+    };
+  }
+  
+  // Special handling for numbers starting with double zero (international prefix)
+  if (cleaned.startsWith('00')) {
+    return parsePhoneNumber(cleaned.substring(2));
+  }
+  
+  // Try to match known country codes
+  for (const code of countryCodes) {
+    if (cleaned.startsWith(code)) {
+      // For numbers with explicitly entered country codes (without + prefix)
       return {
-        phoneCountry: `+${countryCode}`,
-        phoneNumber: cleaned.substring(i),
+        phoneCountry: `+${code}`,
+        phoneNumber: cleaned.substring(code.length),
       };
     }
   }
   
-  // Default fallback
+  // If number looks like a full international number (>= 10 digits) but doesn't match known codes,
+  // try a generic approach assuming 1-3 digit country code
+  if (cleaned.length >= 10) {
+    for (let i = 3; i >= 1; i--) {
+      if (cleaned.length > i + 5) { // Ensure we have enough digits remaining
+        return {
+          phoneCountry: `+${cleaned.substring(0, i)}`,
+          phoneNumber: cleaned.substring(i),
+        };
+      }
+    }
+  }
+  
+  // Default: assume it's an Ecuador number without country code
   return {
     phoneCountry: '+593',
     phoneNumber: cleaned,
@@ -182,24 +329,70 @@ function extractPhoneNumber(phone: string): string {
   return cleaned;
 }
 
-// Function to check if a phone number is valid (can be used both in frontend and backend)
+/**
+ * Validates a phone number against E.164 standard and country-specific rules
+ * Provides robust validation even without external libraries
+ * 
+ * @param phone - Phone number to validate (can be any format)
+ * @returns true if the phone number is valid, false otherwise
+ */
 export function isValidPhoneNumber(phone: string): boolean {
   if (!phone) return false;
   
-  // Use libphonenumber-js if available
+  // Use libphonenumber-js if available (preferred method)
   if (parsePhoneNumberFromString) {
     try {
       const parsed = parsePhoneNumberFromString(phone);
       return parsed ? parsed.isValid() : false;
     } catch (error) {
-      // Fall back to basic validation
+      // Fall back to custom validation
+      console.warn('Error using libphonenumber-js for validation, using fallback:', error);
     }
   }
   
-  // Basic validation: non-empty string with at least 8 digits (after cleaning)
-  // Most international phone numbers are between 8 and 15 digits (excluding country code)
-  const cleaned = phone.replace(/[^\d]/g, "");
-  return cleaned.length >= 8 && cleaned.length <= 15;
+  // Clean the input, removing everything except digits and '+'
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  
+  // Too short or too long
+  if (cleaned.length < 8 || cleaned.length > 15) {
+    return false;
+  }
+  
+  // E.164 validation: Must start with + followed by country code and national number
+  if (cleaned.startsWith('+')) {
+    // Get the parts using our robust parser
+    const { phoneCountry, phoneNumber } = parsePhoneNumber(cleaned);
+    
+    // Country code must be 1-3 digits after +
+    const countryCodeDigits = phoneCountry.replace(/\D/g, '');
+    if (countryCodeDigits.length < 1 || countryCodeDigits.length > 3) {
+      return false;
+    }
+    
+    // National number must be reasonable length (5-12 digits typically)
+    const nationalNumberDigits = phoneNumber.replace(/\D/g, '');
+    if (nationalNumberDigits.length < 5 || nationalNumberDigits.length > 12) {
+      return false;
+    }
+    
+    // Country-specific validation for common countries
+    if (phoneCountry === '+593') { // Ecuador
+      // Ecuador mobile numbers are 9 digits after country code
+      // Ecuador landline numbers are 8 digits after country code
+      return nationalNumberDigits.length === 9 || nationalNumberDigits.length === 8;
+    }
+    
+    if (phoneCountry === '+1') { // USA/Canada
+      // North American numbers are exactly 10 digits (3-digit area code + 7-digit number)
+      return nationalNumberDigits.length === 10;
+    }
+    
+    // For other countries, just verify the total length is reasonable
+    return (countryCodeDigits.length + nationalNumberDigits.length) >= 9;
+  }
+  
+  // Numbers without + should have at least 8 digits
+  return cleaned.length >= 8;
 }
 
 // Function to build a full phone number from individual parts (used by customer service)
