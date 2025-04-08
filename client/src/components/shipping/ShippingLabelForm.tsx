@@ -270,6 +270,10 @@ export function ShippingLabelForm(): JSX.Element {
   const goToNextStep = async () => {
     // Guarda los datos del paso actual antes de continuar
     preserveStepData(currentStep);
+    
+    // Mostrar diagnóstico justo antes de cambiar el paso
+    console.log(`⏭️ Avanzando desde el paso ${currentStep} hacia el siguiente.`);
+    console.log(`📋 Snapshots guardados:`, formSnapshots);
 
     if (currentStep === 1) {
       // Simple avance al paso 2
@@ -280,18 +284,54 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
-        // Al avanzar al paso 3, recordamos restaurar la información de dirección 
-        // del snapshot si existe (para clientes existentes que ya tenían dirección)
-        if (formSnapshots[3] && Object.keys(formSnapshots[3]).length > 0) {
-          console.log("🔄 Restaurando datos previos del paso 3:", formSnapshots[3]);
-          const step3Data = formSnapshots[3];
-          
-          // Solo restauramos campos de dirección, no los personales
-          if (step3Data.street) form.setValue("street", step3Data.street);
-          if (step3Data.city) form.setValue("city", step3Data.city);
-          if (step3Data.province) form.setValue("province", step3Data.province);
-          if (step3Data.deliveryInstructions) form.setValue("deliveryInstructions", step3Data.deliveryInstructions);
+        // IMPORTANTE: Ahora vamos a verificar los datos exactos que tenemos
+        // antes de avanzar al paso 3
+        const currentFormValues = form.getValues();
+        console.log("🔎 Datos del formulario antes de avanzar al paso 3:", currentFormValues);
+        
+        // Al avanzar al paso 3, creamos una copia limpia y explícita de los datos
+        // para evitar contaminación entre campos diferentes
+        if (customerType === "existing" && customerFound) {
+          // Si tenemos un cliente existente y los datos de la dirección guardados
+          // podemos restaurarlos aquí de manera segura desde el objeto customer
+          if (existingCustomer) {
+            console.log("🏠 Datos de dirección del cliente existente:", {
+              street: existingCustomer.street,
+              city: existingCustomer.city,
+              province: existingCustomer.province,
+              deliveryInstructions: existingCustomer.deliveryInstructions
+            });
+            
+            // Establecemos de manera explícita cada campo de dirección
+            if (existingCustomer.street) form.setValue("street", existingCustomer.street);
+            if (existingCustomer.city) form.setValue("city", existingCustomer.city);
+            if (existingCustomer.province) form.setValue("province", existingCustomer.province);
+            if (existingCustomer.deliveryInstructions) 
+              form.setValue("deliveryInstructions", existingCustomer.deliveryInstructions);
+          }
+        } else {
+          // Si es un cliente nuevo, podemos revisar si hay datos previos en snapshots
+          if (formSnapshots[3] && Object.keys(formSnapshots[3]).length > 0) {
+            const step3Data = formSnapshots[3];
+            console.log("🔄 Restaurando datos previos del paso 3:", step3Data);
+            
+            // Solo restauramos campos de dirección específicos
+            if (step3Data.street) form.setValue("street", step3Data.street);
+            if (step3Data.city) form.setValue("city", step3Data.city);
+            if (step3Data.province) form.setValue("province", step3Data.province);
+            if (step3Data.deliveryInstructions) form.setValue("deliveryInstructions", step3Data.deliveryInstructions);
+          } else {
+            // Si no hay datos previos, aseguramos que los campos estén vacíos
+            // para evitar que datos de identificación contaminen estos campos
+            form.setValue("street", "");
+            form.setValue("city", "");
+            form.setValue("province", "");
+            form.setValue("deliveryInstructions", "");
+          }
         }
+        
+        // Verificar estado final después de restaurar datos
+        console.log("✅ Datos restaurados antes de avanzar:", form.getValues());
         
         setCurrentStep(3 as WizardStep);
       } else {
@@ -307,6 +347,18 @@ export function ShippingLabelForm(): JSX.Element {
       const result = await form.trigger(fieldsToValidate as any);
 
       if (result) {
+        // Guardamos los datos del último paso explícitamente en un snapshot fresco
+        const currentValues = form.getValues();
+        setFormSnapshots(prev => ({
+          ...prev,
+          3: {
+            street: currentValues.street,
+            city: currentValues.city,
+            province: currentValues.province,
+            deliveryInstructions: currentValues.deliveryInstructions
+          }
+        }));
+        
         setCurrentStep(4 as WizardStep);
       } else {
         toast({
@@ -395,14 +447,16 @@ export function ShippingLabelForm(): JSX.Element {
     // Los campos se limpiarán solo si el usuario es nuevo, no si es existente con datos ya cargados
     if (currentStep === 2 && customerType === "new") {
       // Solo limpiamos los campos si estamos en el caso de cliente nuevo
+      // Y aseguramos que no se estén utilizando para otro propósito
       form.setValue("street", '');
       form.setValue("city", '');
       form.setValue("province", '');
       form.setValue("deliveryInstructions", '');
     }
     
-    // Cuando avanzamos a cualquier paso, registramos el evento para debugging
+    // Diagnóstico: Mostrar estado completo para debugging
     console.log(`📝 Cambiando al paso ${currentStep} - Tipo de cliente: ${customerType}`);
+    console.log(`🔍 Estado actual del formulario en paso ${currentStep}:`, form.getValues());
   }, [currentStep, customerType, form]);
 
   const updateCustomerFromWizard = async (customerId: number) => {
