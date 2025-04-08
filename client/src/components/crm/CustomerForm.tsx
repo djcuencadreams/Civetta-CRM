@@ -35,6 +35,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parsePhoneNumber, joinPhoneNumber, synchronizePhoneFields } from '../../utils/phone-utils';
+import { PhoneInput } from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 import { 
   Calendar, 
   Package, 
@@ -129,7 +131,7 @@ export function CustomerForm({
     refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
     staleTime: 0, // Siempre obtener datos frescos
   });
-  
+
   // Log de los datos recibidos desde la API
   useEffect(() => {
     if (customer) {
@@ -224,10 +226,10 @@ export function CustomerForm({
         (typeof customer.billingAddress === 'object' ? 
           (customer.billingAddress as BillingAddress)?.street !== customer.street : false))
     : false;
-    
+
   // Si no tiene una dirección diferente, usamos "misma dirección"
   const initialSameAsBilling = !hasDifferentBillingAddress;
-  
+
   const [sameAsBilling, setSameAsBilling] = useState(initialSameAsBilling);
   const [customerTags, setCustomerTags] = useState<string[]>(
     customer?.tags && Array.isArray(customer.tags) ? customer.tags : []
@@ -241,8 +243,7 @@ export function CustomerForm({
       lastName: "",
       idNumber: "",
       email: "",
-      phoneCountry: DEFAULT_COUNTRY_CODE,
-      phoneNumber: "",
+      phone: "",
       secondaryPhone: "",
       street: "",
       city: "",
@@ -260,7 +261,7 @@ export function CustomerForm({
       notes: ""
     }
   });
-  
+
   // Actualizar el formulario cuando se cargan los datos del cliente desde la API
   useEffect(() => {
     if (customer) {
@@ -273,13 +274,7 @@ export function CustomerForm({
         email: customer.email || '',
         // El campo phone es la fuente de verdad. Los campos phoneCountry y phoneNumber son solo para UI
         // Usamos parsePhoneNumber para descomponer el phone unificado en sus partes para la UI
-        ...(customer.phone 
-          ? parsePhoneNumber(customer.phone) 
-          // Si no hay phone pero hay phoneCountry/phoneNumber, sincronizamos para generar un phone válido
-          : (customer.phoneCountry || customer.phoneNumber) 
-            ? synchronizePhoneFields(null, customer.phoneCountry, customer.phoneNumber) 
-            // Si no hay datos de teléfono, usamos valores por defecto
-            : { phoneCountry: DEFAULT_COUNTRY_CODE, phoneNumber: '' }),
+        phone: customer.phone || '',
         secondaryPhone: customer.secondaryPhone || '',
         // Use structured address fields if available, otherwise use empty values
         // Note: The address field is commented out in schema.ts but it might exist in older records
@@ -373,7 +368,7 @@ export function CustomerForm({
           : brandEnum.SLEEPWEAR,
         notes: customer.notes || ''
       });
-      
+
       // Actualizar tags si están disponibles
       if (customer.tags && Array.isArray(customer.tags)) {
         setCustomerTags(customer.tags);
@@ -435,13 +430,7 @@ export function CustomerForm({
           }
           // Sincronizar y normalizar datos del teléfono
   // Usamos el campo phone unificado como fuente de verdad
-  const phoneFields = synchronizePhoneFields(
-    joinPhoneNumber(data.phoneCountry, formatPhoneNumber(data.phoneNumber)),
-    data.phoneCountry,
-    formatPhoneNumber(data.phoneNumber)
-  );
-            
-  const formattedData = {
+          const formattedData = {
             // Generar un nombre completo consistente a partir de firstName y lastName
             name: `${data.firstName.trim()} ${data.lastName.trim()}`,
             firstName: data.firstName.trim(),
@@ -449,9 +438,7 @@ export function CustomerForm({
             idNumber: data.idNumber?.trim() || null,
             email: data.email?.trim() || null,
             // Usar los datos de teléfono normalizados y sincronizados
-            phone: phoneFields.phone,
-            phoneCountry: phoneFields.phoneCountry,
-            phoneNumber: phoneFields.phoneNumber,
+            phone: data.phone,
             secondaryPhone: data.secondaryPhone?.trim() || null,
             street: data.street?.trim() || null,
             city: data.city?.trim() || null,
@@ -512,7 +499,7 @@ export function CustomerForm({
               )}
             />
           </div>
-          
+
           <FormField
             control={form.control}
             name="idNumber"
@@ -688,47 +675,17 @@ export function CustomerForm({
           <div className="grid grid-cols-12 gap-4">
             <FormField
               control={form.control}
-              name="phoneCountry"
+              name="phone"
               render={({ field }) => (
-                <FormItem className="col-span-5">
-                  <FormLabel>País</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={isViewMode} 
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countryCodes.map(({code, country}) => (
-                        <SelectItem key={code} value={code}>
-                          {country}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem className="col-span-7">
+                <FormItem className="col-span-12">
                   <FormLabel>Teléfono celular</FormLabel>
                   <FormControl>
-                    <Input 
-                      maxLength={10} 
-                      {...field} 
-                      readOnly={isViewMode}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        if (value.length <= 10) {
-                          field.onChange(value);
-                        }
-                      }}
+                    <PhoneInput
+                      {...field}
+                      international
+                      defaultCountry="EC"
+                      placeholder="Ej. 0999999999 (se convertirá automáticamente a formato internacional)"
+                      onChange={(value) => field.onChange(value)}
                     />
                   </FormControl>
                   <FormMessage />
@@ -827,11 +784,11 @@ export function CustomerForm({
                       const currentStreet = form.getValues('street') || '';
                       const currentCity = form.getValues('city') || '';
                       const currentProvince = form.getValues('province') || '';
-                      
+
                       form.setValue('billingStreet', currentStreet);
                       form.setValue('billingCity', currentCity);
                       form.setValue('billingProvince', currentProvince);
-                      
+
                       // Mostrar toast para confirmar acción
                       if (currentStreet) {
                         toast({ 
@@ -857,7 +814,7 @@ export function CustomerForm({
           {!sameAsBilling && (
             <div className="space-y-4 border-t pt-4 mt-2">
               <h3 className="font-medium">Dirección de Facturación</h3>
-              
+
               <FormField
                 control={form.control}
                 name="billingStreet"
@@ -962,7 +919,7 @@ export function CustomerForm({
           {/* Sección de Etiquetas */}
           <div className="space-y-4">
             <h3 className="font-medium">Etiquetas del Cliente</h3>
-            
+
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1 mb-2">
                 {customerTags.map((tag, index) => (
@@ -984,7 +941,7 @@ export function CustomerForm({
                   <p className="text-xs text-muted-foreground">No hay etiquetas asignadas</p>
                 )}
               </div>
-              
+
               {!isViewMode && (
                 <div className="flex gap-2">
                   <Input 
@@ -1035,7 +992,7 @@ export function CustomerForm({
                     <p className="text-sm mt-1">{customer?.createdAt ? new Date(customer.createdAt).toLocaleDateString() : "N/A"}</p>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardContent className="pt-4">
                     <div className="flex items-center space-x-2 text-sm">
@@ -1045,7 +1002,7 @@ export function CustomerForm({
                     <p className="text-sm mt-1">{customer?.lastPurchase ? new Date(customer.lastPurchase).toLocaleDateString() : "Sin compras"}</p>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardContent className="pt-4">
                     <div className="flex items-center space-x-2 text-sm">
