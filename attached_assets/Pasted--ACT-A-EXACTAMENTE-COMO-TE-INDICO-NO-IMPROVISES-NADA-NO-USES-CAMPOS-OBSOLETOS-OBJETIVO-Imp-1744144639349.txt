@@ -1,0 +1,109 @@
+🚨 ACTÚA EXACTAMENTE COMO TE INDICO. NO IMPROVISES NADA. NO USES CAMPOS OBSOLETOS.
+
+🎯 OBJETIVO:
+Implementar manejo profesional de números de teléfono para clientes, con validación y guardado en formato E.164 (ej. +593995815652) en todo el sistema CRM (Wizard, CRM panel, API y base de datos).
+
+---
+
+🔁 CAMBIOS EN FRONTEND:
+
+1. Sustituye `phoneCountry` y `phoneNumber` por un único campo `phone`, usando el componente `react-phone-number-input` (versión con dropdown y banderas).
+
+2. En los formularios:
+   - `ShippingLabelForm.tsx`
+   - `CustomerForm.tsx`
+
+   Reemplaza los campos anteriores por:
+
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
+
+<PhoneInput
+  defaultCountry="EC"
+  value={form.watch('phone')}
+  onChange={(value) => form.setValue('phone', value || '')}
+  international
+  countryCallingCodeEditable={true}
+  placeholder="Ej. 0999999999 (se convertirá a formato internacional)"
+/>
+
+3. Elimina por completo cualquier uso o estado relacionado a:
+   - `phoneCountry`
+   - `phoneNumber`
+   - `countryCode`
+   - otros campos telefónicos separados
+
+---
+
+📦 CAMBIOS EN BACKEND:
+
+1. Instala (si no está): npm install libphonenumber-js
+
+2. Crea un archivo `server/utils/phone-utils.ts` con:
+
+import { parsePhoneNumberFromString } from 'libphonenumber-js'
+
+export function normalizePhoneNumber(raw: string): string | null {
+  const parsed = parsePhoneNumberFromString(raw)
+  if (!parsed || !parsed.isValid()) return null
+  return parsed.number // formato E.164: ej. +593999999999
+}
+
+3. En `server/services/customers.service.ts`, en los métodos `createCustomer` y `updateCustomer`, importa:
+
+import { normalizePhoneNumber } from '../utils/phone-utils'
+
+Y antes de guardar el cliente, añade:
+
+const phoneFormatted = normalizePhoneNumber(data.phone || '')
+if (!phoneFormatted) {
+  throw new Error('Número de teléfono inválido')
+}
+
+Y luego úsalo:
+
+phone: phoneFormatted,
+
+---
+
+🔎 VALIDACIONES UX (frontend):
+
+- Si el número ingresado no es válido, muestra un mensaje visual claro debajo del campo.
+- Si puedes, implementa validación usando `react-hook-form` con:
+
+rules={{
+  required: 'Este campo es obligatorio',
+  validate: value =>
+    isValidPhoneNumber(value || '') || 'Número de teléfono inválido'
+}}
+
+(usa: import { isValidPhoneNumber } from 'react-phone-number-input')
+
+---
+
+⚙️ EN BASE DE DATOS:
+
+- Asegúrate de que el campo `phone` en la tabla `customers` sea tipo `text`, único, y se almacene solo en formato E.164.
+
+---
+
+🧪 PRUEBA:
+
+1. Crear un cliente con número ecuatoriano: 0999999999
+2. Crear otro con número de EE.UU.: +13051234567
+3. Verifica:
+   - Que se muestre correctamente en formulario, lista y ficha de cliente.
+   - Que se guarde como +593999999999 y +13051234567 en la DB.
+   - Que nunca se guarde el 0 inicial para Ecuador ni doble +
+
+---
+
+⚠️ RESTRICCIONES:
+
+✅ NO dupliques lógica innecesaria  
+✅ NO mantengas los campos antiguos  
+✅ NO guardes country code separado  
+✅ NO guardes el número si no es válido  
+✅ SÍ verifica que todo el sistema funcione tras estos cambios
+
+Esto es un cambio estructural, profesional y globalmente validado. Ejecútalo exactamente como se indica.
