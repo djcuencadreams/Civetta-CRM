@@ -917,7 +917,7 @@ export function ShippingLabelForm(): JSX.Element {
                   <p className="text-sm font-medium">Dirección completa:</p>
                   <p className="text-sm">{formValues.street}</p>
                 </div>
-                <div className<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Ciudad:</p>
                     <p className="text-sm">{formValues.city}</p>
