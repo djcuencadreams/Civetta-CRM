@@ -917,8 +917,6 @@ export function CustomerForm({
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Ecuador">Ecuador</SelectItem>
                           <SelectItem value="Colombia">Colombia</SelectItem>
