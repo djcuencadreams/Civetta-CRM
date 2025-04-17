@@ -25,8 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
-import PhoneInput from 'react-phone-number-input'
-//import 'react-phone-number-input/rhn-style.css'
 
 // Added isValidPhoneNumber function (placeholder - replace with actual validation)
 const isValidPhoneNumber = (value: string): boolean => {
