@@ -138,7 +138,7 @@ app.use((req, res, next) => {
   
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services
-  const legacyServer = registerRoutes(app);
+  registerRoutes(app);
   log("Legacy routes registered");
 
   // Global error handling middleware

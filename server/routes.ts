@@ -19,8 +19,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-export function registerRoutes(app: Express): Server {
-  const httpServer = createServer(app);
+export function registerRoutes(app: Express): void {
+  // No need to create a new HTTP server here
   app.use(router);
 
   // Enable file uploads
@@ -1248,7 +1248,7 @@ export function registerRoutes(app: Express): Server {
   // Register order management routes
   registerOrderRoutes(app);
 
-  return httpServer;
+  // No longer returning a server instance
 }
 
 // Helper function to parse CSV data with improved error handling
