@@ -13,7 +13,7 @@ import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sist
 import { registerImprovedShippingRoutes } from "./routes-shipping-improved-fixed"; // Sistema mejorado con creación automática de clientes y soporte firstName/lastName
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer"; // Endpoint mejorado para verificación de clientes
 import { registerWebFormRoutes } from "./routes-web-form"; // Formulario web de envío
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
 import { serviceRegistry, eventListenerService } from "./services";
@@ -153,18 +153,18 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  // Health check endpoint for Replit
+  // 1. ENDPOINTS DE MONITOREO
   app.get("/healthz", (_req, res) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+    });
   });
 
-  // Root endpoint for Replit
-  app.get("/", (_req, res) => {
-    res.status(200).send("Civetta CRM corriendo.");
-  });
+  // 2. ¡NO pongas app.get("/") aquí!
 
-  // Setup static file serving for public directory with our index.html
-  setupVite(app);
+  // 3. FRONTEND COMPLETO
+  setupVite(app); // ← Esto sirve React/Vite correctamente
 
   // Use internal port 3000 as the main web application port (mapped to external port 80)
   const PORT = 3000;
