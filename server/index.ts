@@ -165,8 +165,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use internal port 5000 as the main web application port (mapped to external port 80)
-  const PORT = 5000;
+  // Use port 5000 mapped to 80 for web access
+  const PORT = process.env.NODE_ENV === 'production' ? 5000 : 3000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
