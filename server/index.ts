@@ -162,14 +162,18 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  // Serve static files from dist directory
-  const distPath = path.resolve(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-
-  // Serve index.html for all other routes to support client-side routing
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  // Serve static files and handle client-side routing
+  if (app.get("env") === "development") {
+    // In development, Vite handles static files
+    await setupVite(app, server);
+  } else {
+    // In production, serve from dist directory
+    const distPath = path.resolve(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
 
   if (app.get("env") === "development") {
