@@ -234,7 +234,6 @@ export function registerNewShippingRoutes(app: Express) {
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: true,
           items: true,
           assignedUser: true
         }
@@ -245,7 +244,18 @@ export function registerNewShippingRoutes(app: Express) {
         return res.status(404).json({ error: 'Orden no encontrada' });
       }
 
-      console.log('✅ Orden encontrada, ID:', order.id, 'Cliente:', order.customer?.name);
+      // Obtener datos actualizados del cliente directamente desde la base de datos
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, order.customerId)
+      });
+
+      if (!customer) {
+        console.error('⚠️ Cliente no encontrado para la orden:', orderId);
+        return res.status(404).json({ error: 'Cliente no encontrado para esta orden' });
+      }
+
+      console.log('✅ Orden encontrada, ID:', order.id, 'Cliente:', customer.name);
+      console.log('[OrderService] Datos completos del cliente para orden', orderId, ':', customer);
 
       // Extraer información de envío 
       let shippingInfo: any = {};
@@ -263,19 +273,42 @@ export function registerNewShippingRoutes(app: Express) {
         }
       }
 
-      // Preparar datos para la etiqueta con más información
+      // Generar nombre completo utilizando firstName y lastName para mayor precisión
+      const fullName = customer.firstName && customer.lastName 
+        ? `${customer.firstName} ${customer.lastName}`
+        : customer.name;
+
+      // Preparar datos para la etiqueta utilizando PRINCIPALMENTE los datos del cliente
+      // Solo usar la información de envío de la orden para campos específicos que no deben cambiar
       const labelData = {
-        name: shippingInfo.fullName || shippingInfo.name || order.customer?.name || `Cliente #${order.customerId}`,
-        phone: shippingInfo.phone || order.customer?.phone || 'No disponible',
-        street: shippingInfo.street || order.customer?.street || order.customer?.address || 'No disponible',
-        city: shippingInfo.city || order.customer?.city || 'No disponible',
-        province: shippingInfo.province || order.customer?.province || 'No disponible',
-        idNumber: shippingInfo.idNumber || order.customer?.idNumber || 'No disponible',
+        // Usar siempre el nombre actualizado del cliente
+        name: fullName || customer.name || `Cliente #${order.customerId}`,
+        // Usar siempre el teléfono actualizado del cliente
+        phone: String(customer.phone || shippingInfo.phone || 'No disponible'),
+        // Usar siempre la dirección actualizada del cliente
+        street: String(customer.street || shippingInfo.street || 'No disponible'),
+        // Usar siempre la ciudad actualizada del cliente
+        city: String(customer.city || shippingInfo.city || 'No disponible'),
+        // Usar siempre la provincia actualizada del cliente
+        province: String(customer.province || shippingInfo.province || 'No disponible'),
+        // Usar siempre el número de identificación actualizado del cliente
+        idNumber: String(customer.idNumber || shippingInfo.idNumber || 'No disponible'),
+        // Estos campos específicos de la orden se mantienen igual
         orderNumber: order.orderNumber || `ORD-${order.id.toString().padStart(6, '0')}`,
         trackingNumber: order.trackingNumber || '',
-        instructions: shippingInfo.instructions || order.customer?.deliveryInstructions || '',
-        companyName: order.customer?.type === 'company' ? order.customer.name : undefined
+        // Usar siempre las instrucciones actualizadas del cliente
+        instructions: String(customer.deliveryInstructions || shippingInfo.instructions || ''),
+        companyName: customer.type === 'company' && customer.name ? customer.name : undefined
       };
+      
+      console.log('✅ Datos del cliente actualizados para etiqueta:', {
+        nombre: labelData.name,
+        telefono: labelData.phone,
+        direccion: labelData.street,
+        ciudad: labelData.city,
+        provincia: labelData.province,
+        instrucciones: labelData.instructions
+      });
 
       console.log('📄 Generando etiqueta con datos:', labelData);
 
