@@ -33,10 +33,26 @@ export function registerRoutes(app: Express): void {
   // Customers API
   app.get("/api/customers", async (_req, res) => {
     try {
-      // Simplificar la consulta para diagnóstico
+      // Consulta simplificada que selecciona solo campos específicos para evitar errores de tipo
       try {
-        // Solo obtener clientes sin relaciones
-        const result = await db.select().from(customers);
+        // Solo obtener clientes sin relaciones, seleccionando campos específicos
+        const result = await db.select({
+          id: customers.id,
+          name: customers.name,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          email: customers.email,
+          phone: customers.phone,
+          type: customers.type,
+          status: customers.status,
+          street: customers.street,
+          city: customers.city,
+          province: customers.province,
+          deliveryInstructions: customers.deliveryInstructions,
+          createdAt: customers.createdAt,
+          updatedAt: customers.updatedAt
+        }).from(customers);
+        
         console.log('Consulta simple exitosa, tipo de resultado:', typeof result);
         console.log('¿Es un Array?', Array.isArray(result));
         console.log('Número de resultados:', result.length);

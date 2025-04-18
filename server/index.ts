@@ -3,12 +3,11 @@ import express from "express";
 import { setupVite, log } from "./vite";
 import { createServer } from "http";
 import bodyParser from "body-parser";
-import { registerRoutes } from "./routes-fixed";
-// Comentadas temporalmente para diagnosticar el problema
-// import { registerOrderRoutes } from "./routes-orders-new";
-// import { registerConfigurationRoutes } from "./routes-configuration";
-// import { registerEmailRoutes } from "./routes-email";
-// import { registerAdditionalRoutes } from "./routes-extension";
+import { registerRoutes } from "./routes";
+import { registerOrderRoutes } from "./routes-orders-new";
+import { registerConfigurationRoutes } from "./routes-configuration";
+import { registerEmailRoutes } from "./routes-email";
+import { registerAdditionalRoutes } from "./routes-extension";
 
 const app = express();
 const server = createServer(app);
@@ -27,11 +26,15 @@ app.get("/", (_req, res, next) => {
 console.log("Registrando rutas básicas para diagnóstico...");
 registerRoutes(app);
 
-// Rutas adicionales comentadas temporalmente
-// registerOrderRoutes(app);
-// registerConfigurationRoutes(app);
-// registerEmailRoutes(app);
-// registerAdditionalRoutes(app);
+// Registrar rutas adicionales
+console.log("Registrando rutas de pedidos...");
+registerOrderRoutes(app);
+console.log("Registrando rutas de configuración...");
+registerConfigurationRoutes(app);
+console.log("Registrando rutas de email...");
+registerEmailRoutes(app);
+console.log("Registrando rutas adicionales...");
+registerAdditionalRoutes(app);
 
 // 🔥 Servir frontend React/Vite
 setupVite(app);

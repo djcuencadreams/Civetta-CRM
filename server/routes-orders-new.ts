@@ -2,7 +2,7 @@
  * Rutas de API para pedidos (orders)
  */
 import { Express, Request, Response } from "express";
-import { db, dbNew } from "../db";
+import { db, dbNew, pool } from "../db";
 import { customers } from "../db/schema";
 import { orders, orderItems } from "../db/schema-new";
 import { eq, desc } from "drizzle-orm";
@@ -129,17 +129,40 @@ export function registerOrderRoutes(app: Express) {
   // Obtener todos los pedidos
   app.get("/api/orders", async (_req: Request, res: Response) => {
     try {
-      // Obtener todos los pedidos de la base de datos
-      const orders = await dbNew.query.orders.findMany({
-        orderBy: ({ createdAt }) => desc(createdAt),
-        with: {
-          customer: true,
-          items: true
-        }
-      });
+      // Obtener todos los pedidos de la base de datos con campos específicos para evitar errores
+      // Enfoque simplificado para resolver temporalmente el problema
+      // Obtener datos directamente de la tabla orders usando SQL nativo
+      const { rows } = await pool.query(`
+        SELECT 
+          id, 
+          customer_id as "customerId", 
+          lead_id as "leadId",
+          order_number as "orderNumber", 
+          total_amount as "totalAmount", 
+          status, 
+          payment_status as "paymentStatus", 
+          payment_method as "paymentMethod", 
+          source, 
+          brand, 
+          notes,
+          created_at as "createdAt", 
+          updated_at as "updatedAt"
+        FROM orders
+        ORDER BY created_at DESC
+        LIMIT 100
+      `);
       
-      // Devolver los pedidos obtenidos de la base de datos
-      res.json(orders);
+      // Formatear resultados
+      const formattedOrders = rows.map((order: any) => ({
+        ...order,
+        // Convertir explícitamente valores numéricos
+        id: Number(order.id),
+        customerId: Number(order.customerId),
+        totalAmount: order.totalAmount
+      }));
+    
+      // Devolver los pedidos formateados para evitar problemas de nombres de campos
+      res.json(formattedOrders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ error: "Error al obtener pedidos" });
@@ -155,14 +178,39 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({ error: "ID de pedido inválido" });
       }
       
-      // Buscar pedido en la base de datos
-      const order = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          customer: true,
-          items: true
-        }
-      });
+      // Utilizar enfoque SQL plano para evitar errores de columnas
+      const { rows } = await pool.query(`
+        SELECT 
+          id, 
+          customer_id as "customerId", 
+          lead_id as "leadId",
+          order_number as "orderNumber", 
+          total_amount as "totalAmount", 
+          status, 
+          payment_status as "paymentStatus", 
+          payment_method as "paymentMethod", 
+          source, 
+          brand, 
+          notes,
+          created_at as "createdAt", 
+          updated_at as "updatedAt"
+        FROM orders
+        WHERE id = $1
+        LIMIT 1
+      `, [orderId]);
+      
+      // Si no hay resultados, retornar 404
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+      
+      // Formatear el resultado para mantener consistencia
+      const order = {
+        ...rows[0],
+        id: Number(rows[0].id),
+        customerId: Number(rows[0].customerId),
+        totalAmount: rows[0].totalAmount
+      };
       
       if (!order) {
         return res.status(404).json({ error: "Pedido no encontrado" });
@@ -237,7 +285,22 @@ export function registerOrderRoutes(app: Express) {
       const newOrderWithRelations = await dbNew.query.orders.findFirst({
         where: eq(orders.id, insertedOrder.id),
         with: {
-          customer: true,
+          customer: {
+            // Seleccionamos campos específicos para evitar errores de columnas no existentes
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              type: true
+            }
+          },
           items: true
         }
       });
@@ -316,7 +379,22 @@ export function registerOrderRoutes(app: Express) {
       const updatedOrder = await dbNew.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          customer: true,
+          customer: {
+            // Seleccionamos campos específicos para evitar errores de columnas no existentes
+            columns: {
+              id: true,
+              name: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              street: true,
+              city: true,
+              province: true,
+              deliveryInstructions: true,
+              type: true
+            }
+          },
           items: true
         }
       });
