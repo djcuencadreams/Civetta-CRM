@@ -1,0 +1,180 @@
+Revisa el código adjunto, ya está funcionando la UI para los clicks y ya se están creando órdenes al actualizar un cliente desde la web. Ahora quise hacer deployment y me salen estos errores: 2025-04-18T06:36:25Z info: Created Repl layer
+2025-04-18T06:36:25Z info: Pushing Repl (cache) layer...
+2025-04-18T06:36:26Z info: Created Repl (cache) layer
+2025-04-18T06:36:26Z info: Pushed image manifest
+2025-04-18T06:36:27Z info: Pushed soci index manifest
+2025-04-18T06:36:31Z info: Creating Autoscale service
+starting up user application
+[Timezone] Configurada zona horaria a: America/Guayaquil (Ecuador (GMT-5))
+1:36:55 AM [email-service] Error loading email template: ReferenceError: subtotal is not defined
+Executing backup script directly...
+Database backup created successfully: /home/runner/workspace/backups/backup-2025-04-18T06-36-55-398Z
+npm notice New major version of npm available! 10.8.2 -> 11.3.0
+Backup completed successfully: /home/runner/workspace/backups/backup-2025-04-18T06-36-55-398Z
+npm notice To update run: npm install -g npm@11.3.0
+2025-04-18T06:37:44Z error: The deployment is failing health checks. This can happen if the application isn't responding, responds with an error, or doesn't respond in time. Health checks are sent to the / endpoint by default and must respond as soon as possible. Make sure that the / endpoint is implemented and returns a 200 status code in a timely manner. Avoid doing expensive or long running operations on the / endpoint, prefer deferring them to a different route. Check the logs for more information.
+Promotion failed
+Your deployment attempt had the following errors:
+[
+"
+H
+e
+a
+l
+t
+h
+c
+h
+e
+c
+k
+f
+a
+i
+l
+u
+r
+e
+o
+n
+p
+o
+r
+t
+5
+0
+0
+0
+(
+m
+a
+p
+p
+e
+d
+t
+o
+p
+o
+r
+t
+8
+0
+)
+"
+,
+"
+E
+m
+a
+i
+l
+t
+e
+m
+p
+l
+a
+t
+e
+e
+r
+r
+o
+r
+:
+R
+e
+f
+e
+r
+e
+n
+c
+e
+E
+r
+r
+o
+r
+:
+s
+u
+b
+t
+o
+t
+a
+l
+i
+s
+n
+o
+t
+d
+e
+f
+i
+n
+e
+d
+"
+,
+"
+A
+p
+p
+l
+i
+c
+a
+t
+i
+o
+n
+n
+o
+t
+s
+e
+r
+v
+i
+n
+g
+c
+o
+n
+t
+e
+n
+t
+o
+n
+t
+h
+e
+e
+x
+p
+e
+c
+t
+e
+d
+r
+o
+o
+t
+e
+n
+d
+p
+o
+i
+n
+t
+(
+/
+)
+" Assistant suggestions (look at the image capture attached)

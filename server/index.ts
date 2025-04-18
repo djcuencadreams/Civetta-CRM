@@ -20,8 +20,10 @@ import { serviceRegistry, eventListenerService } from "./services";
 import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
 import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
+import { setupStaticFileHandling } from './static-file-handler';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 
 // Configurar logger con timestamp en zona horaria de Ecuador
 const logger = pino({ 
@@ -35,8 +37,18 @@ app.get("/health", (_req, res) => {
   res.status(200).send("OK");
 });
 
-app.get("/", (_req, res) => {
-  res.status(200).send("OK");
+// Ruta raíz principal con detección de user-agent para diferenciar health checks
+app.get("/", (req, res, next) => {
+  const userAgent = req.headers['user-agent'] || "";
+  const isHealthCheck = userAgent.includes("curl") || userAgent.includes("kube") || userAgent.includes("Ping");
+
+  if (isHealthCheck) {
+    return res.status(200).send("OK");
+  }
+
+  // Para solicitudes desde navegadores, continuamos al siguiente middleware
+  // que servirá index.html en desarrollo o producción
+  next();
 });
 
 log("Health check endpoints registered");
@@ -162,16 +174,17 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
+  // Health check endpoint - Siempre registrarlo primero y en una ruta específica
+  app.get("/health", (_req: Request, res: Response) => {
+    res.status(200).send("OK");
+  });
+
   // Development mode: Vite handles all static files and routing
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Production: Serve static files from dist
-    const distPath = path.resolve(process.cwd(), 'dist/public');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    // Production: Usar el manejador de archivos estáticos mejorado
+    setupStaticFileHandling(app);
   }
 
   // Use port 5000 mapped to 80 for web access
