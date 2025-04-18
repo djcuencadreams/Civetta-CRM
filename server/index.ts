@@ -169,8 +169,8 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Production: Serve static files from dist
-    const distPath = path.resolve(__dirname, "../dist");
+    // Production: Serve static files from dist/public
+    const distPath = path.resolve(__dirname, "../dist/public");
     
     // Verify dist directory exists
     if (!fs.existsSync(distPath)) {
@@ -179,6 +179,11 @@ app.use((req, res, next) => {
 
     // Serve static files
     app.use(express.static(distPath));
+
+    // Health check endpoint (must be before catch-all)
+    app.get("/health", (_req, res) => {
+      res.status(200).send("OK");
+    });
 
     // Serve index.html for all unmatched routes (SPA fallback)
     app.get("*", (_req, res) => {
