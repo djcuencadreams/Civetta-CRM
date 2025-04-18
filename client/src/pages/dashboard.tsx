@@ -11,6 +11,7 @@ import { FunnelChart } from "@/components/crm/FunnelChart";
 import { type Lead, type Sale, type Customer, brandEnum } from "@db/schema";
 import { getQueryFn } from "@/lib/queryClient";
 import { FilterState } from "@/components/crm/SearchFilterBar";
+
 import {
   TrendingUp,
   TrendingDown,
@@ -156,6 +157,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 p-4">
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className={`flex flex-col items-${isMobile ? 'center' : 'start'} gap-2`}>
           <div className="flex items-center justify-center">

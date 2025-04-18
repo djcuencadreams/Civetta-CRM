@@ -111,6 +111,33 @@ export function ShippingLabelForm(): JSX.Element {
   const [searchType, setSearchType] = useState<"identification" | "email" | "phone">("identification");
   const [customerType, setCustomerType] = useState<"existing" | "new">("new");
   const [customerFound, setCustomerFound] = useState(false);
+  
+  // Fix para problemas de UI donde los elementos no responden a clics
+  useEffect(() => {
+    // Eliminar cualquier capa invisible que podría estar bloqueando clics
+    const fixUIInteractivity = () => {
+      document.querySelectorAll('*').forEach(element => {
+        if (element instanceof HTMLElement) {
+          // Si hay algún elemento con z-index alto y position fixed que cubra toda la pantalla
+          if (element.style.position === 'fixed' && 
+              element.style.top === '0px' && 
+              element.style.left === '0px' &&
+              (element.style.width === '100%' || element.style.width === '100vw') &&
+              (element.style.height === '100%' || element.style.height === '100vh')) {
+            console.log('🔧 Corrigiendo elemento bloqueante:', element);
+            element.style.pointerEvents = 'none';
+          }
+        }
+      });
+    };
+    
+    // Ejecutar inmediatamente
+    fixUIInteractivity();
+    
+    // Y también configurar un temporizador para asegurarse que se aplica después de cualquier renderizado
+    const timerId = setTimeout(fixUIInteractivity, 500);
+    return () => clearTimeout(timerId);
+  }, []);
   const [existingCustomer, setExistingCustomer] = useState<{ 
     id: number; 
     name: string;
