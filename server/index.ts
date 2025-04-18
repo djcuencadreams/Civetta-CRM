@@ -29,8 +29,11 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoint
-app.get("/", (_req, res) => res.status(200).send("OK"));
+// Health check endpoint - Must be first
+app.get("/", (_req, res) => {
+  // Return immediately for health checks
+  res.status(200).send("OK");
+});
 
 // Habilitar CORS para todas las rutas
 app.use(cors({
