@@ -36,8 +36,8 @@ registerRoutes(app);
 // 🔥 Servir frontend React/Vite
 setupVite(app);
 
-// ✅ Escuchar en puerto asignado por Replit (o 5000 por defecto)
-const PORT = parseInt(process.env.PORT || "5000", 10);
+// ✅ Escuchar en puerto asignado por Replit (o 3000 por defecto)
+const PORT = parseInt(process.env.PORT || "3000", 10);
 server.listen(PORT, "0.0.0.0", () => {
   log(`🚀 Servidor escuchando en puerto ${PORT}`);
 });
