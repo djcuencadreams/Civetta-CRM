@@ -9,10 +9,10 @@ export class HealthService implements Service {
   name = "health";
 
   registerRoutes(app: Express): void {
-    // Root health check endpoint for deployment
-    app.get("/", (_req: Request, res: Response) => {
-      res.status(200).send("OK");
-    });
+    // Root health check endpoint for deployment - Commented out to use static HTML
+    // app.get("/", (_req: Request, res: Response) => {
+    //   res.status(200).send("OK");
+    // });
     
     // Health check endpoint
     app.get("/api/health", this.getHealthStatus.bind(this));
