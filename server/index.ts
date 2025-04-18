@@ -32,23 +32,9 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoints - Must be first
+// Health check endpoint - Must be first
 app.get("/health", (_req, res) => {
   res.status(200).send("OK");
-});
-
-// Ruta raíz principal con detección de user-agent para diferenciar health checks
-app.get("/", (req, res, next) => {
-  const userAgent = req.headers['user-agent'] || "";
-  const isHealthCheck = userAgent.includes("curl") || userAgent.includes("kube") || userAgent.includes("Ping");
-
-  if (isHealthCheck) {
-    return res.status(200).send("OK");
-  }
-
-  // Para solicitudes desde navegadores, continuamos al siguiente middleware
-  // que servirá index.html en desarrollo o producción
-  next();
 });
 
 log("Health check endpoints registered");
@@ -183,8 +169,21 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Production: Usar el manejador de archivos estáticos mejorado
-    setupStaticFileHandling(app);
+    // Production: Serve static files from dist
+    const distPath = path.resolve(__dirname, "../dist");
+    
+    // Verify dist directory exists
+    if (!fs.existsSync(distPath)) {
+      throw new Error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
+    }
+
+    // Serve static files
+    app.use(express.static(distPath));
+
+    // Serve index.html for all unmatched routes (SPA fallback)
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   // Use port 5000 mapped to 80 for web access
