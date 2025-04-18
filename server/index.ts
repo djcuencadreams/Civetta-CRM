@@ -153,6 +153,16 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
+  // Health check endpoint for Replit
+  app.get("/healthz", (_req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Root endpoint for Replit
+  app.get("/", (_req, res) => {
+    res.status(200).send("Civetta CRM corriendo.");
+  });
+
   // Setup static file serving for public directory with our index.html
   setupVite(app);
 
