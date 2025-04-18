@@ -529,30 +529,34 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
-  const generateLabel = async (data: ShippingFormValues) => {
+  const submitForm = async (data: ShippingFormValues) => {
     setIsPdfGenerating(true);
     try {
       if (existingCustomer?.id) {
         const success = await updateCustomerFromWizard(existingCustomer.id);
         if (!success) {
-          throw new Error('Failed to update customer data');
+          throw new Error('Error al actualizar datos del cliente');
         }
       }
       const formValues = form.getValues();
 
-      console.log("📱 Generating label with phone:", formValues.phone);
+      console.log("📱 Enviando formulario con teléfono:", formValues.phone);
 
       const dataToSubmit = {
-        ...formSnapshots[2],
-        ...formSnapshots[3],
-        ...formValues,
-        phone: formValues.phone
+        firstName: formValues.firstName,
+        lastName: formValues.lastName,
+        phoneNumber: formValues.phone,
+        email: formValues.email,
+        document: formValues.idNumber,
+        address: formValues.street,
+        city: formValues.city,
+        province: formValues.province,
+        instructions: formValues.deliveryInstructions
       };
 
       console.log("📤 Enviando datos completos a la API:", dataToSubmit);
 
-
-      const response = await fetch('/api/shipping/generate-label', {
+      const response = await fetch('/api/guardar-formulario-envio', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -560,25 +564,18 @@ export function ShippingLabelForm(): JSX.Element {
         body: JSON.stringify(dataToSubmit)
       });
 
-      if (!response.ok) {
-        throw new Error('Error al generar la etiqueta de envío');
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error al guardar la información');
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `etiqueta-envio-${data.firstName}-${data.lastName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
       toast({
-        title: "Etiqueta generada con éxito",
-        description: "La etiqueta de envío se ha descargado correctamente",
+        title: "¡Información enviada con éxito!",
+        description: result.message || "Tu información ha sido guardada correctamente",
         variant: "default"
       });
+      
       setCurrentStep(1 as WizardStep);
       form.reset();
       setCustomerType("new");
@@ -588,8 +585,8 @@ export function ShippingLabelForm(): JSX.Element {
     } catch (error) {
       console.error('Error:', error);
       toast({
-        title: "Error al generar la etiqueta",
-        description: error instanceof Error ? error.message : "Ocurrió un error al generar la etiqueta de envío",
+        title: "Error al enviar información",
+        description: error instanceof Error ? error.message : "Ocurrió un error al guardar tu información. Inténtalo nuevamente.",
         variant: "destructive"
       });
     } finally {
@@ -792,7 +789,7 @@ export function ShippingLabelForm(): JSX.Element {
           </CardContent>
         </Card>
 
-        <form onSubmit={form.handleSubmit(generateLabel)}>
+        <form onSubmit={form.handleSubmit(submitForm)}>
           <Button 
             type="submit" 
             className="w-full mt-4" 
@@ -804,7 +801,7 @@ export function ShippingLabelForm(): JSX.Element {
                 Enviando...
               </>
             ) : (
-              'Generar Etiqueta'
+              'Enviar Información'
             )}
           </Button>
         </form>
@@ -830,9 +827,9 @@ export function ShippingLabelForm(): JSX.Element {
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-center text-2xl font-bold text-primary">Formulario de Dirección de Envío</CardTitle>
+        <CardTitle className="text-center text-2xl font-bold text-primary">Formulario de Información de Envío</CardTitle>
         <CardDescription className="text-center">
-          Complete el formulario paso a paso para generar su etiqueta de envío
+          Complete el formulario paso a paso para enviar su información de contacto y dirección
         </CardDescription>
 
         <div className="mt-6">

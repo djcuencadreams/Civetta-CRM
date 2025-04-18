@@ -12,6 +12,7 @@ import { registerShippingRoutes } from "./routes-shipping-fixed"; // Importamos 
 import { registerNewShippingRoutes } from "./routes-shipping-new"; // Nuevo sistema de etiquetas
 import { registerImprovedShippingRoutes } from "./routes-shipping-improved-fixed"; // Sistema mejorado con creación automática de clientes y soporte firstName/lastName
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer"; // Endpoint mejorado para verificación de clientes
+import { registerWebFormRoutes } from "./routes-web-form"; // Formulario web de envío
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduleBackups } from "../db/backup";
 import { createServer } from "http";
@@ -124,6 +125,10 @@ app.use((req, res, next) => {
   // Registrar endpoint mejorado para verificación de clientes
   registerCustomerCheckEndpoint(app);
   log("Endpoint mejorado para verificación de clientes registrado");
+  
+  // Registrar rutas del formulario web de envío
+  registerWebFormRoutes(app);
+  log("Rutas del formulario web de envío registradas");
   
   // Ensure shipping label template directories exist
   ensureShippingLabelTemplateDirectories();
