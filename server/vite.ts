@@ -19,7 +19,7 @@ export function log(message: string, source = "express") {
 }
 
 export function setupVite(app: express.Express) {
-  const staticPath = path.join(__dirname, "..", "client", "dist");
+  const staticPath = path.join(__dirname, "..", "client", "public");
 
   app.use(express.static(staticPath));
 
