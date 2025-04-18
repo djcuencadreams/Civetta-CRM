@@ -33,77 +33,19 @@ export function registerRoutes(app: Express): void {
   // Customers API
   app.get("/api/customers", async (_req, res) => {
     try {
-      const result = await db.query.customers.findMany({
-        orderBy: desc(customers.createdAt),
-        with: { sales: true }
-      });
-      
-      // Ensure backward compatibility by populating structured fields from legacy fields if needed
-      const enhancedResults = result.map(customer => {
-        // Si no existe, creamos un objeto para evitar errores de referencia
-        const enhancedCustomer = { ...customer };
+      // Simplificar la consulta para diagnóstico
+      try {
+        // Solo obtener clientes sin relaciones
+        const result = await db.select().from(customers);
+        console.log('Consulta simple exitosa, tipo de resultado:', typeof result);
+        console.log('¿Es un Array?', Array.isArray(result));
+        console.log('Número de resultados:', result.length);
         
-        // If a customer has name but not firstName/lastName, split them for display purposes
-        if (enhancedCustomer.name && (!enhancedCustomer.firstName || !enhancedCustomer.lastName)) {
-          const nameParts = enhancedCustomer.name.split(' ');
-          if (nameParts.length > 0) {
-            enhancedCustomer.firstName = enhancedCustomer.firstName || nameParts[0];
-            enhancedCustomer.lastName = enhancedCustomer.lastName || nameParts.slice(1).join(' ');
-          }
-        }
-        
-        // No more legacy address field, only use structured fields
-        // This approach relies on street, city, province as separate fields
-        
-        // If a customer has phone but not phoneCountry/phoneNumber, parse them
-        if (enhancedCustomer.phone && (!enhancedCustomer.phoneCountry || !enhancedCustomer.phoneNumber)) {
-          try {
-            // Try to extract country code (usually starts with +)
-            const phoneMatch = enhancedCustomer.phone.match(/^(\+\d+)(.*)$/);
-            if (phoneMatch) {
-              enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || phoneMatch[1];
-              enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || phoneMatch[2];
-            }
-          } catch (e) {
-            console.warn('Failed to parse phone for customer', enhancedCustomer.id);
-          }
-        }
-        
-        // Garantizar que todos los campos estén disponibles en ambos formatos (snake_case y camelCase)
-        // Este es el punto clave para solucionar el problema de inconsistencia
-        
-        // Aseguramos que todos los campos estén presentes y con valores consistentes
-        // En la base de datos usamos camelCase, pero algunos componentes frontend esperan snake_case
-        
-        // Campos de identificación
-        enhancedCustomer.idNumber = enhancedCustomer.idNumber || null;
-        
-        // Campos de nombre
-        enhancedCustomer.firstName = enhancedCustomer.firstName || null;
-        enhancedCustomer.lastName = enhancedCustomer.lastName || null;
-        
-        // Campos de dirección
-        enhancedCustomer.street = enhancedCustomer.street || null;
-        enhancedCustomer.city = enhancedCustomer.city || null;
-        enhancedCustomer.province = enhancedCustomer.province || null;
-        enhancedCustomer.deliveryInstructions = enhancedCustomer.deliveryInstructions || null;
-        
-        // Campos de teléfono
-        enhancedCustomer.phoneCountry = enhancedCustomer.phoneCountry || null;
-        enhancedCustomer.phoneNumber = enhancedCustomer.phoneNumber || null;
-        
-        // Otros campos
-        enhancedCustomer.secondaryPhone = enhancedCustomer.secondaryPhone || null;
-        enhancedCustomer.billingAddress = enhancedCustomer.billingAddress || null;
-        enhancedCustomer.totalValue = enhancedCustomer.totalValue || null;
-        enhancedCustomer.assignedUserId = enhancedCustomer.assignedUserId || null;
-        
-        console.log(`Optimizados datos del cliente ${enhancedCustomer.id} - ${enhancedCustomer.name}`);
-        
-        return enhancedCustomer;
-      });
-      
-      res.json(enhancedResults);
+        return res.json(result || []);
+      } catch (simpleQueryError) {
+        console.error('Error en consulta simple:', simpleQueryError);
+        return res.status(500).json({ error: "Error en consulta simple de clientes" });
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
       res.status(500).json({ error: "Failed to fetch customers" });

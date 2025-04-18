@@ -1,21 +1,14 @@
-// server/utils/index.ts
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-
 // server/index.ts
 import express from "express";
 import { setupVite, log } from "./vite";
 import { createServer } from "http";
 import bodyParser from "body-parser";
+import { registerRoutes } from "./routes-fixed";
+// Comentadas temporalmente para diagnosticar el problema
+// import { registerOrderRoutes } from "./routes-orders-new";
+// import { registerConfigurationRoutes } from "./routes-configuration";
+// import { registerEmailRoutes } from "./routes-email";
+// import { registerAdditionalRoutes } from "./routes-extension";
 
 const app = express();
 const server = createServer(app);
@@ -29,6 +22,16 @@ app.get("/", (_req, res, next) => {
   }
   return next(); // Pasa al frontend
 });
+
+// Registrar las rutas básicas de la API para diagnóstico
+console.log("Registrando rutas básicas para diagnóstico...");
+registerRoutes(app);
+
+// Rutas adicionales comentadas temporalmente
+// registerOrderRoutes(app);
+// registerConfigurationRoutes(app);
+// registerEmailRoutes(app);
+// registerAdditionalRoutes(app);
 
 // 🔥 Servir frontend React/Vite
 setupVite(app);
