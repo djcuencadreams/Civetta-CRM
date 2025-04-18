@@ -21,6 +21,7 @@ import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
 import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
 import cors from 'cors';
+import path from 'path';
 
 // Configurar logger con timestamp en zona horaria de Ecuador
 const logger = pino({ 
@@ -158,6 +159,17 @@ app.use((req, res, next) => {
 
     res.status(500).json({ error: 'Internal Server Error' });
   });
+
+  const distPath = path.resolve(__dirname, '..', 'dist');
+
+  // Then serve static files
+  app.use(express.static(distPath));
+
+  // Finally, fall through to index.html for client-side routing
+  app.use("*", (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
+  });
+
 
   if (app.get("env") === "development") {
     await setupVite(app, server);
