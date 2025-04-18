@@ -20,10 +20,7 @@ import { serviceRegistry, eventListenerService } from "./services";
 import { pino } from 'pino';
 import { registerEmailEventHandlers } from "./lib/email.service";
 import { ensureShippingLabelTemplateDirectories } from "./lib/shipping-label.service";
-import { setupStaticFileHandling } from './static-file-handler';
 import cors from 'cors';
-import path from 'path';
-import fs from 'fs';
 
 // Configurar logger con timestamp en zona horaria de Ecuador
 const logger = pino({ 
@@ -32,12 +29,8 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoint - Must be first
-app.get("/health", (_req, res) => {
-  res.status(200).send("OK");
-});
-
-log("Health check endpoints registered");
+// Health check endpoint
+app.get("/", (_req, res) => res.status(200).send("OK"));
 
 // Habilitar CORS para todas las rutas
 app.use(cors({
@@ -107,42 +100,42 @@ app.use((req, res, next) => {
 
   // Legacy routes (for backward compatibility)
   registerAdditionalRoutes(app);
-
+  
   // Register email routes
   registerEmailRoutes(app);
   log("Email routes registered");
-
+  
   // Register configuration routes
   registerConfigurationRoutes(app);
   log("Configuration routes registered");
-
+  
   // Register email event handlers
   registerEmailEventHandlers();
   log("Email event handlers registered");
-
+  
   // Register shipping routes with firstName/lastName support
   registerShippingRoutesWithNames(app);
   log("Shipping routes registered with firstName/lastName support");
-
+  
   // Registrar NUEVO sistema de etiquetas
   registerNewShippingRoutes(app);
   log("Nuevo sistema de etiquetas registrado");
-
+  
   // Registrar sistema MEJORADO de etiquetas con creación automática de clientes
   registerImprovedShippingRoutes(app);
   log("Sistema mejorado de etiquetas registrado");
-
+  
   // Registrar endpoint mejorado para verificación de clientes
   registerCustomerCheckEndpoint(app);
   log("Endpoint mejorado para verificación de clientes registrado");
-
+  
   // Registrar rutas del formulario web de envío
   registerWebFormRoutes(app);
   log("Rutas del formulario web de envío registradas");
-
+  
   // Ensure shipping label template directories exist
   ensureShippingLabelTemplateDirectories();
-
+  
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services
   const legacyServer = registerRoutes(app);
@@ -160,39 +153,14 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  // Health check endpoint - Siempre registrarlo primero y en una ruta específica
-  app.get("/health", (_req: Request, res: Response) => {
-    res.status(200).send("OK");
-  });
-
-  // Development mode: Vite handles all static files and routing
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Production: Serve static files from dist
-    const distPath = path.resolve(__dirname, "../dist");
-    
-    // Verify dist directory exists
-    if (!fs.existsSync(distPath)) {
-      throw new Error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
-    }
-
-    // Serve static files
-    app.use(express.static(distPath));
-
-    // Health check endpoint (must be before catch-all)
-    app.get("/health", (_req, res) => {
-      res.status(200).send("OK");
-    });
-
-    // Serve index.html for all unmatched routes (SPA fallback)
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    serveStatic(app);
   }
 
-  // Use port 5000 mapped to 80 for web access
-  const PORT = process.env.NODE_ENV === 'production' ? 5000 : 3000;
+  // Use internal port 3000 as the main web application port (mapped to external port 80)
+  const PORT = 3000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
