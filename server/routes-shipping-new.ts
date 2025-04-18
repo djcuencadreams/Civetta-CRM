@@ -245,6 +245,7 @@ export function registerNewShippingRoutes(app: Express) {
       }
 
       // Obtener datos actualizados del cliente directamente desde la base de datos
+      // Siempre consultar el cliente por su ID para asegurar datos actualizados
       const customer = await db.query.customers.findFirst({
         where: eq(customers.id, order.customerId)
       });

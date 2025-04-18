@@ -437,124 +437,131 @@ export function registerShippingRoutes(app: Express) {
           customer = newCustomer;
           console.log('Nuevo cliente creado con ID:', newCustomer.id);
         } 
-        // Si se encontró el cliente, actualizar su información de dirección si se requiere
-        else if (formData.updateCustomerInfo) {
-          // Solo actualizar si se requiere (campo updateCustomerInfo es true)
-          // o si alwaysUpdateCustomer es true (forzar actualización)
-          // o si el cliente no tiene alguno de los campos de dirección
-          const shouldUpdate = formData.alwaysUpdateCustomer || 
-                              !customer.street || 
-                              !customer.city || 
-                              !customer.province;
+        // Si se encontró el cliente, actualizar siempre su información para mantener consistencia
+        else {
+          // Siempre actualizar los datos del cliente existente
+          console.log(`Actualizando información para cliente ID: ${customer.id}`);
+          console.log(`Instrucciones de entrega actuales: "${customer.deliveryInstructions}"`);
+          console.log(`Instrucciones de entrega nuevas: "${formData.deliveryInstructions}"`);
           
-          if (shouldUpdate) {
-            console.log(`Actualizando información para cliente ID: ${customer.id}`);
-            console.log(`Instrucciones de entrega actuales: "${customer.deliveryInstructions}"`);
-            console.log(`Instrucciones de entrega nuevas: "${formData.deliveryInstructions}"`);
-            
-            // Actualizamos campos del cliente excepto deliveryInstructions
-            await db.update(customers)
-              .set({
-                street: formData.street,
-                city: formData.city,
-                province: formData.province,
-                // Actualizamos también los campos de contacto si el cliente no los tiene
-                phone: customer.phone || formData.phone,
-                email: customer.email || formData.email || null,
-                updatedAt: new Date()
-              })
-              .where(eq(customers.id, customer.id));
-            
-            // SOLUCIÓN DEFINITIVA MEJORADA: Utilizamos la función especializada para actualizar las instrucciones
-            // con logs detallados y parámetro de depuración en true
-            console.log(`⚡️ INICIO ACTUALIZACIÓN PRINCIPAL DE INSTRUCCIONES DE ENTREGA - Cliente ID: ${customer.id}`);
-            console.log(`⚡️ Valor a establecer: "${formData.deliveryInstructions}"`);
-            const updateResult = await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions, true);
-            console.log(`⚡️ Resultado de actualización de instrucciones: ${updateResult ? '✅ EXITOSO' : '❌ FALLIDO'}`);
-            
-            // Verificación adicional para asegurar que se reflejó el cambio
-            const verificacionCliente = await db.query.customers.findFirst({
-              where: eq(customers.id, customer.id),
-              columns: { 
-                deliveryInstructions: true
-              }
-            });
-            
-            console.log(`⚡️ Verificación final: "${verificacionCliente?.deliveryInstructions}"`);
-            console.log(`Actualizada información de envío para cliente ID: ${customer.id}`);
-          } else {
-            // AÑADIDO: Incluso si no se actualizan otros campos, actualizamos las instrucciones de entrega
-            // si han cambiado respecto a las almacenadas
-            if (formData.deliveryInstructions !== customer.deliveryInstructions) {
-              console.log(`Solo actualizando instrucciones de entrega para cliente ID: ${customer.id}`);
-              console.log(`Instrucciones anteriores: "${customer.deliveryInstructions}"`);
-              console.log(`Nuevas instrucciones: "${formData.deliveryInstructions}"`);
-              
-              // SOLUCIÓN DEFINITIVA MEJORADA: Utilizamos la función especializada para actualizar las instrucciones 
-              // con logs detallados y parámetro de depuración en true 
-              console.log(`⚡️ INICIO ACTUALIZACIÓN SECUNDARIA DE INSTRUCCIONES DE ENTREGA - Cliente ID: ${customer.id}`);
-              console.log(`⚡️ Valor a establecer: "${formData.deliveryInstructions}"`);
-              const updateResult = await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions, true);
-              console.log(`⚡️ Resultado de actualización de instrucciones: ${updateResult ? '✅ EXITOSO' : '❌ FALLIDO'}`);
-              
-              // Verificación adicional para asegurar que se reflejó el cambio
-              const verificacionCliente = await db.query.customers.findFirst({
-                where: eq(customers.id, customer.id),
-                columns: { 
-                  deliveryInstructions: true
-                }
-              });
-              
-              console.log(`⚡️ Verificación final: "${verificacionCliente?.deliveryInstructions}"`);
-              console.log(`Instrucciones de entrega actualizadas correctamente usando función especializada`);
+          // Actualizamos TODOS los campos recibidos del formulario para mantener consistencia
+          await db.update(customers)
+            .set({
+              firstName: formData.name.split(' ')[0] || customer.firstName,
+              lastName: formData.name.split(' ').slice(1).join(' ') || customer.lastName,
+              street: formData.street,
+              city: formData.city,
+              province: formData.province,
+              phone: formData.phone,
+              email: formData.email || customer.email || null,
+              idNumber: formData.idNumber || customer.idNumber || null,
+              updatedAt: new Date()
+            })
+            .where(eq(customers.id, customer.id));
+          
+          // Actualizar las instrucciones de entrega usando la función especializada
+          console.log(`⚡️ ACTUALIZANDO INSTRUCCIONES DE ENTREGA - Cliente ID: ${customer.id}`);
+          console.log(`⚡️ Valor a establecer: "${formData.deliveryInstructions}"`);
+          const updateResult = await forceUpdateDeliveryInstructions(customer.id, formData.deliveryInstructions, true);
+          console.log(`⚡️ Resultado de actualización de instrucciones: ${updateResult ? '✅ EXITOSO' : '❌ FALLIDO'}`);
+          
+          // Verificación adicional para asegurar que se reflejó el cambio
+          const verificacionCliente = await db.query.customers.findFirst({
+            where: eq(customers.id, customer.id),
+            columns: { 
+              id: true,
+              firstName: true,
+              lastName: true,
+              name: true,
+              street: true,
+              city: true,
+              province: true,
+              phone: true,
+              email: true,
+              deliveryInstructions: true
             }
-          }
+          });
+          
+          console.log(`⚡️ Verificación de datos actualizados:`, JSON.stringify(verificacionCliente, null, 2));
+          console.log(`✅ Información de cliente actualizada, ID: ${customer.id}`);
+          
+          // Recargamos el objeto customer con los datos actualizados para usarlos más adelante
+          customer = await db.query.customers.findFirst({
+            where: eq(customers.id, customer.id)
+          });
         }
 
         customerId = customer.id;
 
-        // Preparar datos para el PDF
+        // Recargar los datos del cliente para asegurarnos que estamos usando la información más actualizada
+        const clienteActualizado = await db.query.customers.findFirst({
+          where: eq(customers.id, customerId)
+        });
+        
+        if (!clienteActualizado) {
+          console.error('⚠️ Error: Cliente no encontrado después de actualización, ID:', customerId);
+          return res.status(500).json({ error: 'Error interno: Cliente no encontrado después de actualización' });
+        }
+        
+        console.log('✅ Cliente recargado con datos actualizados:', clienteActualizado.id, clienteActualizado.name);
+        
+        // Preparar datos para el PDF (usando los datos actualizados del cliente)
         const pdfData = {
-          name: formData.name,
-          phone: formData.phone || 'N/A',
-          street: formData.street,
-          city: formData.city,
-          province: formData.province,
-          idNumber: formData.idNumber || 'N/A',
-          deliveryInstructions: formData.deliveryInstructions || 'N/A',
+          name: clienteActualizado.firstName && clienteActualizado.lastName 
+            ? `${clienteActualizado.firstName} ${clienteActualizado.lastName}`
+            : clienteActualizado.name,
+          phone: clienteActualizado.phone || 'N/A',
+          street: clienteActualizado.street || 'Sin dirección',
+          city: clienteActualizado.city || 'Sin ciudad',
+          province: clienteActualizado.province || 'Sin provincia',
+          idNumber: clienteActualizado.idNumber || 'N/A',
+          deliveryInstructions: clienteActualizado.deliveryInstructions || 'N/A',
           companyName: formData.companyName || ''
         };
+
+        console.log('📄 Generando PDF con datos actualizados del cliente:', {
+          nombre: pdfData.name,
+          telefono: pdfData.phone,
+          direccion: pdfData.street,
+          ciudad: pdfData.city,
+          provincia: pdfData.province,
+          instrucciones: pdfData.deliveryInstructions
+        });
 
         // Generar el PDF
         const pdfBuffer = await generateShippingLabelPdf(pdfData);
 
-        // Si tenemos un cliente, crear una orden pendiente
-        if (customerId) {
-          // Crear objeto con los datos de envío
-          const shippingInfo = {
-              fullName: formData.name,
-              phone: formData.phone,
-              street: formData.street,
-              city: formData.city,
-              province: formData.province,
-              instructions: formData.deliveryInstructions || '',
-              idNumber: formData.idNumber || null,
-              email: formData.email || null
-          };
+        // Siempre crear una nueva orden para registrar cada envío
+        // Crear objeto con los datos de envío
+        const shippingInfo = {
+            fullName: clienteActualizado.name,
+            firstName: clienteActualizado.firstName,
+            lastName: clienteActualizado.lastName,
+            phone: clienteActualizado.phone,
+            street: clienteActualizado.street,
+            city: clienteActualizado.city,
+            province: clienteActualizado.province,
+            instructions: clienteActualizado.deliveryInstructions || '',
+            idNumber: clienteActualizado.idNumber || null,
+            email: clienteActualizado.email || null
+        };
 
-          // Crear una orden pendiente de completar
-          try {
-            const orderResult = await ordersService.createOrderFromShippingForm({
-              customerId,
-              customerName: formData.name,
-              shippingAddress: shippingInfo,
-              items: [],
-              source: sourceEnum.WEBSITE,
-              status: 'pendiente_de_completar', // Estado especial para órdenes web
-              paymentStatus: 'pending'
-            });
+        // Crear una orden nueva para cada envío
+        try {
+          console.log('🔄 Creando nueva orden para el cliente actualizado ID:', customerId);
+          const orderResult = await ordersService.createOrderFromShippingForm({
+            customerId,
+            customerName: clienteActualizado.name,
+            shippingAddress: shippingInfo,
+            items: [],
+            source: sourceEnum.WEBSITE,
+            status: 'pendiente_de_completar', // Estado especial para órdenes web
+            paymentStatus: 'pending',
+            isFromWebForm: true, // Marcar explícitamente que viene del formulario web
+            notes: "Orden creada desde formulario de envío - Pendiente completar detalles"
+          });
 
-            orderId = orderResult.id;
+          orderId = orderResult.id;
 
             // Generar número de orden si no existe
             if (!orderResult.orderNumber) {
@@ -649,12 +656,9 @@ export function registerShippingRoutes(app: Express) {
 
       console.log('[ETIQUETA] Solicitando etiqueta para orden ID:', orderId);
 
-      // Obtener la orden con datos del cliente
+      // Obtener la orden
       const order = await db.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          customer: true
-        }
+        where: eq(orders.id, orderId)
       });
 
       if (!order) {
@@ -662,38 +666,52 @@ export function registerShippingRoutes(app: Express) {
         return res.status(404).json({ error: 'Orden no encontrada' });
       }
 
+      console.log('[ETIQUETA] Orden encontrada ID:', orderId);
+      
+      // Obtener los datos actualizados del cliente directamente de la base de datos
+      // en lugar de usar la relación en la orden para garantizar que siempre
+      // tenemos la información más reciente
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, order.customerId)
+      });
+
       // Verificar que exista el cliente
-      if (!order.customer) {
+      if (!customer) {
         console.error('[ETIQUETA] Error: Cliente no encontrado para orden ID:', orderId, 'customerId:', order.customerId);
         return res.status(404).json({ error: 'Cliente no encontrado para esta orden' });
       }
 
-      console.log('[ETIQUETA] Orden encontrada:', { 
-        id: order.id, 
-        orderNumber: order.orderNumber,
-        customerId: order.customerId,
-        customerName: order.customer?.name
+      console.log('[ETIQUETA] Cliente encontrado:', { 
+        id: customer.id, 
+        name: customer.name, 
+        firstName: customer.firstName,
+        lastName: customer.lastName
       });
       
-      console.log('[ETIQUETA] Usando datos del cliente ID:', order.customer.id);
+      console.log('[ETIQUETA] Usando datos actualizados del cliente ID:', customer.id);
 
       // Crear número de orden formateado si no existe
       const formattedOrderNumber = 
         order.orderNumber || 
         `ORD-${order.id.toString().padStart(6, '0')}`;
+        
+      // Obtener nombre completo formateado correctamente
+      const fullName = customer.firstName && customer.lastName
+        ? `${customer.firstName} ${customer.lastName}`
+        : customer.name || '';
 
-      // Preparar datos para el PDF directamente desde los datos del cliente
+      // Preparar datos para el PDF usando los datos más actualizados del cliente
       const pdfData = {
-        name: order.customer.name,
-        phone: order.customer.phone || 'No disponible',
-        street: order.customer.street || 'Dirección no especificada',
-        city: order.customer.city || 'Ciudad no especificada',
-        province: order.customer.province || 'Provincia no especificada',
-        idNumber: order.customer.idNumber || 'N/A',
+        name: fullName || "Cliente #" + customer.id,
+        phone: customer.phone || 'No disponible',
+        street: customer.street || 'Dirección no especificada',
+        city: customer.city || 'Ciudad no especificada',
+        province: customer.province || 'Provincia no especificada',
+        idNumber: customer.idNumber || 'N/A',
         // Instrucciones especiales tomadas directamente de la ficha del cliente
-        deliveryInstructions: order.customer.deliveryInstructions || 'Sin instrucciones especiales',
+        deliveryInstructions: customer.deliveryInstructions || 'Sin instrucciones especiales',
         orderNumber: formattedOrderNumber,
-        companyName: order.customer.type === 'company' ? order.customer.name : ''
+        companyName: customer.type === 'company' ? customer.name || '' : ''
       };
 
       console.log('[ETIQUETA] Datos preparados para generar PDF:', pdfData);

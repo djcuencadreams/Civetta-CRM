@@ -162,15 +162,13 @@ export class OrdersService implements Service {
 
       console.log(`[OrderService] Iniciando búsqueda de orden ID: ${orderId}`);
 
-      // Usar la API de consulta de Drizzle para obtener el pedido con sus relaciones
-      // Según el flujo de negocio, un pedido solo debe asociarse a un cliente (no a un lead)
+      // Usar la API de consulta de Drizzle para obtener el pedido 
+      // primero sin incluir la relación con el cliente, para luego obtener
+      // los datos actualizados del cliente directamente
       const order = await db.query.orders.findFirst({
         where: eq(orders.id, orderId),
         with: {
-          // Incluir todos los campos del cliente
-          customer: true, 
-          // No incluimos lead si ya existe un cliente asociado
-          // lead: true, (Comentado intencionalmente) 
+          // No incluimos directamente al cliente para obtener sus datos actualizados después
           items: {
             columns: {
               id: true,
@@ -195,6 +193,22 @@ export class OrdersService implements Service {
 
       // Log completo de la orden para depuración
       console.log(`[OrderService] Orden obtenida (ID: ${orderId}):`, JSON.stringify(order, null, 2));
+      
+      // Ahora obtenemos el cliente actualizado directamente para asegurar datos actualizados
+      if (order.customerId) {
+        console.log(`[OrderService] Obteniendo datos actualizados del cliente ID: ${order.customerId}`);
+        const currentCustomer = await db.query.customers.findFirst({
+          where: eq(customers.id, order.customerId)
+        });
+        
+        if (currentCustomer) {
+          // Asignar el cliente actualizado a la orden
+          order.customer = currentCustomer;
+          console.log(`[OrderService] ✅ Cliente actualizado ID: ${currentCustomer.id}, nombre: ${currentCustomer.name}`);
+        } else {
+          console.error(`[OrderService] ⚠️ Cliente con ID ${order.customerId} no encontrado en base de datos`);
+        }
+      }
 
       // Verificamos si la orden tiene la propiedad leadId pero NO tiene cliente asociado
       // Esto no debería suceder según la lógica de negocio, pero lo manejamos por si acaso

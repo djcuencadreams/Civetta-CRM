@@ -1,0 +1,127 @@
+Necesito corregir todo el flujo del formulario web de envío en mi CRM Civetta. El sistema debe:
+
+1. Actualizar al cliente si ya existe.
+2. Crear una nueva orden SIEMPRE, incluso si el cliente ya existe.
+3. Verificar si los datos fueron guardados correctamente.
+4. Retornar un mensaje claro al frontend (éxito o error).
+5. Cambiar el botón "Generar Etiqueta" por "Enviar Información".
+6. Mostrar al usuario un mensaje de éxito o error, de forma clara y amable, después de hacer submit.
+
+### Parte 1: BACKEND — `server/routes-orders.ts` (o donde se maneja la recepción del formulario web)
+
+```ts
+const existingCustomer = await db.customer.findFirst({
+  where: {
+    OR: [
+      { document: formData.document },
+      { email: formData.email },
+      { phoneNumber: formData.phoneNumber }
+    ]
+  }
+});
+
+let customerId;
+
+try {
+  if (existingCustomer) {
+    const updatedCustomer = await db.customer.update({
+      where: { id: existingCustomer.id },
+      data: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        document: formData.document,
+        address: formData.address,
+        city: formData.city,
+        province: formData.province,
+        deliveryInstructions: formData.instructions
+      }
+    });
+
+    customerId = updatedCustomer.id;
+  } else {
+    const newCustomer = await db.customer.create({
+      data: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        document: formData.document,
+        address: formData.address,
+        city: formData.city,
+        province: formData.province,
+        deliveryInstructions: formData.instructions
+      }
+    });
+
+    customerId = newCustomer.id;
+  }
+
+  const newOrder = await db.order.create({
+    data: {
+      customerId,
+      origin: 'Sitio Web',
+      brand: 'Civetta Sleepwear',
+      status: 'nuevo',
+      paymentStatus: 'pendiente',
+      shippingStatus: 'por_determinar',
+      notes: 'Orden creada desde formulario web'
+    }
+  });
+
+  if (!newOrder || !newOrder.id) {
+    throw new Error('No se pudo crear la orden');
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: '¡Gracias! Hemos recibido tu información correctamente.',
+    orderId: newOrder.id
+  });
+
+} catch (error) {
+  console.error('Error al procesar el formulario web:', error);
+  return res.status(500).json({
+    success: false,
+    message: 'Ocurrió un error al guardar tu información. Inténtalo nuevamente.',
+    error: error.message
+  });
+}
+
+Parte 2: FRONTEND — Componente del formulario (último paso / botón de envío)
+
+Cambia el botón:
+
+<Button type="submit">Enviar Información</Button>
+
+Después de hacer submit, captura la respuesta así:
+
+try {
+  const response = await fetch('/api/guardar-formulario-envio', {
+    method: 'POST',
+    body: JSON.stringify(formData),
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (result.success) {
+    alert(result.message || 'Tu pedido ha sido registrado exitosamente.');
+  } else {
+    alert(result.message || 'Hubo un problema al guardar tu información. Intenta de nuevo.');
+  }
+
+} catch (error) {
+  alert('No pudimos enviar tu información. Revisa tu conexión o inténtalo más tarde.');
+  console.error('Error al enviar formulario:', error);
+}
+
+Con esto:
+	•	Se actualiza o crea el cliente según sea necesario.
+	•	Se crea una nueva orden SIEMPRE.
+	•	El frontend muestra mensajes amigables.
+	•	Se valida correctamente todo.
+	•	Se reemplaza “Generar Etiqueta” por “Enviar Información”.
