@@ -30,14 +30,10 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoints - Must be first
-app.get("/health", (_req, res) => {
-  res.status(200).send("OK");
-});
-
-app.get("/", (_req, res) => {
-  res.status(200).send("OK");
-});
+// Initialize health service first
+serviceRegistry.registerService(healthService);
+healthService.registerRoutes(app);
+log("Health service registered");
 
 // Habilitar CORS para todas las rutas
 app.use(cors({
