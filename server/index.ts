@@ -15,7 +15,7 @@ export function log(message: string, source = "express") {
 import express from "express";
 import { setupVite } from "./vite";
 import { createServer } from "http";
-import { log } from "./utils";
+import { log } from "./vite";
 import bodyParser from "body-parser";
 
 const app = express();
