@@ -29,9 +29,12 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoint - Must be first
+// Health check endpoint - Must be registered before any middleware
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/", (_req, res) => {
-  // Return immediately for health checks
   res.status(200).send("OK");
 });
 
