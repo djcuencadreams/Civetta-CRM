@@ -1,0 +1,77 @@
+Estoy trabajando con un formulario multistep hecho con react-hook-form. Tengo el siguiente problema:
+
+🔴 Bug visual:
+
+1. En el paso 2, tengo el campo email.
+2. En el paso 3, tengo el campo shippingInstructions.
+
+Problemas:
+- Al avanzar del paso 2 al 3, el campo shippingInstructions aparece con el valor del email.
+- Si regreso del paso 3 al paso 2, el campo email aparece vacío.
+- En el paso 4 (Resumen), todos los datos están bien, así que el problema es solo de visualización en la UI (el estado funciona bien).
+
+🎯 Lo que quiero:
+✅ Que email siempre se muestre correctamente en el paso 2.  
+✅ Que shippingInstructions nunca tome el valor de email.  
+✅ Que ambos campos mantengan su valor correctamente entre pasos.  
+✅ Que no haya valores cruzados ni campos que se vacíen visualmente al cambiar de paso.
+
+📦 Estoy usando react-hook-form, useFormContext y FormProvider. El formulario ya guarda los datos bien, solo hay errores visuales de sincronización.
+
+📌 Instrucciones:
+1. Usa useFormContext() y useWatch() si es necesario para mantener sincronía correcta entre pasos.
+2. Asegúrate de que cada campo esté correctamente registrado usando register('email'), register('shippingInstructions'), etc.
+3. Si usas value={...} en algún input, asegúrate de usar también onChange y setValue.
+4. Agrega shouldUnregister: false en useForm() del FormProvider para que los valores no se pierdan al desmontar los pasos.
+5. Usa defaultValue en los inputs si no usas useWatch.
+
+🔧 Corrige estos 2 archivos del proyecto:
+
+- client/src/components/shipping/Step2_CustomerData.tsx
+- client/src/components/shipping/Step3_ShippingAddress.tsx
+
+Y aplica esto en cada uno:
+
+✅ Ejemplo para Step 2 – email:
+import { useFormContext } from 'react-hook-form';
+
+const Step2_CustomerData = () => {
+  const { register } = useFormContext();
+
+  return (
+    <input
+      type="email"
+      {...register('email')}
+      className="input-style"
+      placeholder="Email"
+    />
+  );
+};
+export default Step2_CustomerData;
+
+✅ Ejemplo para Step 3 – shippingInstructions:
+import { useFormContext } from 'react-hook-form';
+
+const Step3_ShippingAddress = () => {
+  const { register } = useFormContext();
+
+  return (
+    <textarea
+      {...register('shippingInstructions')}
+      className="input-style"
+      placeholder="Instrucciones especiales"
+    />
+  );
+};
+export default Step3_ShippingAddress;
+
+⚠️ Si el formulario no usa FormProvider, agrega ese wrapper en el archivo principal del formulario multistep:
+
+✅ FormProvider con shouldUnregister:
+const methods = useForm({ shouldUnregister: false });
+
+<FormProvider {...methods}>
+  <ShippingFormSteps />
+</FormProvider>
+
+Aplica estos cambios para que los campos mantengan su valor y no se mezclen ni vacíen visualmente. El estado ya funciona bien, esto es solo sincronización visual entre pasos del wizard.
