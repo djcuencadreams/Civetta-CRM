@@ -169,8 +169,8 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // Production: Serve static files from dist/public
-    const distPath = path.resolve(__dirname, "../dist/public");
+    // Production: Serve static files from dist
+    const distPath = path.resolve(__dirname, "../dist");
     
     // Verify dist directory exists
     if (!fs.existsSync(distPath)) {
