@@ -1,0 +1,34 @@
+Necesito que corrijas el sistema de generación de etiquetas PDF de envíos en mi CRM Civetta. El problema es que, aunque la información del cliente se actualiza correctamente en la base de datos y se refleja en la vista de cliente y vista de pedidos, la etiqueta PDF se genera con los datos antiguos del cliente. Esto ocurre porque actualmente se usa la propiedad order.customer que contiene una copia antigua del cliente, en lugar de hacer una consulta directa a la base de datos para obtener los datos más recientes del cliente.
+
+Solución esperada: el endpoint que genera la etiqueta PDF debe buscar directamente al cliente actualizado usando el customerId de la orden.
+
+Tareas específicas:
+	1.	Ubica el archivo TypeScript que contiene la lógica para generar etiquetas (probablemente esté en server/routes-orders.ts, o similar). Dentro de la función que genera el PDF, busca el lugar donde se obtiene la orden, algo como:
+
+const order = await db.order.findUnique({ where: { id: req.params.id }, include: { customer: true } });
+	2.	Justo después, agrega esta línea para recuperar la versión más actualizada del cliente:
+
+const customer = await db.customer.findUnique({ where: { id: order.customerId } });
+	3.	Asegúrate de que en la función que genera el PDF (por ejemplo, generateShippingLabel(order) o similar), pases también el objeto customer, así:
+
+generateShippingLabel(order, customer);
+	4.	Dentro del generador del PDF (si usas PDFKit o similar), asegúrate de reemplazar los campos que antes usaban order.customer por customer. Los campos clave que deben venir desde customer actualizado son:
+
+	•	customer.firstName + ’ ’ + customer.lastName
+	•	customer.document || customer.idNumber
+	•	customer.email
+	•	customer.phoneNumber
+	•	customer.street
+	•	customer.city
+	•	customer.province
+	•	customer.deliveryInstructions
+
+	5.	Confirma que la plantilla PDF use estos campos correctamente al renderizar. Por ejemplo:
+
+doc.text(Nombre: ${customer.firstName} ${customer.lastName});
+doc.text(Dirección: ${customer.street});
+doc.text(Provincia: ${customer.province});
+
+Resultado esperado: al generar una etiqueta PDF de un cliente ya existente, si su información ha sido actualizada en el sistema, el PDF reflejará correctamente los nuevos datos y no los anteriores.
+
+Este cambio es prioritario para asegurar que las etiquetas impresas no tengan errores de dirección, teléfono o datos personales desactualizados del cliente.
