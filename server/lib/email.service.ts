@@ -307,9 +307,15 @@ export async function sendOrderConfirmationEmail(order: any, customer: any): Pro
     email: customer.email,
     orderNumber: order.orderNumber || order.id,
     date: new Date(order.createdAt).toLocaleDateString(),
-    items: order.items || [],
-    totalAmount: order.totalAmount,
-    status: order.status
+    items: (order.items || []).map(item => ({
+      ...item,
+      subtotal: item.subtotal || (item.quantity * item.unitPrice) || 0,
+      unitPrice: item.unitPrice || 0,
+      quantity: item.quantity || 1,
+      productName: item.productName || 'Producto'
+    })),
+    totalAmount: order.totalAmount || 0,
+    status: order.status || 'pending'
   };
   
   return sendTemplateEmail(

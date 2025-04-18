@@ -130,7 +130,7 @@
               <td>{{this.productName}}</td>
               <td>{{this.quantity}}</td>
               <td>${{this.unitPrice}}</td>
-              <td>${{this.subtotal}}</td>
+              <td>${{this.subtotal || '0.00'}}</td>
             </tr>
             {{/each}}
           </tbody>
