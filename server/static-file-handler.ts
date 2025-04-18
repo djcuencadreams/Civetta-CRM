@@ -53,14 +53,13 @@ function getContentTypeByExt(filePath: string): string {
  * @param app Aplicación Express
  */
 export function setupStaticFileHandling(app: Express): void {
-  // Rutas estáticas para producción
-  const distPath = path.resolve(process.cwd(), 'dist/public');
+  const distPath = path.resolve(__dirname, "../dist/public");
   log(`Configurando archivos estáticos desde: ${distPath}`);
   
   try {
     // Verificar que el directorio existe
     if (!fs.existsSync(distPath)) {
-      throw new Error(`El directorio de distribución no existe: ${distPath}`);
+      throw new Error(`Could not find the build directory: ${distPath}, make sure to build the client first`);
     }
     
     // Verificar que index.html existe
@@ -78,7 +77,7 @@ export function setupStaticFileHandling(app: Express): void {
       log(`Advertencia: No se encontró la carpeta de assets en: ${assetsPath}`);
     }
     
-    // PASO 1: Ruta específica para archivos JavaScript y CSS con manejo manual de tipo MIME
+    // Ruta específica para archivos JavaScript y CSS con manejo manual de tipo MIME
     app.get('/assets/:filename', (req: Request, res: Response) => {
       const filename = req.params.filename;
       const filePath = path.join(distPath, 'assets', filename);
@@ -102,25 +101,11 @@ export function setupStaticFileHandling(app: Express): void {
       res.sendFile(filePath);
     });
     
-    // PASO 2: Servir archivos estáticos con middleware express.static
-    app.use(express.static(distPath, {
-      index: false,
-      maxAge: '1d',
-      setHeaders: (res, filePath) => {
-        const contentType = getContentTypeByExt(filePath);
-        res.setHeader('Content-Type', contentType);
-        if (filePath.endsWith('.js')) {
-          res.setHeader('X-Content-Type-Options', 'nosniff');
-        }
-        
-        log(`Middleware estático sirviendo: ${path.basename(filePath)} (${contentType})`);
-      }
-    }));
+    // Servir archivos estáticos
+    app.use(express.static(distPath));
     
-    // PASO 3: Soporte para React Router u otras rutas de SPA
+    // Soporte para React Router u otras rutas de SPA
     app.use("*", (_req: Request, res: Response) => {
-      log(`Fallback a index.html para SPA`);
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.sendFile(path.resolve(distPath, "index.html"));
     });
     
