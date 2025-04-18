@@ -162,14 +162,13 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
+  // Serve static files from dist directory
   const distPath = path.resolve(process.cwd(), 'dist');
-
-  // Then serve static files
   app.use(express.static(distPath));
 
-  // Finally, fall through to index.html for client-side routing
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Serve index.html for all other routes to support client-side routing
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 
 
