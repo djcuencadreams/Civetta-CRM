@@ -161,13 +161,16 @@ app.use((req, res, next) => {
     });
   });
 
-  // 2. ¡NO pongas app.get("/") aquí!
+  // 2. Endpoint para verificación básica
+  app.get("/", (_req, res) => {
+    res.status(200).send("Civetta CRM ok");
+  });
 
   // 3. FRONTEND COMPLETO
   setupVite(app); // ← Esto sirve React/Vite correctamente
 
-  // Use internal port 3000 as the main web application port (mapped to external port 80)
-  const PORT = 3000;
+  // Use PORT environment variable or fallback to 3000
+  const PORT = process.env.PORT || 3000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
