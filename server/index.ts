@@ -29,8 +29,8 @@ const logger = pino({
 });
 const app = express();
 
-// Health check endpoint
-app.get("/", (_req, res) => res.status(200).send("OK"));
+// Removed health check endpoint that was serving "OK"
+// Now we'll use the static HTML file in the public directory
 
 // Habilitar CORS para todas las rutas
 app.use(cors({
@@ -153,11 +153,8 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // Setup static file serving for public directory with our index.html
+  setupVite(app);
 
   // Use internal port 3000 as the main web application port (mapped to external port 80)
   const PORT = 3000;
