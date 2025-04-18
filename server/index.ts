@@ -29,6 +29,9 @@ const logger = pino({
 });
 const app = express();
 
+// Health check endpoint
+app.get("/", (_req, res) => res.status(200).send("OK"));
+
 // Habilitar CORS para todas las rutas
 app.use(cors({
   origin: '*',
@@ -156,7 +159,7 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = Number(process.env.PORT) || 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
