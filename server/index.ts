@@ -103,42 +103,42 @@ app.use((req, res, next) => {
 
   // Legacy routes (for backward compatibility)
   registerAdditionalRoutes(app);
-  
+
   // Register email routes
   registerEmailRoutes(app);
   log("Email routes registered");
-  
+
   // Register configuration routes
   registerConfigurationRoutes(app);
   log("Configuration routes registered");
-  
+
   // Register email event handlers
   registerEmailEventHandlers();
   log("Email event handlers registered");
-  
+
   // Register shipping routes with firstName/lastName support
   registerShippingRoutesWithNames(app);
   log("Shipping routes registered with firstName/lastName support");
-  
+
   // Registrar NUEVO sistema de etiquetas
   registerNewShippingRoutes(app);
   log("Nuevo sistema de etiquetas registrado");
-  
+
   // Registrar sistema MEJORADO de etiquetas con creación automática de clientes
   registerImprovedShippingRoutes(app);
   log("Sistema mejorado de etiquetas registrado");
-  
+
   // Registrar endpoint mejorado para verificación de clientes
   registerCustomerCheckEndpoint(app);
   log("Endpoint mejorado para verificación de clientes registrado");
-  
+
   // Registrar rutas del formulario web de envío
   registerWebFormRoutes(app);
   log("Rutas del formulario web de envío registradas");
-  
+
   // Ensure shipping label template directories exist
   ensureShippingLabelTemplateDirectories();
-  
+
   // Optionally keep the main routes file for routes not yet migrated to services
   // Comment this out once all routes are migrated to services
   const legacyServer = registerRoutes(app);
@@ -162,8 +162,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use internal port 3000 as the main web application port (mapped to external port 80)
-  const PORT = 3000;
+  // Use internal port 5000 as the main web application port (mapped to external port 80)
+  const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
