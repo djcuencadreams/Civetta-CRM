@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parsePhoneNumber, joinPhoneNumber, synchronizePhoneFields } from '../../utils/phone-utils';
 import { 
@@ -25,6 +25,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Loader2, Search, CheckCircle2 } from "lucide-react";
+import Step2_CustomerData from "./Step2_CustomerData";
+import Step3_ShippingAddress from "./Step3_ShippingAddress";
+import Step2_Form from "./Step2_Form";
+import Step3_Form from "./Step3_Form";
 
 // Added isValidPhoneNumber function (placeholder - replace with actual validation)
 const isValidPhoneNumber = (value: string): boolean => {
@@ -132,7 +136,7 @@ export function ShippingLabelForm(): JSX.Element {
 
   const preserveStepData = (step: number) => {
     const currentValues = form.getValues();
-    console.log(`📸 Guardando snapshot completo del paso ${step}:`, currentValues);
+    console.log(`📸 DIAGNÓSTICO - Guardando snapshot completo del paso ${step}:`, JSON.stringify(currentValues, null, 2));
 
     setFormSnapshots(prev => ({
       ...prev,
@@ -155,7 +159,8 @@ export function ShippingLabelForm(): JSX.Element {
       deliveryInstructions: "",
       saveToDatabase: true
     },
-    mode: "onChange" 
+    mode: "onChange",
+    shouldUnregister: false // Evitar que los campos se desregistren al desmontar el componente
   });
 
   useEffect(() => {
@@ -462,8 +467,17 @@ export function ShippingLabelForm(): JSX.Element {
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       const previousStep = currentStep - 1;
+      
+      console.log(`🔙 DIAGNÓSTICO - Volviendo del paso ${currentStep} al paso ${previousStep}`);
+      console.log(`🔙 DIAGNÓSTICO - Datos actuales antes de volver:`, JSON.stringify(form.getValues(), null, 2));
+      
       setCurrentStep(previousStep as WizardStep);
       resetToStep(previousStep);
+      
+      // Registrar valores después de resetear para verificar que los datos se mantienen correctamente
+      setTimeout(() => {
+        console.log(`✅ DIAGNÓSTICO - Datos después de volver al paso ${previousStep}:`, JSON.stringify(form.getValues(), null, 2));
+      }, 50);
     }
   };
 
@@ -678,86 +692,10 @@ export function ShippingLabelForm(): JSX.Element {
         </Card>
       )}
 
-      <Form {...form}>
-        <div className="space-y-6">
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombres *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Nombres" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Apellidos *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Apellidos" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2"> {/* Updated phone number input */}
-            <FormField
-              control={form.control}
-              name="idNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cédula/Pasaporte/RUC *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Documento de identidad" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teléfono *</FormLabel>
-                  <FormControl>
-                    <PhoneInput
-                      {...field}
-                      international
-                      defaultCountry="EC"
-                      placeholder="Ej. 0999999999 (se convertirá automáticamente a formato internacional)"
-                      onChange={(value) => field.onChange(value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email *</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Email" type="email" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-      </Form>
+      <FormProvider {...form}>
+        {/* Reemplazamos todo el formulario de datos personales con nuestro componente Step2_Form */}
+        <Step2_Form />
+      </FormProvider>
     </div>
   );
 
@@ -775,106 +713,16 @@ export function ShippingLabelForm(): JSX.Element {
         </div>
       )}
 
-      <Form {...form}>
-        <div className="space-y-6">
-          <FormField
-            control={form.control}
-            name="street"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dirección de Entrega Calle, Intersección y Número de Casa *</FormLabel>
-                <FormControl>
-                  <Textarea {...field} placeholder="Escriba aquí la calle principal, intersección y número de casa. Agregue alguna referencia de ser necesario." rows={3} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ciudad *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Ciudad" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="province"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Provincia *</FormLabel>
-                  <FormControl>
-                    <Select {...field}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione una provincia" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {provinciasEcuador.map((provincia) => (
-                          <SelectItem key={provincia} value={provincia}>
-                            {provincia}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="deliveryInstructions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Referencia o Instrucciones Especiales para la Entrega</FormLabel>
-                <FormControl>
-                  <Textarea {...field} placeholder="Referencias adicionales o instrucciones especiales para la entrega" rows={2} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="saveToDatabase"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                <FormControl>
-                  <Checkbox 
-                    checked={field.value} 
-                    onCheckedChange={field.onChange}
-                    name={field.name}
-                    ref={field.ref}
-                    onBlur={field.onBlur}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>
-                    Guardar información para futuros envíos
-                  </FormLabel>
-                </div>
-              </FormItem>
-            )}
-          />
-        </div>
-      </Form>
+      <FormProvider {...form}>
+        {/* Reemplazamos todo el formulario de dirección con nuestro componente Step3_Form */}
+        <Step3_Form />
+      </FormProvider>
     </div>
   );
 
   const renderStep4 = () => {
     const formValues = form.getValues();
-    console.log("📋 DIAGNÓSTICO PASO 4 - Valores actuales del formulario:", JSON.stringify(formValues));
+    console.log("📋 DIAGNÓSTICO PASO 4 - Valores actuales del formulario:", JSON.stringify(formValues, null, 2));
     return (
       <div className="space-y-6">
         <div className="text-center mb-4">
@@ -944,24 +792,22 @@ export function ShippingLabelForm(): JSX.Element {
           </CardContent>
         </Card>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(generateLabel)}>
-            <Button 
-              type="submit" 
-              className="w-full mt-4" 
-              disabled={isPdfGenerating}
-            >
-              {isPdfGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Generar Etiqueta'
-              )}
-            </Button>
-          </form>
-        </Form>
+        <form onSubmit={form.handleSubmit(generateLabel)}>
+          <Button 
+            type="submit" 
+            className="w-full mt-4" 
+            disabled={isPdfGenerating}
+          >
+            {isPdfGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              'Generar Etiqueta'
+            )}
+          </Button>
+        </form>
       </div>
     );
   };
