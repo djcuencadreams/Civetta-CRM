@@ -162,24 +162,16 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  // Serve static files and handle client-side routing
+  // Development mode: Vite handles all static files and routing
   if (app.get("env") === "development") {
-    // In development, Vite handles static files
     await setupVite(app, server);
   } else {
-    // In production, serve from dist directory
-    const distPath = path.resolve(process.cwd(), 'dist');
+    // Production: Serve static files from dist
+    const distPath = path.resolve(process.cwd(), 'dist/public');
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
-  }
-
-
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
   }
 
   // Use port 5000 mapped to 80 for web access
