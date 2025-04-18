@@ -30,10 +30,16 @@ const logger = pino({
 });
 const app = express();
 
-// Initialize health service first
-serviceRegistry.registerService(healthService);
-healthService.registerRoutes(app);
-log("Health service registered");
+// Health check endpoints - Must be first
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+app.get("/", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+log("Health check endpoints registered");
 
 // Habilitar CORS para todas las rutas
 app.use(cors({
@@ -156,7 +162,7 @@ app.use((req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
   });
 
-  const distPath = path.resolve(__dirname, '..', 'dist');
+  const distPath = path.resolve(process.cwd(), 'dist');
 
   // Then serve static files
   app.use(express.static(distPath));
