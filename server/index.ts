@@ -12,8 +12,6 @@ import { registerAdditionalRoutes } from "./routes-extension";
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
 // Importamos rutas para el formulario web de envío
 import { registerWebFormRoutes } from "./routes-web-form";
-// Importamos rutas de envío principales
-import { registerShippingRoutes } from "./routes-shipping";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
 
@@ -238,8 +236,30 @@ console.log("Registrando endpoints para verificación de clientes...");
 registerCustomerCheckEndpoint(app);
 console.log("Registrando rutas para el formulario web de envío...");
 registerWebFormRoutes(app);
-console.log("Registrando rutas principales de envío...");
-registerShippingRoutes(app);
+
+// Configurar rutas para el formulario de envío (todas redirigen al frontend React)
+console.log("Configurando rutas directas para formulario de envío en React...");
+const serveShippingForm = (req, res, next) => {
+  // Solo procesamos rutas específicas
+  const shippingFormRoutes = [
+    '/shipping-form',
+    '/shipping',
+    '/etiqueta',
+    '/etiqueta-de-envio',
+    '/embed/shipping-form',
+    '/embed/shipping-form-static'
+  ];
+  
+  if (shippingFormRoutes.includes(req.path)) {
+    console.log(`Sirviendo formulario React para ruta: ${req.path}`);
+    return next();
+  }
+  
+  return next();
+};
+
+// Registrar middleware para estas rutas
+app.use(serveShippingForm);
 
 // 🔥 Servir frontend React/Vite (IMPORTANTE: debe ir después de registrar rutas API)
 setupVite(app);
