@@ -96,7 +96,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
     
     // Verificar si el pedido ya existe usando SQL nativo
     const existingOrderResult = await db.$client.query(
-      `SELECT * FROM orders WHERE "wooCommerceId" = $1 LIMIT 1`,
+      `SELECT * FROM orders WHERE "woocommerce_id" = $1 LIMIT 1`,
       [wooOrder.id]
     );
     
@@ -109,7 +109,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
           status = $1, 
           payment_status = $2, 
           updated_at = NOW() 
-        WHERE "wooCommerceId" = $3`,
+        WHERE "woocommerce_id" = $3`,
         [
           mapWooStatus(wooOrder.status),
           wooOrder.payment_method_title ? 'paid' : 'pending',
@@ -175,7 +175,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
       `INSERT INTO orders (
         customer_id, order_number, total_amount, 
         status, payment_status, payment_method, 
-        source, "wooCommerceId", notes, brand,
+        source, "woocommerce_id", notes, brand,
         shipping_address, billing_address,
         created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
@@ -208,7 +208,7 @@ export async function processWooCommerceOrder(wooOrder: any): Promise<{ success:
         
         if (item.product_id) {
           const productResult = await db.$client.query(
-            `SELECT id FROM products WHERE "wooCommerceId" = $1 LIMIT 1`,
+            `SELECT id FROM products WHERE "woocommerce_id" = $1 LIMIT 1`,
             [item.product_id]
           );
           
@@ -390,7 +390,7 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
     
     // Verificar si el producto ya existe en nuestro sistema usando SQL nativo
     const existingProductQuery = await db.$client.query(
-      `SELECT * FROM products WHERE "wooCommerceId" = $1 LIMIT 1`,
+      `SELECT * FROM products WHERE "woocommerce_id" = $1 LIMIT 1`,
       [wooProduct.id]
     );
     
@@ -410,9 +410,9 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
       const sql = `
         INSERT INTO products (
           name, sku, description, category_id, 
-          price, stock, brand, "wooCommerceId",
-          "wooCommerceParentId", product_type,
-          "wooCommerceUrl", active, images, attributes
+          price, stock, brand, "woocommerce_id",
+          "woocommerce_parent_id", product_type,
+          "woocommerce_url", active, images, attributes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `;
@@ -452,14 +452,14 @@ export async function processWooCommerceProduct(wooProduct: any): Promise<{ succ
             price = $5, 
             stock = $6, 
             brand = $7,
-            "wooCommerceParentId" = $8,
+            "woocommerce_parent_id" = $8,
             product_type = $9,
-            "wooCommerceUrl" = $10, 
+            "woocommerce_url" = $10, 
             active = $11, 
             images = $12, 
             attributes = $13,
             updated_at = NOW()
-        WHERE "wooCommerceId" = $14
+        WHERE "woocommerce_id" = $14
         RETURNING *
       `;
       
@@ -576,7 +576,7 @@ export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ su
       
       // 1. Buscar por ID de WooCommerce (match exacto)
       const existingByWooId = await db.$client.query(
-        `SELECT * FROM customers WHERE "wooCommerceId" = $1 LIMIT 1`,
+        `SELECT * FROM customers WHERE "woocommerce_id" = $1 LIMIT 1`,
         [wooCustomer.id]
       );
       
@@ -654,7 +654,7 @@ export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ su
             address = COALESCE($10, address),
             id_number = COALESCE($11, id_number),
             ruc = COALESCE($12, ruc),
-            wooCommerceId = $13,
+            "woocommerce_id" = $13,
             updated_at = NOW()
           WHERE id = $14`,
           [
@@ -690,7 +690,7 @@ export async function processWooCommerceCustomer(wooCustomer: any): Promise<{ su
         `INSERT INTO customers (
           name, first_name, last_name, email, phone, 
           street, city, province, delivery_instructions, address,
-          id_number, ruc, source, brand, type, "wooCommerceId",
+          id_number, ruc, source, brand, type, "woocommerce_id",
           created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()) 
         RETURNING id`,

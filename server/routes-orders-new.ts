@@ -31,7 +31,7 @@ const orderSchema = z.object({
       discount: z.number().min(0).default(0),
       subtotal: z.number().min(0),
     })
-  ),
+  ).optional().default([]), // Hacemos items opcional y le damos un valor por defecto
 });
 
 // Schema para actualización de estado
@@ -242,23 +242,32 @@ export function registerOrderRoutes(app: Express) {
       const generatedOrderNumber = orderNumber || 
         `ORD-${Math.floor(Date.now() / 1000).toString(36).toUpperCase()}`;
       
-      // Crear el pedido en la base de datos
-      const [insertedOrder] = await dbNew.insert(orders)
-        .values({
-          customerId,
-          leadId: leadId || null,
-          orderNumber: generatedOrderNumber,
-          totalAmount,
-          status,
-          paymentStatus,
-          paymentMethod: paymentMethod || null,
-          source: source || "direct",
-          brand: brand || customer.brand,
-          notes: notes || null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .returning();
+      // Crear el pedido en la base de datos con SQL nativo para evitar problemas con nombres de campos
+      const insertResult = await pool.query(`
+        INSERT INTO orders (
+          customer_id, lead_id, order_number, 
+          total_amount, status, payment_status, 
+          payment_method, source, brand, notes, 
+          created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        ) RETURNING *
+      `, [
+        customerId,
+        leadId || null,
+        generatedOrderNumber,
+        totalAmount,
+        status,
+        paymentStatus,
+        paymentMethod || null,
+        source || "direct",
+        brand || customer.brand,
+        notes || null,
+        new Date(),
+        new Date()
+      ]);
+      
+      const insertedOrder = insertResult.rows[0];
         
       if (!insertedOrder) {
         return res.status(500).json({ error: "Error al crear el pedido" });
@@ -281,29 +290,46 @@ export function registerOrderRoutes(app: Express) {
         }
       }
       
-      // Obtener el pedido completo con sus relaciones
-      const newOrderWithRelations = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, insertedOrder.id),
-        with: {
-          customer: {
-            // Seleccionamos campos específicos para evitar errores de columnas no existentes
-            columns: {
-              id: true,
-              name: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              street: true,
-              city: true,
-              province: true,
-              deliveryInstructions: true,
-              type: true
-            }
-          },
-          items: true
-        }
-      });
+      // Usar SQL nativo para obtener el pedido con el cliente para evitar problemas de columnas
+      const orderWithCustomerResult = await pool.query(`
+        SELECT 
+          o.id, 
+          o.customer_id as "customerId",
+          o.lead_id as "leadId",
+          o.order_number as "orderNumber",
+          o.total_amount as "totalAmount",
+          o.status,
+          o.payment_status as "paymentStatus",
+          o.payment_method as "paymentMethod",
+          o.source,
+          o.brand,
+          o.notes,
+          o.created_at as "createdAt",
+          o.updated_at as "updatedAt",
+          c.id as "customer_id",
+          c.name as "customer_name",
+          c.email as "customer_email",
+          c.phone as "customer_phone",
+          c.first_name as "customer_firstName",
+          c.last_name as "customer_lastName"
+        FROM orders o
+        LEFT JOIN customers c ON o.customer_id = c.id
+        WHERE o.id = $1
+      `, [insertedOrder.id]);
+      
+      // Formatear la respuesta
+      const newOrderWithRelations = {
+        ...orderWithCustomerResult.rows[0],
+        customer: {
+          id: orderWithCustomerResult.rows[0]?.customer_id,
+          name: orderWithCustomerResult.rows[0]?.customer_name,
+          email: orderWithCustomerResult.rows[0]?.customer_email,
+          phone: orderWithCustomerResult.rows[0]?.customer_phone,
+          firstName: orderWithCustomerResult.rows[0]?.customer_firstName,
+          lastName: orderWithCustomerResult.rows[0]?.customer_lastName
+        },
+        items: [] // No hay items en este caso
+      };
       
       res.status(201).json(newOrderWithRelations);
     } catch (error) {
@@ -375,29 +401,62 @@ export function registerOrderRoutes(app: Express) {
         }
       }
       
-      // Obtener el pedido actualizado con sus relaciones para devolverlo
-      const updatedOrder = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId),
-        with: {
-          customer: {
-            // Seleccionamos campos específicos para evitar errores de columnas no existentes
-            columns: {
-              id: true,
-              name: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              street: true,
-              city: true,
-              province: true,
-              deliveryInstructions: true,
-              type: true
-            }
-          },
-          items: true
-        }
-      });
+      // Usar SQL nativo para obtener el pedido con el cliente para evitar problemas de columnas
+      const orderWithCustomerResult = await pool.query(`
+        SELECT 
+          o.id, 
+          o.customer_id as "customerId",
+          o.lead_id as "leadId",
+          o.order_number as "orderNumber",
+          o.total_amount as "totalAmount",
+          o.status,
+          o.payment_status as "paymentStatus",
+          o.payment_method as "paymentMethod",
+          o.source,
+          o.brand,
+          o.notes,
+          o.created_at as "createdAt",
+          o.updated_at as "updatedAt",
+          c.id as "customer_id",
+          c.name as "customer_name",
+          c.email as "customer_email",
+          c.phone as "customer_phone",
+          c.first_name as "customer_firstName",
+          c.last_name as "customer_lastName"
+        FROM orders o
+        LEFT JOIN customers c ON o.customer_id = c.id
+        WHERE o.id = $1
+      `, [orderId]);
+      
+      // Buscar items por separado usando SQL nativo
+      const itemsResult = await pool.query(`
+        SELECT 
+          id,
+          order_id as "orderId",
+          product_id as "productId",
+          product_name as "productName",
+          quantity,
+          unit_price as "unitPrice",
+          discount,
+          subtotal,
+          created_at as "createdAt"
+        FROM order_items
+        WHERE order_id = $1
+      `, [orderId]);
+      
+      // Formatear la respuesta
+      const updatedOrder = {
+        ...orderWithCustomerResult.rows[0],
+        customer: {
+          id: orderWithCustomerResult.rows[0]?.customer_id,
+          name: orderWithCustomerResult.rows[0]?.customer_name,
+          email: orderWithCustomerResult.rows[0]?.customer_email,
+          phone: orderWithCustomerResult.rows[0]?.customer_phone,
+          firstName: orderWithCustomerResult.rows[0]?.customer_firstName,
+          lastName: orderWithCustomerResult.rows[0]?.customer_lastName
+        },
+        items: itemsResult.rows
+      };
       
       res.json(updatedOrder);
     } catch (error) {
@@ -415,14 +474,33 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({ error: "ID de pedido inválido" });
       }
       
-      // Verificar que el pedido existe en la base de datos
-      const existingOrder = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId)
-      });
+      // Buscar el pedido existente con SQL nativo
+      const { rows } = await pool.query(`
+        SELECT 
+          id, 
+          customer_id as "customerId", 
+          lead_id as "leadId",
+          order_number as "orderNumber", 
+          total_amount as "totalAmount", 
+          status, 
+          payment_status as "paymentStatus", 
+          payment_method as "paymentMethod", 
+          source, 
+          brand, 
+          notes,
+          created_at as "createdAt", 
+          updated_at as "updatedAt"
+        FROM orders
+        WHERE id = $1
+        LIMIT 1
+      `, [orderId]);
       
-      if (!existingOrder) {
+      // Si no hay resultados, retornar 404
+      if (rows.length === 0) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
+      
+      const existingOrder = rows[0];
       
       // Primero eliminar todos los items asociados al pedido
       await dbNew.delete(orderItems)
@@ -468,22 +546,40 @@ export function registerOrderRoutes(app: Express) {
         });
       }
       
-      // Buscar el pedido existente en la base de datos
-      const order = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId)
-      });
+      // Buscar el pedido existente con SQL nativo
+      const orderResult = await pool.query(`
+        SELECT 
+          id, 
+          customer_id as "customerId", 
+          lead_id as "leadId",
+          order_number as "orderNumber", 
+          total_amount as "totalAmount", 
+          status, 
+          payment_status as "paymentStatus", 
+          payment_method as "paymentMethod", 
+          source, 
+          brand, 
+          notes,
+          created_at as "createdAt", 
+          updated_at as "updatedAt"
+        FROM orders
+        WHERE id = $1
+        LIMIT 1
+      `, [orderId]);
       
-      if (!order) {
+      // Si no hay resultados, retornar 404
+      if (orderResult.rows.length === 0) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
       
-      // Actualizar el estado de pago del pedido en la base de datos
-      await dbNew.update(orders)
-        .set({ 
-          paymentStatus: paymentStatus,
-          updatedAt: new Date()
-        })
-        .where(eq(orders.id, orderId));
+      const order = orderResult.rows[0];
+      
+      // Actualizar el estado de pago del pedido con SQL nativo
+      await pool.query(`
+        UPDATE orders 
+        SET payment_status = $1, updated_at = $2
+        WHERE id = $3
+      `, [paymentStatus, new Date(), orderId]);
       
       // Si hay una razón proporcionada, actualizar las notas
       if (reason) {
@@ -492,9 +588,11 @@ export function registerOrderRoutes(app: Express) {
           ? `${existingNotes}\n[${new Date().toLocaleString()}] Cambio de estado de pago a ${paymentStatus}: ${reason}`
           : `[${new Date().toLocaleString()}] Cambio de estado de pago a ${paymentStatus}: ${reason}`;
         
-        await dbNew.update(orders)
-          .set({ notes: updatedNotes })
-          .where(eq(orders.id, orderId));
+        await pool.query(`
+          UPDATE orders 
+          SET notes = $1
+          WHERE id = $2
+        `, [updatedNotes, orderId]);
       }
       
       res.json({ 
@@ -527,33 +625,53 @@ export function registerOrderRoutes(app: Express) {
         });
       }
       
-      // Buscar el pedido existente en la base de datos
-      const order = await dbNew.query.orders.findFirst({
-        where: eq(orders.id, orderId)
-      });
+      // Buscar el pedido existente con SQL nativo
+      const orderResult = await pool.query(`
+        SELECT 
+          id, 
+          customer_id as "customerId", 
+          lead_id as "leadId",
+          order_number as "orderNumber", 
+          total_amount as "totalAmount", 
+          status, 
+          payment_status as "paymentStatus", 
+          payment_method as "paymentMethod", 
+          source, 
+          brand, 
+          notes,
+          created_at as "createdAt", 
+          updated_at as "updatedAt"
+        FROM orders
+        WHERE id = $1
+        LIMIT 1
+      `, [orderId]);
       
-      if (!order) {
+      // Si no hay resultados, retornar 404
+      if (orderResult.rows.length === 0) {
         return res.status(404).json({ error: "Pedido no encontrado" });
       }
       
-      // Actualizar el estado del pedido en la base de datos
-      await dbNew.update(orders)
-        .set({ 
-          status: status,
-          updatedAt: new Date()
-        })
-        .where(eq(orders.id, orderId));
+      const order = orderResult.rows[0];
       
-      // Si hay una razón proporcionada (especialmente para cancelaciones), actualizar las notas
+      // Actualizar el estado del pedido con SQL nativo
+      await pool.query(`
+        UPDATE orders 
+        SET status = $1, updated_at = $2
+        WHERE id = $3
+      `, [status, new Date(), orderId]);
+      
+      // Si hay una razón proporcionada, actualizar las notas
       if (reason) {
         const existingNotes = order.notes;
         const updatedNotes = existingNotes
           ? `${existingNotes}\n[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`
           : `[${new Date().toLocaleString()}] Cambio a ${status}: ${reason}`;
         
-        await dbNew.update(orders)
-          .set({ notes: updatedNotes })
-          .where(eq(orders.id, orderId));
+        await pool.query(`
+          UPDATE orders 
+          SET notes = $1
+          WHERE id = $2
+        `, [updatedNotes, orderId]);
       }
       
       res.json({ 
