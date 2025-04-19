@@ -1,0 +1,34 @@
+Quiero que implementes estas mejoras en el formulario web multistep de dirección de envío ubicado en el CRM Civetta:
+
+1. **Evitar duplicados en cliente**:
+   - Antes de enviar el formulario, valida en el frontend si alguno de estos campos (`cedula`, `email`, o `telefono`) coinciden con un cliente ya existente en la base de datos.
+   - Usa la API existente de clientes para consultar si alguno coincide (`GET /api/customers?cedula=xxx`, `...email=xxx`, etc. según cómo esté implementado).
+   - Si algún dato ya existe, muestra un **mensaje elegante** debajo del campo correspondiente en texto rojo (por ejemplo: “Ya existe un cliente registrado con este número de cédula”) y **bloquea el botón de envío**.
+   - Si se detecta más de un campo duplicado, muestra los 2 o 3 mensajes correspondientes en sus respectivos campos.
+
+2. **Visual feedback después de enviar el formulario**:
+   - Cuando el formulario se envía correctamente, muestra una **pantalla o modal de confirmación elegante** que diga algo como “✅ ¡Gracias! Hemos recibido tu información. En breve generaremos tu etiqueta de envío.”.
+   - El mensaje debe desaparecer automáticamente después de 5 segundos, o permitir cerrarlo con una “X”.
+
+3. **Manejo de errores**:
+   - Si ocurre un error al enviar el formulario (por ejemplo, error 500 o fallo de red), muestra un mensaje de error amigable como:
+     “❌ Hubo un error al enviar el formulario. Por favor intenta nuevamente más tarde o contáctanos por WhatsApp.”
+
+4. **Botón de envío**:
+   - Asegúrate de que el botón final del formulario diga “Enviar Información”.
+   - El botón debe estar deshabilitado mientras haya errores activos en los campos validados o durante la espera de respuesta del backend.
+
+5. **Notas adicionales**:
+   - Mantén intacto el comportamiento de los pasos del formulario (Step 1, 2, 3 y Resumen).
+   - Asegúrate de que los datos en el Resumen reflejen lo que el usuario escribió en los pasos anteriores.
+
+IMPORTANTE: Usa los estilos ya implementados (Tailwind o similares). No cambies la arquitectura del formulario ni el sistema de pasos. Haz los cambios solo donde corresponde. 
+
+Este formulario se encuentra en el frontend del CRM y se llama algo como `shipping-form-standalone.html` o puede estar renderizado por componentes de React/Vite.
+
+Tu tarea es: hacer que esta validación de duplicados, mensajes visuales, y feedback al usuario se implementen de forma elegante, no invasiva y profesional.
+
+Al finalizar, asegúrate de probar que:
+- No se pueden crear clientes duplicados con cédula, email o teléfono repetidos.
+- El usuario siempre sabe si el formulario fue enviado correctamente o si hubo un problema.
+- El botón de “Enviar Información” solo está habilitado cuando todo es válido.
