@@ -762,8 +762,8 @@ export function registerShippingRoutes(app: Express) {
   // Servir el script de carga del formulario para WordPress
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
-      // Usar la ruta actualizada al script cargador
-      const loaderPath = path.join(__dirname, '../templates/shipping/deprecated/shipping-form-loader.js');
+      // Mantener la ruta original al script cargador
+      const loaderPath = path.join(__dirname, '../templates/shipping/shipping-form-loader.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.sendFile(loaderPath);
     } catch (error) {

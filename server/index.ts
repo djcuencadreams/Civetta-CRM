@@ -12,6 +12,8 @@ import { registerAdditionalRoutes } from "./routes-extension";
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
 // Importamos rutas para el formulario web de envío
 import { registerWebFormRoutes } from "./routes-web-form";
+// Importamos rutas de envío principales
+import { registerShippingRoutes } from "./routes-shipping";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
 
@@ -236,6 +238,8 @@ console.log("Registrando endpoints para verificación de clientes...");
 registerCustomerCheckEndpoint(app);
 console.log("Registrando rutas para el formulario web de envío...");
 registerWebFormRoutes(app);
+console.log("Registrando rutas principales de envío...");
+registerShippingRoutes(app);
 
 // 🔥 Servir frontend React/Vite (IMPORTANTE: debe ir después de registrar rutas API)
 setupVite(app);
