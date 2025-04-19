@@ -8,7 +8,13 @@ import {
   FormMessage 
 } from "@/components/ui/form";
 
-const Step2_CustomerData = () => {
+interface Step2CustomerDataProps {
+  duplicateErrors?: {
+    email?: string;
+  };
+}
+
+const Step2_CustomerData = ({ duplicateErrors = {} }: Step2CustomerDataProps = {}) => {
   const { control } = useFormContext();
 
   return (
@@ -19,9 +25,19 @@ const Step2_CustomerData = () => {
         <FormItem>
           <FormLabel>Email *</FormLabel>
           <FormControl>
-            <Input {...field} placeholder="Email" type="email" />
+            <Input 
+              {...field} 
+              placeholder="Email" 
+              type="email" 
+              className={duplicateErrors.email ? "border-red-500" : ""}
+            />
           </FormControl>
           <FormMessage />
+          {duplicateErrors.email && (
+            <p className="text-sm font-medium text-red-500 mt-1">
+              {duplicateErrors.email}
+            </p>
+          )}
         </FormItem>
       )}
     />

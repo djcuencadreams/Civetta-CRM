@@ -817,7 +817,7 @@ export function ShippingLabelForm(): JSX.Element {
 
       <FormProvider {...form}>
         {/* Reemplazamos todo el formulario de datos personales con nuestro componente Step2_Form */}
-        <Step2_Form />
+        <Step2_Form duplicateErrors={duplicateErrors} />
       </FormProvider>
     </div>
   );
@@ -919,7 +919,7 @@ export function ShippingLabelForm(): JSX.Element {
           <Button 
             type="submit" 
             className="w-full mt-4" 
-            disabled={isPdfGenerating}
+            disabled={isPdfGenerating || Object.keys(duplicateErrors).length > 0 || !form.formState.isValid}
           >
             {isPdfGenerating ? (
               <>
@@ -950,8 +950,38 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
+  // Modal de confirmación
+  const SuccessModal = () => {
+    if (!showSuccessModal) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+          <button 
+            onClick={() => setShowSuccessModal(false)}
+            className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-green-600 text-3xl">✅</span>
+            </div>
+            <h3 className="text-xl font-semibold mb-2">¡Gracias!</h3>
+            <p className="text-gray-600 mb-4">
+              Hemos recibido tu información. En breve generaremos tu etiqueta de envío.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card className="max-w-2xl mx-auto">
+      {/* Modal de confirmación */}
+      <SuccessModal />
+      
       <CardHeader>
         <CardTitle className="text-center text-2xl font-bold text-primary">Formulario de Información de Envío</CardTitle>
         <CardDescription className="text-center">

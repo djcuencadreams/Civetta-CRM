@@ -11,7 +11,16 @@ import {
 } from "@/components/ui/form";
 import Step2_CustomerData from './Step2_CustomerData';
 
-const Step2_Form = () => {
+// Tipo de props que recibe el componente
+interface Step2FormProps {
+  duplicateErrors?: {
+    idNumber?: string;
+    email?: string;
+    phone?: string;
+  };
+}
+
+const Step2_Form = ({ duplicateErrors = {} }: Step2FormProps = {}) => {
   const { control } = useFormContext();
 
   return (
@@ -53,9 +62,18 @@ const Step2_Form = () => {
             <FormItem>
               <FormLabel>Cédula/Pasaporte/RUC *</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Documento de identidad" />
+                <Input 
+                  {...field} 
+                  placeholder="Documento de identidad"
+                  className={duplicateErrors.idNumber ? "border-red-500" : ""}
+                />
               </FormControl>
               <FormMessage />
+              {duplicateErrors.idNumber && (
+                <p className="text-sm font-medium text-red-500 mt-1">
+                  {duplicateErrors.idNumber}
+                </p>
+              )}
             </FormItem>
           )}
         />
@@ -72,9 +90,15 @@ const Step2_Form = () => {
                   defaultCountry="EC"
                   placeholder="Ej. 0999999999"
                   onChange={(value) => field.onChange(value)}
+                  className={duplicateErrors.phone ? "border-red-500" : ""}
                 />
               </FormControl>
               <FormMessage />
+              {duplicateErrors.phone && (
+                <p className="text-sm font-medium text-red-500 mt-1">
+                  {duplicateErrors.phone}
+                </p>
+              )}
             </FormItem>
           )}
         />
