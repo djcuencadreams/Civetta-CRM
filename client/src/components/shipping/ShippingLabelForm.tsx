@@ -111,6 +111,12 @@ export function ShippingLabelForm(): JSX.Element {
   const [searchType, setSearchType] = useState<"identification" | "email" | "phone">("identification");
   const [customerType, setCustomerType] = useState<"existing" | "new">("new");
   const [customerFound, setCustomerFound] = useState(false);
+  const [duplicateErrors, setDuplicateErrors] = useState<{
+    idNumber?: string;
+    email?: string;
+    phone?: string;
+  }>({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // Fix para problemas de UI donde los elementos no responden a clics
   useEffect(() => {
@@ -556,9 +562,99 @@ export function ShippingLabelForm(): JSX.Element {
     }
   };
 
+  // Función para verificar si existen duplicados
+  const checkForDuplicates = async (): Promise<boolean> => {
+    setDuplicateErrors({});
+    const formValues = form.getValues();
+    
+    // Solo realizar esta verificación para clientes nuevos
+    if (customerType === "existing" && existingCustomer?.id) {
+      return true; // No necesitamos verificar duplicados para clientes existentes
+    }
+    
+    try {
+      // Verificar cédula
+      if (formValues.idNumber) {
+        const idResponse = await fetch(`/api/shipping/check-customer-v2`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: formValues.idNumber, type: 'identification' })
+        });
+        const idData = await idResponse.json();
+        
+        if (idData.found && (!existingCustomer || existingCustomer.id !== idData.customer.id)) {
+          setDuplicateErrors(prev => ({ 
+            ...prev, 
+            idNumber: "Ya existe un cliente registrado con este número de cédula" 
+          }));
+        }
+      }
+      
+      // Verificar email
+      if (formValues.email) {
+        const emailResponse = await fetch(`/api/shipping/check-customer-v2`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: formValues.email, type: 'email' })
+        });
+        const emailData = await emailResponse.json();
+        
+        if (emailData.found && (!existingCustomer || existingCustomer.id !== emailData.customer.id)) {
+          setDuplicateErrors(prev => ({ 
+            ...prev, 
+            email: "Ya existe un cliente registrado con este correo electrónico" 
+          }));
+        }
+      }
+      
+      // Verificar teléfono
+      if (formValues.phone) {
+        const phoneResponse = await fetch(`/api/shipping/check-customer-v2`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: formValues.phone, type: 'phone' })
+        });
+        const phoneData = await phoneResponse.json();
+        
+        if (phoneData.found && (!existingCustomer || existingCustomer.id !== phoneData.customer.id)) {
+          setDuplicateErrors(prev => ({ 
+            ...prev, 
+            phone: "Ya existe un cliente registrado con este número de teléfono" 
+          }));
+        }
+      }
+      
+      // Si hay errores de duplicados, no permitir enviar el formulario
+      const hasDuplicates = Object.keys(duplicateErrors).length > 0;
+      return !hasDuplicates;
+    } catch (error) {
+      console.error('Error verificando duplicados:', error);
+      toast({
+        title: "Error de validación",
+        description: "No se pudo verificar si los datos ya existen en el sistema",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   const submitForm = async (data: ShippingFormValues) => {
     setIsPdfGenerating(true);
+    
     try {
+      // Verificar duplicados antes de continuar
+      const noDuplicates = await checkForDuplicates();
+      
+      if (!noDuplicates) {
+        setIsPdfGenerating(false);
+        toast({
+          title: "Datos duplicados",
+          description: "Existen datos que ya están registrados en el sistema. Por favor revise los mensajes de error.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       if (existingCustomer?.id) {
         const success = await updateCustomerFromWizard(existingCustomer.id);
         if (!success) {
@@ -597,23 +693,26 @@ export function ShippingLabelForm(): JSX.Element {
         throw new Error(result.message || 'Error al guardar la información');
       }
 
-      toast({
-        title: "¡Información enviada con éxito!",
-        description: result.message || "Tu información ha sido guardada correctamente",
-        variant: "default"
-      });
+      // Mostrar el modal de éxito en lugar del toast
+      setShowSuccessModal(true);
       
-      setCurrentStep(1 as WizardStep);
-      form.reset();
-      setCustomerType("new");
-      setCustomerFound(false);
-      setExistingCustomer(null); 
+      // Configurar un temporizador para cerrar automáticamente el modal después de 5 segundos
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        
+        // Resetear el formulario después de cerrar el modal
+        setCurrentStep(1 as WizardStep);
+        form.reset();
+        setCustomerType("new");
+        setCustomerFound(false);
+        setExistingCustomer(null);
+      }, 5000);
 
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Error al enviar información",
-        description: error instanceof Error ? error.message : "Ocurrió un error al guardar tu información. Inténtalo nuevamente.",
+        description: "❌ Hubo un error al enviar el formulario. Por favor intenta nuevamente más tarde o contáctanos por WhatsApp.",
         variant: "destructive"
       });
     } finally {
