@@ -8,6 +8,8 @@ import { registerOrderRoutes } from "./routes-orders-new";
 import { registerConfigurationRoutes } from "./routes-configuration";
 import { registerEmailRoutes } from "./routes-email";
 import { registerAdditionalRoutes } from "./routes-extension";
+// Importamos endpoints de verificación de clientes para envíos
+import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
 
@@ -228,6 +230,8 @@ console.log("Registrando rutas de email...");
 registerEmailRoutes(app);
 console.log("Registrando rutas adicionales...");
 registerAdditionalRoutes(app);
+console.log("Registrando endpoints para verificación de clientes...");
+registerCustomerCheckEndpoint(app);
 
 // 🔥 Servir frontend React/Vite (IMPORTANTE: debe ir después de registrar rutas API)
 setupVite(app);
