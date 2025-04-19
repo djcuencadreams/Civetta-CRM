@@ -179,6 +179,32 @@ app.get("/api/interactions", async (req, res) => {
   }
 });
 
+// Ruta directa para oportunidades con nombre de endpoint alternativo (para debugging)
+app.get("/api/debug/opportunities", async (req, res) => {
+  try {
+    console.log(`🔧 [API] Solicitud al endpoint de depuración de oportunidades`);
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Obtenemos oportunidades de la base de datos
+    const { pool } = await import("@db");
+    const result = await pool.query(`
+      SELECT o.*, 
+             c.name as customer_name,
+             l.name as lead_name
+      FROM opportunities o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN leads l ON o.lead_id = l.id
+      ORDER BY o.created_at DESC
+    `);
+    
+    console.log(`✅ Consulta completada en endpoint de depuración, devolviendo ${result.rows.length} oportunidades`);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error en endpoint de depuración de oportunidades:', error);
+    res.status(500).json({ error: "Error al obtener oportunidades", details: String(error) });
+  }
+});
+
 // IMPORTANTE: Inicializamos los servicios
 console.log("Inicializando servicios...");
 serviceRegistry.initializeAll().then(() => {

@@ -92,7 +92,7 @@ export default function OpportunitiesPage() {
     gcTime: 3600000, // Mantener en caché por más tiempo
   });
 
-  // Obtener oportunidades - Usamos una clave estable y simple para evitar problemas
+  // Obtener oportunidades - Usamos endpoint de depuración
   const { 
     data: opportunitiesData, 
     isLoading: opportunitiesLoading,
@@ -100,12 +100,22 @@ export default function OpportunitiesPage() {
     isError: opportunitiesError,
     error: opportunitiesErrorData
   } = useQuery<any[]>({ // Forzar tipo de respuesta como array
-    queryKey: ['opportunities-list'], // Clave simple y estable
+    queryKey: ['/api/debug/opportunities'], // Aseguramos que la clave coincida con la URL exacta
     queryFn: async () => {
       console.log("🔍 Obteniendo oportunidades desde el servidor...");
       try {
-        // Llamada directa para evitar cualquier problema con el cliente predeterminado
-        const response = await fetch('/api/opportunities');
+        // Añadir más logs para debugging
+        console.log("🔍 Realizando solicitud a /api/debug/opportunities");
+        
+        // Usar el endpoint de depuración directo 
+        const response = await fetch('/api/debug/opportunities', {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        console.log("📊 Estado de la respuesta:", response.status, response.statusText);
         if (!response.ok) {
           throw new Error(`Error en la petición: ${response.status} ${response.statusText}`);
         }
@@ -118,6 +128,15 @@ export default function OpportunitiesPage() {
         return data;
       } catch (error) {
         console.error("❌ Error al obtener oportunidades:", error);
+        
+        // Capturar más detalles del error para diagnóstico
+        if (error instanceof Error) {
+          console.error("❌ Mensaje de error:", error.message);
+          console.error("❌ Stack de error:", error.stack);
+        } else {
+          console.error("❌ Error desconocido:", String(error));
+        }
+        
         throw error;
       }
     },

@@ -57,6 +57,13 @@ export class OpportunitiesService implements Service {
   registerRoutes(app: Express): void {
     // Get all opportunities
     app.get("/api/opportunities", this.getAllOpportunities.bind(this));
+    
+    // Endpoint de depuración para oportunidades - ruta alternativa
+    app.get("/api/debug/opportunities", (req, res) => {
+      console.log("🔧 Solicitud en endpoint de depuración de oportunidades");
+      res.set('Content-Type', 'application/json');
+      this.getAllOpportunities(req, res);
+    });
 
     // Get opportunity by ID
     app.get(
@@ -106,6 +113,11 @@ export class OpportunitiesService implements Service {
    * Get all opportunities with related data
    */
   async getAllOpportunities(req: Request, res: Response): Promise<void> {
+    console.log("🔍 [API] Solicitud directa para listar oportunidades");
+    
+    // Asegurarnos de que estamos enviando el tipo de contenido correcto
+    res.set('Content-Type', 'application/json');
+    
     try {
       // Ejecutar una consulta SQL directa para obtener las oportunidades
       const query = `
@@ -120,11 +132,15 @@ export class OpportunitiesService implements Service {
         ORDER BY o.updated_at DESC
       `;
       
+      console.log("⏳ Ejecutando consulta SQL para oportunidades");
       const result = await pool.query(query);
-      res.json(result.rows);
+      console.log(`✅ Consulta completada, devolviendo ${result.rows.length} oportunidades`);
+      
+      // Convertir resultados a JSON para evitar problemas de formato
+      res.status(200).json(result.rows);
     } catch (error) {
-      console.error("Error fetching opportunities:", error);
-      res.status(500).json({ error: "Error al obtener las oportunidades" });
+      console.error("❌ Error fetching opportunities:", error);
+      res.status(500).json({ error: "Error al obtener las oportunidades", details: String(error) });
     }
   }
 
