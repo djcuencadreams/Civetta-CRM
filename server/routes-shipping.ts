@@ -594,35 +594,35 @@ export function registerShippingRoutes(app: Express) {
     });
 
   /**
-   * Servir el formulario HTML independiente para integrarlo en sitios externos
+   * Servir el formulario React compilado para integrarlo en sitios externos
    * Se proporciona en múltiples rutas para mayor compatibilidad
    * 
-   * IMPORTANTE: Esta función sirve el mismo archivo HTML en varias rutas
+   * IMPORTANTE: Esta función sirve el frontend React compilado en varias rutas
    * para garantizar consistencia en la integración con WordPress
    */
   const serveShippingForm = (req: Request, res: Response) => {
     try {
-      const formPath = path.join(__dirname, '../templates/shipping/embed-form.html');
+      const formPath = path.join(__dirname, '../../client/dist/index.html');
       res.setHeader('Content-Type', 'text/html');
       res.sendFile(formPath);
     } catch (error) {
-      console.error('Error al servir formulario de envío:', error);
+      console.error('Error al servir formulario de envío React:', error);
       res.status(500).send('Error al cargar el formulario de envío');
     }
   };
 
-  // Rutas para el formulario de envío
+  // Rutas para el formulario de envío (todas redirigen al componente React)
   app.get('/shipping-form', cors(corsOptions), serveShippingForm);
   app.get('/shipping', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta', cors(corsOptions), serveShippingForm);
   app.get('/etiqueta-de-envio', cors(corsOptions), serveShippingForm);
   app.get('/embed/shipping-form-static', cors(corsOptions), serveShippingForm);
   
-  // Nota: La ruta /embed/shipping-form está manejada por el frontend React
+  // Nota: Todas las rutas ahora sirven el frontend React
 
   app.get('/wordpress-guide', cors(corsOptions), (req: Request, res: Response) => {
     try {
-      const guidePath = path.join(__dirname, '../templates/shipping/wordpress-integration-guide.html');
+      const guidePath = path.join(__dirname, '../templates/shipping/deprecated/wordpress-integration-guide.html');
       res.setHeader('Content-Type', 'text/html');
       res.sendFile(guidePath);
     } catch (error) {
@@ -633,7 +633,7 @@ export function registerShippingRoutes(app: Express) {
 
   app.get('/wordpress-examples-advanced', cors(corsOptions), (req: Request, res: Response) => {
     try {
-      const examplesPath = path.join(__dirname, '../templates/shipping/wordpress-advanced-examples.html');
+      const examplesPath = path.join(__dirname, '../templates/shipping/deprecated/wordpress-example-advanced.html');
       res.setHeader('Content-Type', 'text/html');
       res.sendFile(examplesPath);
     } catch (error) {
@@ -762,7 +762,8 @@ export function registerShippingRoutes(app: Express) {
   // Servir el script de carga del formulario para WordPress
   app.get('/shipping-form-loader.js', cors(), (req: Request, res: Response) => {
     try {
-      const loaderPath = path.join(__dirname, '../templates/shipping/shipping-form-loader.js');
+      // Usar la ruta actualizada al script cargador
+      const loaderPath = path.join(__dirname, '../templates/shipping/deprecated/shipping-form-loader.js');
       res.setHeader('Content-Type', 'application/javascript');
       res.sendFile(loaderPath);
     } catch (error) {

@@ -1,0 +1,98 @@
+🚨 Misión crítica: depuración total del formulario web de Civetta CRM.
+
+Actúa como un ingeniero senior full stack especializado en mantenimiento de aplicaciones React + Node + Express. El objetivo es eliminar todas las versiones duplicadas del formulario de dirección de envío y garantizar que se use exclusivamente la versión moderna en React, ya mejorada con validaciones, modal de confirmación, y gestión de errores.
+
+🧩 Objetivo: Servir únicamente el formulario moderno React que vive en `client/src/pages/embed/shipping-form.tsx`, el cual usa el componente `ShippingLabelForm.tsx`. Eliminar cualquier otra implementación anterior que esté activa o causando conflictos.
+
+---
+
+✅ PASO 1 — RESPALDAR Y ELIMINAR ARCHIVOS HTML OBSOLETOS
+
+Ubicar y mover todos los siguientes archivos (si existen) a una nueva carpeta `/deprecated` dentro de `templates/shipping/`, ya que son versiones antiguas del formulario que ya no deben usarse:
+
+- templates/shipping/shipping-form-standalone.html
+- templates/shipping/wordpress-embed.html
+- templates/shipping/wordpress-embed-dark.html
+- templates/shipping/wordpress-embed-modern.html
+- templates/shipping/wordpress-embed-standalone.html
+- templates/shipping/wordpress-example-advanced.html
+
+⚠️ Asegúrate de que ninguna ruta del servidor esté usándolos.
+
+---
+
+✅ PASO 2 — CORREGIR LA RUTA /embed/shipping-form EN BACKEND
+
+Editar `server/routes-shipping.ts` para eliminar cualquier línea similar a:
+
+```ts
+res.sendFile(path.join(__dirname, '../templates/shipping/shipping-form-standalone.html'))
+
+Y reemplazarla por:
+
+res.sendFile(path.join(__dirname, '../../client/dist/index.html'))
+
+Esto asegura que /embed/shipping-form sirva el frontend compilado de React.
+
+⸻
+
+✅ PASO 3 — ASEGURAR COMPILACIÓN Y SERVIDOR CORRECTO
+
+1.	Ejecutar:
+cd client
+npm run build
+
+2.	Confirmar que client/dist/index.html existe y que es el build de React (debe contener <div id="root">).
+3.	Asegurar que el backend lo sirva correctamente en producción desde esa carpeta. Revisar el vite.config.ts o vite.ts si se está usando Vite para configurar correctamente la salida del build.
+
+
+✅ PASO 4 — VERIFICAR FUNCIONALIDAD Y MANTENER MEJORAS EXISTENTES
+
+El formulario actual en ShippingLabelForm.tsx ya tiene:
+	•	Validación para evitar campos duplicados (cédula, email, teléfono)
+	•	Modal elegante de confirmación tras envío exitoso
+	•	Mensajes visuales en rojo debajo de cada campo en caso de error
+	•	Deshabilitación del botón “Enviar Información” mientras se procesa
+	•	Integración con el backend para crear cliente o pedido según corresponda
+
+Asegúrate de que todo esto se mantenga funcionando en producción tras el cambio de ruta.
+
+
+✅ PASO 5 — LIMPIAR RUTAS OBSOLETAS
+
+En todos los archivos de server/, buscar rutas como:
+
+router.get('/shipping-form-legacy', ...)
+
+Y comentarlas o eliminarlas. Solo debe quedar activa la ruta /embed/shipping-form servida desde el React App compilado.
+
+⸻
+
+✅ PASO 6 — PRUEBA FINAL Y CHECKLIST
+	1.	Visitar https://[TU_URL]/embed/shipping-form
+	2.	Confirmar que se muestra el formulario React moderno.
+	3.	Confirmar que:
+	•	Se validan duplicados antes de enviar.
+	•	Se crean pedidos correctamente.
+	•	Aparece el modal de confirmación.
+	•	No se pueden enviar formularios duplicados.
+	•	No hay errores en consola.
+	4.	Confirmar que en DevTools el HTML contiene: <div id="root">, no <form> plano.
+
+⸻
+
+✅ IMPORTANTE: No eliminar ni modificar ninguno de los siguientes archivos/componentes, ya que contienen la lógica validada por el cliente:
+	•	ShippingLabelForm.tsx
+	•	Step1_PersonalData.tsx
+	•	Step2_CustomerData.tsx
+	•	Step3_ShippingInstructions.tsx
+	•	Step4_Summary.tsx
+	•	shipping-form.tsx
+	•	api/customer.ts
+	•	api/order.ts
+
+⸻
+
+🛡️ Meta: Eliminar todo rastro de formularios duplicados o legacy, mantener solamente la versión moderna en React, servirla correctamente en producción, y garantizar que todas las mejoras implementadas hasta hoy sigan funcionando correctamente. Asegura estabilidad y consistencia entre frontend y backend.
+
+¡Ejecuta con precisión quirúrgica!
