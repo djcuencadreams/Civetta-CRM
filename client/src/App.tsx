@@ -45,7 +45,32 @@ function App() {
     return (
       <EmbedShell>
         <Switch>
-          {/* Todas estas rutas van al formulario React */}
+          {/* Ruta principal para el formulario de envío */}
+          <Route path="/shipping">
+            <EmbedShippingForm />
+          </Route>
+          
+          {/* Ruta embebida principal */}
+          <Route path="/embed/shipping">
+            <EmbedShippingForm />
+          </Route>
+          
+          {/* 
+            NOTA IMPORTANTE SOBRE MÚLTIPLES RUTAS:
+            
+            Actualmente mantenemos múltiples rutas que apuntan al mismo componente
+            por compatibilidad con integraciones existentes y para evitar romper
+            enlaces antiguos. Idealmente, en un futuro refactor, deberíamos:
+            
+            1. Utilizar solo una o dos rutas canónicas (/shipping y /embed/shipping)
+            2. Implementar redirecciones para rutas antiguas
+            3. Actualizar todos los enlaces y referencias en integraciones externas
+            
+            La biblioteca wouter no soporta redirecciones con rutas múltiples,
+            por lo que mantenemos esta implementación temporalmente.
+          */}
+          
+          {/* Rutas antiguas mantenidas por compatibilidad */}
           <Route path="/embed/shipping-form">
             <EmbedShippingForm />
           </Route>
@@ -53,9 +78,6 @@ function App() {
             <EmbedShippingForm />
           </Route>
           <Route path="/shipping-form">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/shipping">
             <EmbedShippingForm />
           </Route>
           <Route path="/etiqueta">

@@ -49,11 +49,28 @@ Este documento describe las actualizaciones implementadas en el formulario de en
 - Rellenado automático de campos para clientes existentes
 - Manejo de errores en caso de fallos de red o del servidor
 
-## Nuevas Rutas API
+## Rutas y Endpoints
 
+### Rutas Frontend
+- **Ruta principal**: `/shipping` - Versión principal del formulario
+- **Ruta embebida**: `/embed/shipping` - Versión para insertar en iframes
+- **Rutas adicionales**: Múltiples rutas para compatibilidad con integraciones existentes
+  - `/embed/shipping-form`
+  - `/embed/shipping-form-static`
+  - `/shipping-form`
+  - `/etiqueta`
+  - `/etiqueta-de-envio`
+  - `/wordpress-embed`
+  - `/wordpress-embed-modern`
+  - `/forms/shipping`
+
+**Nota**: En una futura refactorización, se recomienda consolidar estas rutas y utilizar redirecciones adecuadas.
+
+### Endpoints API
 - `/api/shipping/check-customer-v2`: Verifica la existencia de un cliente
+- `/api/shipping/check-duplicate`: Verifica si hay clientes duplicados
 - `/api/shipping/draft`: Guarda un borrador del formulario
-- `/api/shipping/final`: Envía el formulario finalizado
+- `/api/shipping/final`: Envía el formulario finalizado 
 - `/api/shipping/list`: Obtiene la lista de órdenes
 
 ## Estilos y Animaciones
@@ -65,7 +82,15 @@ Se ha creado un archivo de estilos específico (`stepAnimations.css`) para las a
 - Animaciones para alertas y mensajes
 
 ## Consideraciones Futuras
+
+### Mejoras Técnicas
+- Consolidar las múltiples rutas en rutas canónicas con redirecciones adecuadas
+- Implementar una solución para manejo de redirecciones que sea compatible con wouter
+- Revisar y actualizar todas las referencias a las rutas antiguas en integraciones externas
+
+### Mejoras de Funcionalidad
 - Implementar funcionalidad offline con sincronización posterior
 - Añadir opciones de autocompletado para direcciones comunes
 - Integrar con servicios de mapas para validación de direcciones
 - Mejorar accesibilidad para usuarios con necesidades especiales
+- Implementar búsqueda avanzada de clientes existentes
