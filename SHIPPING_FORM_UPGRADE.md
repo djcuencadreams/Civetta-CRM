@@ -28,6 +28,13 @@ Este documento describe las actualizaciones implementadas en el formulario de en
 
 ## Mejoras Implementadas
 
+### Actualizaciones Recientes (Abril 2025)
+- **Ruta Canónica**: Consolidación a una única ruta `/shipping`
+- **Componente EmbedShippingForm**: Creación de componente específico para embeber el formulario
+- **Corrección de Importaciones**: Arregladas las rutas de importación en los componentes Step1_Form, Step2_Form y Step3_Form 
+- **Estilos de Animación**: Mejora del archivo CSS con clases fade-in y fade-out para transiciones
+- **Rutas de Diagnóstico**: Añadidas páginas de test para facilitar la depuración
+
 ### Experiencia de Usuario
 - Animaciones fluidas entre pasos del formulario
 - Indicadores visuales de progreso
@@ -52,19 +59,15 @@ Este documento describe las actualizaciones implementadas en el formulario de en
 ## Rutas y Endpoints
 
 ### Rutas Frontend
-- **Ruta principal**: `/shipping` - Versión principal del formulario
-- **Ruta embebida**: `/embed/shipping` - Versión para insertar en iframes
-- **Rutas adicionales**: Múltiples rutas para compatibilidad con integraciones existentes
-  - `/embed/shipping-form`
-  - `/embed/shipping-form-static`
-  - `/shipping-form`
-  - `/etiqueta`
-  - `/etiqueta-de-envio`
-  - `/wordpress-embed`
-  - `/wordpress-embed-modern`
-  - `/forms/shipping`
+- **Ruta canónica única**: `/shipping` - Formulario de envío simplificado
+- **Rutas de diagnóstico**: 
+  - `/test-shipping` - Página de prueba para el formulario desde el CRM
+  - `/test-embed` - Página de prueba para el formulario en modo embed
 
-**Nota**: En una futura refactorización, se recomienda consolidar estas rutas y utilizar redirecciones adecuadas.
+Se ha simplificado a una única ruta canónica para mejorar la mantenibilidad y seguir las mejores prácticas de desarrollo. Cualquier referencia externa o integración deberá actualizarse para utilizar esta ruta. Además, se han añadido rutas de diagnóstico para facilitar pruebas y depuración, pero éstas no deben utilizarse en producción.
+
+### Configuración de Rutas en el Frontend
+La detección de rutas se realiza en `App.tsx` mediante la función `isShippingFormRoute`, que determina si debe usarse el shell normal o el shell embed (sin chrome UI). Esta configuración permite que la misma ruta canónica pueda ser utilizada tanto dentro del CRM como de forma independiente.
 
 ### Endpoints API
 - `/api/shipping/check-customer-v2`: Verifica la existencia de un cliente
@@ -84,9 +87,9 @@ Se ha creado un archivo de estilos específico (`stepAnimations.css`) para las a
 ## Consideraciones Futuras
 
 ### Mejoras Técnicas
-- Consolidar las múltiples rutas en rutas canónicas con redirecciones adecuadas
-- Implementar una solución para manejo de redirecciones que sea compatible con wouter
-- Revisar y actualizar todas las referencias a las rutas antiguas en integraciones externas
+- Implementar redirecciones desde rutas antiguas (como `/etiqueta`, `/forms/shipping`, etc.) hacia la ruta canónica
+- Actualizar integraciones externas (WordPress, etc.) para usar la ruta canónica
+- Implementar sistema de monitoreo para detectar solicitudes a las rutas obsoletas
 
 ### Mejoras de Funcionalidad
 - Implementar funcionalidad offline con sincronización posterior

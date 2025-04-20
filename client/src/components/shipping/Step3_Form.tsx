@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import "../styles/stepAnimations.css";
+import "../../styles/stepAnimations.css";
 
 // Lista de provincias de Ecuador
 const PROVINCIAS_ECUADOR = [

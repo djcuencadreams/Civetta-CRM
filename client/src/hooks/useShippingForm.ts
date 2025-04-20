@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { z } from "zod";
 
 // Definición del schema para la validación del formulario
@@ -66,7 +66,7 @@ const initialFormData: ShippingFormData = {
 };
 
 // Hook para exponer el contexto
-export const useShippingForm = (): ShippingFormContextType => {
+const useShippingFormHook = (): ShippingFormContextType => {
   const context = useContext(ShippingFormContext);
   if (!context) {
     throw new Error("useShippingForm debe usarse dentro de un ShippingFormProvider");
@@ -75,7 +75,7 @@ export const useShippingForm = (): ShippingFormContextType => {
 };
 
 // Proveedor del contexto
-export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ShippingFormProviderComponent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Estado del formulario
   const [formData, setFormData] = useState<ShippingFormData>(initialFormData);
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -431,11 +431,8 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
     closeSuccessModal,
   };
 
-  return (
-    <ShippingFormContext.Provider value={value}>
-      {children}
-    </ShippingFormContext.Provider>
-  );
+  return React.createElement(ShippingFormContext.Provider, { value }, children);
 };
 
-export default useShippingForm;
+export const useShippingForm = useShippingFormHook;
+export const ShippingFormProvider = ShippingFormProviderComponent;

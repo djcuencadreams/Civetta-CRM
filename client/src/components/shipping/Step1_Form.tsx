@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchIcon, UserPlusIcon, UserIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import "../styles/stepAnimations.css";
+import "../../styles/stepAnimations.css";
 
 function Step1_Form() {
   const {

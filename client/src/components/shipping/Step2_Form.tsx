@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import "../styles/stepAnimations.css";
+import "../../styles/stepAnimations.css";
 
 // Esquema de validación para datos personales
 const customerDataSchema = z.object({

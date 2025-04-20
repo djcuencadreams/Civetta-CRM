@@ -1,5 +1,21 @@
 /* Animaciones para el formulario de envío con pasos */
 
+/* Animaciones simples de fade */
+.fade-in {
+  opacity: 1;
+  transition: opacity 300ms ease-in-out;
+}
+
+.fade-out {
+  opacity: 0;
+  transition: opacity 300ms ease-in-out;
+}
+
+/* Transición para elementos del paso */
+.step-transition {
+  transition: all 300ms ease-in-out;
+}
+
 /* Animación para entrada del paso */
 .step-enter {
   opacity: 0;

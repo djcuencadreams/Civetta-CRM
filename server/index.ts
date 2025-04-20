@@ -44,15 +44,9 @@ app.use((req, res, next) => {
     return next();
   }
   
-  // DETECTAR cualquier ruta relacionada con envíos, etiquetas, formularios o embed
-  if (
-    requestPath.includes('shipping') || 
-    requestPath.includes('embed') || 
-    requestPath.includes('etiqueta') || 
-    requestPath.includes('wordpress') || 
-    requestPath.includes('forms')
-  ) {
-    console.log(`💥💥💥 [INTERCEPCIÓN 3002] ${req.method} ${requestPath} ➡️ FORZANDO REACT`);
+  // DETECTAR la ruta canónica del formulario de envío
+  if (requestPath === '/shipping') {
+    console.log(`✅ [RUTA CANÓNICA] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
     
     // Eliminar cachés y forzar tipo
     res.set({
@@ -64,12 +58,46 @@ app.use((req, res, next) => {
       'Content-Type': 'text/html; charset=UTF-8'
     });
     
-    return res.sendFile(path.join(clientDistPath, "index.html"), {
+    // Verificar explícitamente si el archivo existe antes de enviarlo
+    const indexHtmlPath = path.join(clientDistPath, "index.html");
+    console.log(`Enviando index.html desde: ${indexHtmlPath}`);
+    
+    return res.sendFile(indexHtmlPath, {
       headers: {
         'X-React-Enforced': 'true',
         'X-Content-Type-Options': 'nosniff'
       }
     });
+  }
+  
+  // DETECTAR rutas obsoletas y devolver 404
+  if (
+    requestPath.includes('embed/shipping') || 
+    requestPath.includes('etiqueta') || 
+    requestPath.includes('wordpress-embed') || 
+    requestPath.includes('shipping-form') || 
+    requestPath === '/forms/shipping'
+  ) {
+    console.log(`⛔ [RUTA OBSOLETA] ${req.method} ${requestPath} ➡️ DEVOLVIENDO 404`);
+    
+    return res.status(404).send(`
+      <html>
+        <head>
+          <title>404 - Página no encontrada</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            h1 { color: #e74c3c; }
+            p { margin: 20px 0; }
+            a { color: #3498db; text-decoration: none; }
+          </style>
+        </head>
+        <body>
+          <h1>404 - Página no encontrada</h1>
+          <p>La ruta solicitada ya no está disponible.</p>
+          <p>Por favor, utilice la nueva ruta canónica: <a href="/shipping">/shipping</a></p>
+        </body>
+      </html>
+    `);
   }
   
   // Para el resto de rutas, continuar normalmente
@@ -313,8 +341,7 @@ server.listen(PORT, "0.0.0.0", () => {
     // Crear una instancia secundaria con configuración específica para servir SOLO React
     const secondaryApp = express();
     
-    // ⚠️⚠️⚠️ INTERCEPCIÓN NUCLEAR V2: SOLUCIÓN ULTRA AGRESIVA
-    // Este middleware intercepta TODO y tiene prioridad ABSOLUTA
+    // ⚠️⚠️⚠️ MANEJO ESTANDARIZADO DE RUTAS (SOLO RUTA CANÓNICA)
     secondaryApp.use((req, res, next) => {
       const requestPath = req.path.toLowerCase();
       
@@ -324,27 +351,53 @@ server.listen(PORT, "0.0.0.0", () => {
         return next();
       }
       
-      // 💥💥💥 OVERRRIDE TOTAL - MODO ULTRA NUCLEAR
-      console.log(`🔥🔥🔥 [MODO ULTRA NUCLEAR] ${req.method} ${requestPath} ➡️ ENVIANDO REDIRECCIÓN FORZADA`);
+      // DETECTAR la ruta canónica del formulario de envío
+      if (requestPath === '/shipping') {
+        console.log(`✅ [SERVIDOR 3003] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
+        
+        // Eliminar cachés y forzar tipo
+        res.set({
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Surrogate-Control': 'no-store',
+          'X-Mode': 'REACT-ONLY-ENFORCED-3003',
+          'Content-Type': 'text/html; charset=UTF-8'
+        });
+        
+        // Verificar explícitamente si el archivo existe antes de enviarlo
+        const indexHtmlPath = path.join(clientDistPath, "index.html");
+        console.log(`[SERVIDOR 3003] Enviando index.html desde: ${indexHtmlPath}`);
+        
+        return res.sendFile(indexHtmlPath, {
+          headers: {
+            'X-React-Enforced': 'true',
+            'X-Content-Type-Options': 'nosniff'
+          }
+        });
+      }
       
-      // Eliminar TODAS las cachés posibles
-      res.set({
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'Surrogate-Control': 'no-store',
-        'X-Mode': 'REACT-ONLY-ENFORCED-REDIRECT',
-        'Content-Type': 'text/html; charset=UTF-8'
-      });
+      // Para todas las demás rutas, devolver 404
+      console.log(`⛔ [SERVIDOR 3003] ${req.method} ${requestPath} ➡️ RUTA NO VÁLIDA (404)`);
       
-      // TÁCTICA ALTERNATIVA: Enviar HTML de redirección agresiva
-      // Este HTML tiene múltiples técnicas de redirección por si alguna falla
-      return res.sendFile(path.join(__dirname, "../public/shipping-redirect.html"), {
-        headers: {
-          'X-React-Enforced': 'true',
-          'X-Content-Type-Options': 'nosniff'
-        }
-      });
+      return res.status(404).send(`
+        <html>
+          <head>
+            <title>404 - Página no encontrada</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              h1 { color: #e74c3c; }
+              p { margin: 20px 0; }
+              a { color: #3498db; text-decoration: none; }
+            </style>
+          </head>
+          <body>
+            <h1>404 - Página no encontrada</h1>
+            <p>La ruta solicitada ya no está disponible.</p>
+            <p>Por favor, utilice la nueva ruta canónica: <a href="/shipping">/shipping</a></p>
+          </body>
+        </html>
+      `);
     });
     
     // Configurar bodyParser después del middleware de intercepción

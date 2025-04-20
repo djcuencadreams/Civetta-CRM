@@ -7,7 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import Step1_Form from "./Step1_Form";
 import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
-import { ShippingFormProvider, useShippingForm, WizardStep } from "@/hooks/useShippingForm";
+import { ShippingFormProvider, useShippingForm } from "@/hooks/useShippingForm";
+import type { WizardStep } from "@/hooks/useShippingForm";
 import "../../styles/stepAnimations.css";
 import {
   AlertDialog,

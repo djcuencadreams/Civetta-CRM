@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
 import { EmbedShell } from './components/layout/EmbedShell'
+import { ShippingLabelForm } from './components/shipping/ShippingLabelForm'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -22,83 +23,26 @@ import Interactions from './pages/interactions'
 import Activities from './pages/activities'
 import NotFound from './pages/not-found'
 
-// Embed pages
-import EmbedShippingForm from './pages/embed/shipping-form'
-
 function App() {
-  // Simple state to test useState initialization
-  const [count, setCount] = useState(0)
-
-  // Check if the route is an embeddable route
+  // Check if the route is the shipping form route
   const [location] = useLocation();
-  // Todas las rutas relacionadas al formulario de envío deben dirigirse a la versión React
-  const isShippingFormRoute = 
-    location.includes('shipping') || 
-    location.includes('etiqueta') || 
-    location.startsWith('/wordpress') || 
-    location.startsWith('/forms/');
   
-  const isEmbedRoute = location.startsWith('/embed/') || isShippingFormRoute;
-
-  // For embeddable routes, use EmbedShell without any chrome
-  if (isEmbedRoute) {
+  console.log("Ruta actual:", location);
+  
+  // Verificamos si la ruta actual es la del formulario de envío
+  const isShippingFormRoute = location === '/shipping';
+  
+  console.log("¿Es ruta de formulario de envío?", isShippingFormRoute);
+  
+  // Si estamos en la ruta del formulario de envío, usamos el shell embebido sin menú
+  if (isShippingFormRoute) {
+    console.log("Renderizando formulario de envío independiente");
     return (
       <EmbedShell>
-        <Switch>
-          {/* Ruta principal para el formulario de envío */}
-          <Route path="/shipping">
-            <EmbedShippingForm />
-          </Route>
-          
-          {/* Ruta embebida principal */}
-          <Route path="/embed/shipping">
-            <EmbedShippingForm />
-          </Route>
-          
-          {/* 
-            NOTA IMPORTANTE SOBRE MÚLTIPLES RUTAS:
-            
-            Actualmente mantenemos múltiples rutas que apuntan al mismo componente
-            por compatibilidad con integraciones existentes y para evitar romper
-            enlaces antiguos. Idealmente, en un futuro refactor, deberíamos:
-            
-            1. Utilizar solo una o dos rutas canónicas (/shipping y /embed/shipping)
-            2. Implementar redirecciones para rutas antiguas
-            3. Actualizar todos los enlaces y referencias en integraciones externas
-            
-            La biblioteca wouter no soporta redirecciones con rutas múltiples,
-            por lo que mantenemos esta implementación temporalmente.
-          */}
-          
-          {/* Rutas antiguas mantenidas por compatibilidad */}
-          <Route path="/embed/shipping-form">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/embed/shipping-form-static">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/shipping-form">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/etiqueta">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/etiqueta-de-envio">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/wordpress-embed">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/wordpress-embed-modern">
-            <EmbedShippingForm />
-          </Route>
-          <Route path="/forms/shipping">
-            <EmbedShippingForm />
-          </Route>
-          <Route>
-            <NotFound />
-          </Route>
-        </Switch>
+        <div className="container mx-auto py-8 max-w-2xl">
+          <h1 className="text-2xl font-bold mb-6 text-center">Formulario de Envío</h1>
+          <ShippingLabelForm />
+        </div>
       </EmbedShell>
     );
   }
@@ -152,6 +96,7 @@ function App() {
         <Route path="/activities">
           <Activities />
         </Route>
+
         <Route>
           <NotFound />
         </Route>
