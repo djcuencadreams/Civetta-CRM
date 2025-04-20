@@ -11,9 +11,7 @@ import { registerEmailRoutes } from "./routes-email";
 import { registerAdditionalRoutes } from "./routes-extension";
 // Importamos endpoints de verificación de clientes para envíos
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
-// Importamos rutas para el formulario web de envío
-import { registerWebFormRoutes } from "./routes-web-form";
-// Importamos la nueva implementación EXCLUSIVA para formularios React
+// Importamos ÚNICAMENTE la implementación React para formularios de envío
 import { registerReactShippingRoutes } from "./routes-react-shipping";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
@@ -241,8 +239,6 @@ console.log("Registrando rutas adicionales...");
 registerAdditionalRoutes(app);
 console.log("Registrando endpoints para verificación de clientes...");
 registerCustomerCheckEndpoint(app);
-console.log("Registrando rutas para el formulario web de envío...");
-registerWebFormRoutes(app);
 
 // NOTA: Las rutas para el formulario de envío React ya fueron registradas al inicio
 // con prioridad absoluta mediante registerReactShippingRoutes(app)

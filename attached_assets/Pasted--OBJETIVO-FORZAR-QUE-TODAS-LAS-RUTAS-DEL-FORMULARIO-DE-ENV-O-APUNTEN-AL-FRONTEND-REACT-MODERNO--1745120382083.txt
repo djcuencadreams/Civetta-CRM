@@ -1,0 +1,81 @@
+🛠️ OBJETIVO: FORZAR QUE TODAS LAS RUTAS DEL FORMULARIO DE ENVÍO APUNTEN AL FRONTEND REACT MODERNO (NO AL HTML ESTÁTICO)
+
+🚨 No realices ninguna acción fuera de estas instrucciones. No mantengas compatibilidad con rutas antiguas, ni mantengas HTML estáticos. TODO debe redirigir al React App generado en /client/dist.
+
+---
+
+🎯 PASO 1: ELIMINAR TODAS LAS RUTAS HTML ESTÁTICAS
+
+1. Revisa el archivo `server/index.ts` y **elimina o comenta** cualquier línea como esta:
+
+```ts
+app.get("/embed/shipping-form", serveShippingForm);
+
+O cualquier otra línea que contenga:
+
+res.sendFile(path.join(__dirname, "../templates/..."))
+
+2.	Elimina también la importación de serveShippingForm o cualquier otra función que provenga de archivos como routes-shipping-fixed.ts, routes-shipping.ts, etc., a menos que sea el nuevo routes-react-shipping.ts.
+
+
+🎯 PASO 2: REDIRECCIONAR TODAS LAS RUTAS AL FRONTEND REACT
+
+1.	Asegúrate de que en server/index.ts esté presente este bloque antes que cualquier otra ruta:
+
+import path from "path";
+import express from "express";
+
+// Este bloque debe ir antes de cualquier middleware adicional
+const clientDistPath = path.join(__dirname, "../client/dist");
+
+app.use(express.static(clientDistPath)); // Sirve los assets
+
+// ⚠️ Registro explícito para rutas del formulario de envío
+[
+  "/shipping-form",
+  "/shipping",
+  "/etiqueta",
+  "/etiqueta-de-envio",
+  "/embed/shipping-form",
+  "/embed/shipping-form-static"
+].forEach((route) => {
+  app.get(route, (req, res) => {
+    console.log(`🔥 [REACT] Sirviendo app React para: ${route}`);
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+});
+
+2.	Este bloque debe estar antes de otras rutas o middlewares.
+3.	Elimina cualquier código anterior que registre estas rutas en otros archivos como routes-shipping.ts, routes-shipping-fixed.ts, routes-shipping-new.ts, etc. Usa exclusivamente este bloque.
+
+🎯 PASO 3: ELIMINA TODA RUTA DUPLICADA
+	1.	Renombra o elimina los archivos:
+
+	•	server/routes-shipping.ts
+	•	server/routes-shipping-fixed.ts
+	•	server/routes-shipping-new.ts
+	•	server/routes-web-form.ts
+
+Solo debe mantenerse (si existe) server/routes-react-shipping.ts, y solo si no genera conflicto con el nuevo bloque directamente en server/index.ts.
+
+
+
+🎯 PASO 4: CONFIGURACIÓN ADICIONAL (si no existe aún)
+	1.	Asegúrate de que el frontend está compilado (haz npm run build en /client).
+	2.	Verifica que exista el archivo client/dist/index.html y que contenga <div id="root">.
+
+
+🎯 PASO 5: REINICIA EL SERVIDOR
+	1.	Después de aplicar los cambios, reinicia el servidor para que se apliquen correctamente.
+
+VERIFICACIÓN:
+
+Una vez aplicado todo, abre esta URL en navegador privado:
+
+https://961e2076-4a89-465e-9bf3-16eec0a168bf-00-9du5ikvis3t2.janeway.replit.dev:3003/embed/shipping-form
+
+Y en consola del navegador ejecuta:
+
+window.React
+
+🛑 NO REALICES NINGÚN CAMBIO MÁS NI AÑADAS RUTAS LEGACY. ESTE SISTEMA DEBE USAR SOLO EL FRONTEND REACT MODERNO Y CENTRALIZADO.
