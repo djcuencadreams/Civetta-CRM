@@ -3,6 +3,7 @@ import express from "express";
 import { setupVite, log } from "./vite";
 import { createServer } from "http";
 import bodyParser from "body-parser";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { registerOrderRoutes } from "./routes-orders-new";
 import { registerConfigurationRoutes } from "./routes-configuration";
@@ -12,6 +13,8 @@ import { registerAdditionalRoutes } from "./routes-extension";
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
 // Importamos rutas para el formulario web de envío
 import { registerWebFormRoutes } from "./routes-web-form";
+// Importamos la nueva implementación EXCLUSIVA para formularios React
+import { registerReactShippingRoutes } from "./routes-react-shipping";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
 
@@ -19,6 +22,10 @@ const app = express();
 const server = createServer(app);
 
 app.use(bodyParser.json());
+
+// ⚠️⚠️⚠️ PRIMERO: REGISTRAR LAS RUTAS REACT PARA ASEGURAR PRIORIDAD ABSOLUTA ⚠️⚠️⚠️
+console.log("🔥🔥🔥 REGISTRANDO RUTAS REACT CON PRIORIDAD ABSOLUTA 🔥🔥🔥");
+registerReactShippingRoutes(app);
 
 // ⚠️ Endpoint "/" para health check de Replit sin romper frontend
 app.get("/", (_req, res, next) => {
@@ -237,35 +244,28 @@ registerCustomerCheckEndpoint(app);
 console.log("Registrando rutas para el formulario web de envío...");
 registerWebFormRoutes(app);
 
-// Configurar rutas para el formulario de envío (todas redirigen al frontend React)
-console.log("Configurando rutas directas para formulario de envío en React...");
-const serveShippingForm = (req, res, next) => {
-  // Solo procesamos rutas específicas
-  const shippingFormRoutes = [
-    '/shipping-form',
-    '/shipping',
-    '/etiqueta',
-    '/etiqueta-de-envio',
-    '/embed/shipping-form',
-    '/embed/shipping-form-static'
-  ];
-  
-  if (shippingFormRoutes.includes(req.path)) {
-    console.log(`Sirviendo formulario React para ruta: ${req.path}`);
-    return next();
-  }
-  
-  return next();
-};
-
-// Registrar middleware para estas rutas
-app.use(serveShippingForm);
+// NOTA: Las rutas para el formulario de envío React ya fueron registradas al inicio
+// con prioridad absoluta mediante registerReactShippingRoutes(app)
+console.log("✅ Rutas para el formulario React ya registradas al inicio del servidor");
 
 // 🔥 Servir frontend React/Vite (IMPORTANTE: debe ir después de registrar rutas API)
 setupVite(app);
 
 // ✅ Escuchar en puerto asignado por Replit (o 3002 por defecto para evitar conflicto)
 const PORT = parseInt(process.env.PORT || "3002", 10);
+
+// Configurar puerto principal
 server.listen(PORT, "0.0.0.0", () => {
   log(`🚀 Servidor escuchando en puerto ${PORT}`);
+  
+  // También escuchar en puerto 3003 para compatibilidad con URL existente
+  try {
+    const secondaryServer = createServer(app);
+    const SECONDARY_PORT = 3003;
+    secondaryServer.listen(SECONDARY_PORT, "0.0.0.0", () => {
+      log(`🚀 Servidor secundario escuchando en puerto ${SECONDARY_PORT}`);
+    });
+  } catch (error) {
+    console.error("No se pudo iniciar el servidor secundario en puerto 3003:", error);
+  }
 });
