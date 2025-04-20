@@ -4,6 +4,9 @@ import { setupVite, log } from "./vite";
 import { createServer } from "http";
 import bodyParser from "body-parser";
 import path from "path";
+// Importamos lo necesario para obtener la ruta del directorio actual en módulos ES
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { registerRoutes } from "./routes";
 import { registerOrderRoutes } from "./routes-orders-new";
 import { registerConfigurationRoutes } from "./routes-configuration";
@@ -11,10 +14,13 @@ import { registerEmailRoutes } from "./routes-email";
 import { registerAdditionalRoutes } from "./routes-extension";
 // Importamos endpoints de verificación de clientes para envíos
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
-// Importamos ÚNICAMENTE la implementación React para formularios de envío
-import { registerReactShippingRoutes } from "./routes-react-shipping";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
+
+// Creamos la ruta al directorio client/dist usando import.meta.url para módulos ES
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const clientDistPath = path.join(__dirname, "../client/dist");
 
 const app = express();
 const server = createServer(app);
@@ -23,7 +29,23 @@ app.use(bodyParser.json());
 
 // ⚠️⚠️⚠️ PRIMERO: REGISTRAR LAS RUTAS REACT PARA ASEGURAR PRIORIDAD ABSOLUTA ⚠️⚠️⚠️
 console.log("🔥🔥🔥 REGISTRANDO RUTAS REACT CON PRIORIDAD ABSOLUTA 🔥🔥🔥");
-registerReactShippingRoutes(app);
+
+app.use(express.static(clientDistPath)); // Sirve los assets
+
+// ⚠️ Registro explícito para rutas del formulario de envío
+[
+  "/shipping-form",
+  "/shipping",
+  "/etiqueta",
+  "/etiqueta-de-envio",
+  "/embed/shipping-form",
+  "/embed/shipping-form-static"
+].forEach((route) => {
+  app.get(route, (req, res) => {
+    console.log(`🔥 [REACT] Sirviendo app React para: ${route}`);
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+});
 
 // ⚠️ Endpoint "/" para health check de Replit sin romper frontend
 app.get("/", (_req, res, next) => {
@@ -241,7 +263,7 @@ console.log("Registrando endpoints para verificación de clientes...");
 registerCustomerCheckEndpoint(app);
 
 // NOTA: Las rutas para el formulario de envío React ya fueron registradas al inicio
-// con prioridad absoluta mediante registerReactShippingRoutes(app)
+// directamente en este archivo para garantizar prioridad absoluta
 console.log("✅ Rutas para el formulario React ya registradas al inicio del servidor");
 
 // 🔥 Servir frontend React/Vite (IMPORTANTE: debe ir después de registrar rutas API)

@@ -1,0 +1,65 @@
+💥 ATENCIÓN: AUDITORÍA CRÍTICA Y LIMPIEZA TOTAL DE FORMULARIO DE ENVÍO 💥
+
+Necesito realizar una auditoría completa de este CRM y resolver los problemas actuales de arquitectura y rutas duplicadas del formulario de envío.
+
+🔍 OBJETIVOS:
+
+1. **Detectar y eliminar completamente** cualquier archivo duplicado, backup, renombrado o heredado (incluye extensiones `.bak`, `.obsoleto`, `.temp`, `.new`, `.fixed`, `.improved`, etc.) relacionados con:
+   - `routes-shipping*`
+   - `routes-web-form*`
+   - `routes-react-shipping*`
+
+2. **Asegurar que el sistema tenga solo UNA versión oficial, limpia y funcional del formulario React multistep**, que:
+   - Se encuentra en `client/src/components/shipping/ShippingLabelForm.tsx`
+   - Se carga desde `client/src/pages/embed/shipping-form.tsx`
+   - Usa `EmbedShippingForm` con `EmbedShell` como layout
+
+3. Validar que **todas las rutas** relacionadas al formulario:
+   - `/shipping-form`
+   - `/shipping`
+   - `/etiqueta`
+   - `/etiqueta-de-envio`
+   - `/embed/shipping-form`
+   - `/embed/shipping-form-static`
+   → estén redireccionando a la versión React y sirviendo `client/dist/index.html` como SPA moderna.
+
+4. Eliminar completamente cualquier referencia a `res.sendFile(...)`, `res.render(...)` o `serveShippingForm(...)` que devuelva HTML estático de:
+   - `/templates/shipping/*`
+   - o cualquier otra carpeta
+
+5. Auditar el archivo `server/index.ts`:
+   - Asegurarse que solo se importe y registre **una sola función** de rutas: la versión moderna (`registerReactShippingRoutes`)
+   - El registro de esta función debe estar en las primeras líneas del middleware, con prioridad absoluta sobre todas las demás rutas.
+
+6. Validar que los puertos 3002 y 3003 estén bien configurados y ambos sirvan el React moderno.
+   - Usar `express.static` correctamente para `client/dist`
+   - Confirmar que los assets (`/assets/*.js`, `*.css`) se cargan sin errores
+   - Usar CORS correctamente para permitir embebido desde otros dominios
+
+7. Validar que los componentes frontend tengan:
+   - Validación de duplicados (cédula, teléfono, email) con feedback visual
+   - Modal de confirmación o mensaje de éxito luego de enviar
+   - Manejo de errores visible y elegante si algo falla
+   - Botón de envío deshabilitado cuando hay errores
+
+8. Eliminar cualquier componente frontend duplicado que tenga nombres similares (por ejemplo, `ShippingLabelForm.old.tsx`, `Step2_Form_bk.tsx`, etc.).
+
+🔧 ACCIONES A TOMAR:
+
+✅ Realiza escaneo completo en las carpetas:
+   - `/server`
+   - `/templates`
+   - `/client/src/components/shipping`
+   - `/client/src/pages/embed`
+
+✅ Elimina cualquier archivo innecesario o heredado (si quieres muévelos primero a `/deprecated` por seguridad)
+
+✅ Luego, **reinicia la app y verifica** que al visitar:
+   https://961e2076-4a89-465e-9bf3-16eec0a168bf-00-9du5ikvis3t2.janeway.replit.dev:3003/embed/shipping-form  
+   se vea **el formulario React con validación, modal de éxito y mejoras visuales.**
+
+🔁 Si el formulario **NO muestra las validaciones ni el modal**, sigue auditando hasta detectar qué archivo o lógica rota sigue interfiriendo.
+
+⚠️ No registres rutas duplicadas. No registres funciones de middleware obsoletas. NO uses ningún archivo `.html`.
+
+Este sistema debe ser una implementación de clase mundial. Cumple las mejores prácticas de arquitectura de software moderna.
