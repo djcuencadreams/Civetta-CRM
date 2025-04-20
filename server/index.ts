@@ -14,6 +14,8 @@ import { registerEmailRoutes } from "./routes-email";
 import { registerAdditionalRoutes } from "./routes-extension";
 // Importamos endpoints de verificación de clientes para envíos
 import { registerCustomerCheckEndpoint } from "./routes-shipping-check-customer";
+// Importamos la versión oficial de las rutas del formulario React
+import { registerReactShippingRoutes } from "./routes-shipping-react";
 // Importamos el registro de servicios
 import { serviceRegistry } from "./services";
 
@@ -32,19 +34,48 @@ console.log("🔥🔥🔥 REGISTRANDO RUTAS REACT CON PRIORIDAD ABSOLUTA 🔥�
 
 app.use(express.static(clientDistPath)); // Sirve los assets
 
-// ⚠️ Registro explícito para rutas del formulario de envío
-[
-  "/shipping-form",
-  "/shipping",
-  "/etiqueta",
-  "/etiqueta-de-envio",
-  "/embed/shipping-form",
-  "/embed/shipping-form-static"
-].forEach((route) => {
-  app.get(route, (req, res) => {
-    console.log(`🔥 [REACT] Sirviendo app React para: ${route}`);
-    res.sendFile(path.join(clientDistPath, "index.html"));
-  });
+// ⚠️⚠️⚠️ INTERCEPCIÓN NUCLEAR: APLICAR MISMO ENFOQUE DEL PUERTO 3003 AL SERVIDOR PRINCIPAL
+// Implementar el mismo middleware radical aquí para asegurar consistencia en TODOS los puertos
+
+// INTERCEPTAR TODAS LAS RUTAS NO-API (máxima prioridad)
+app.use((req, res, next) => {
+  const requestPath = req.path.toLowerCase();
+  
+  // Permitir API
+  if (requestPath.startsWith('/api/')) {
+    return next();
+  }
+  
+  // DETECTAR cualquier ruta relacionada con envíos, etiquetas, formularios o embed
+  if (
+    requestPath.includes('shipping') || 
+    requestPath.includes('embed') || 
+    requestPath.includes('etiqueta') || 
+    requestPath.includes('wordpress') || 
+    requestPath.includes('forms')
+  ) {
+    console.log(`💥💥💥 [INTERCEPCIÓN 3002] ${req.method} ${requestPath} ➡️ FORZANDO REACT`);
+    
+    // Eliminar cachés y forzar tipo
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+      'X-Mode': 'REACT-ONLY-ENFORCED-3002',
+      'Content-Type': 'text/html; charset=UTF-8'
+    });
+    
+    return res.sendFile(path.join(clientDistPath, "index.html"), {
+      headers: {
+        'X-React-Enforced': 'true',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
+  }
+  
+  // Para el resto de rutas, continuar normalmente
+  return next();
 });
 
 // ⚠️ Endpoint "/" para health check de Replit sin romper frontend
@@ -261,6 +292,8 @@ console.log("Registrando rutas adicionales...");
 registerAdditionalRoutes(app);
 console.log("Registrando endpoints para verificación de clientes...");
 registerCustomerCheckEndpoint(app);
+console.log("Registrando rutas del formulario React...");
+registerReactShippingRoutes(app);
 
 // NOTA: Las rutas para el formulario de envío React ya fueron registradas al inicio
 // directamente en este archivo para garantizar prioridad absoluta
@@ -278,10 +311,53 @@ server.listen(PORT, "0.0.0.0", () => {
   
   // También escuchar en puerto 3003 para compatibilidad con URL existente
   try {
-    const secondaryServer = createServer(app);
+    // Crear una instancia secundaria con configuración específica para servir SOLO React
+    const secondaryApp = express();
+    
+    // ⚠️⚠️⚠️ INTERCEPCIÓN NUCLEAR V2: SOLUCIÓN ULTRA AGRESIVA
+    // Este middleware intercepta TODO y tiene prioridad ABSOLUTA
+    secondaryApp.use((req, res, next) => {
+      const requestPath = req.path.toLowerCase();
+      
+      // SOLO dejar pasar solicitudes API
+      if (requestPath.startsWith('/api/')) {
+        console.log(`⚙️ [API-3003] Procesando API: ${requestPath}`);
+        return next();
+      }
+      
+      // 💥💥💥 OVERRRIDE TOTAL - MODO ULTRA NUCLEAR
+      console.log(`🔥🔥🔥 [MODO ULTRA NUCLEAR] ${req.method} ${requestPath} ➡️ ENVIANDO REDIRECCIÓN FORZADA`);
+      
+      // Eliminar TODAS las cachés posibles
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store',
+        'X-Mode': 'REACT-ONLY-ENFORCED-REDIRECT',
+        'Content-Type': 'text/html; charset=UTF-8'
+      });
+      
+      // TÁCTICA ALTERNATIVA: Enviar HTML de redirección agresiva
+      // Este HTML tiene múltiples técnicas de redirección por si alguna falla
+      return res.sendFile(path.join(__dirname, "../public/shipping-redirect.html"), {
+        headers: {
+          'X-React-Enforced': 'true',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      });
+    });
+    
+    // Configurar bodyParser después del middleware de intercepción
+    secondaryApp.use(bodyParser.json());
+    
+    // Configurar rutas de API necesarias para el formulario
+    registerReactShippingRoutes(secondaryApp);
+    
+    const secondaryServer = createServer(secondaryApp);
     const SECONDARY_PORT = 3003;
     secondaryServer.listen(SECONDARY_PORT, "0.0.0.0", () => {
-      log(`🚀 Servidor secundario escuchando en puerto ${SECONDARY_PORT}`);
+      log(`🚀 Servidor secundario escuchando en puerto ${SECONDARY_PORT} (🛡️ INTERCEPCIÓN TOTAL - SOLO REACT)`);
     });
   } catch (error) {
     console.error("No se pudo iniciar el servidor secundario en puerto 3003:", error);

@@ -31,14 +31,46 @@ function App() {
 
   // Check if the route is an embeddable route
   const [location] = useLocation();
-  const isEmbedRoute = location.startsWith('/embed/') && location !== '/embed/shipping-form-static';
+  // Todas las rutas relacionadas al formulario de envío deben dirigirse a la versión React
+  const isShippingFormRoute = 
+    location.includes('shipping') || 
+    location.includes('etiqueta') || 
+    location.startsWith('/wordpress') || 
+    location.startsWith('/forms/');
+  
+  const isEmbedRoute = location.startsWith('/embed/') || isShippingFormRoute;
 
   // For embeddable routes, use EmbedShell without any chrome
   if (isEmbedRoute) {
     return (
       <EmbedShell>
         <Switch>
+          {/* Todas estas rutas van al formulario React */}
           <Route path="/embed/shipping-form">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/embed/shipping-form-static">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/shipping-form">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/shipping">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/etiqueta">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/etiqueta-de-envio">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/wordpress-embed">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/wordpress-embed-modern">
+            <EmbedShippingForm />
+          </Route>
+          <Route path="/forms/shipping">
             <EmbedShippingForm />
           </Route>
           <Route>
