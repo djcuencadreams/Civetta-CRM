@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import fs from "fs";
 
 // Soporte para __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -20,10 +21,23 @@ export function log(message: string, source = "express") {
 
 export function setupVite(app: express.Express) {
   const staticPath = path.join(__dirname, "..", "client", "public");
+  const indexPath = path.join(staticPath, "index.html");
 
+  // Serve static files
   app.use(express.static(staticPath));
 
-  app.get("*", (_req, res) => {
-    res.sendFile(path.join(staticPath, "index.html"));
+  // Handle SPA routes - exclude API and assets
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/assets/")) {
+      return next();
+    }
+    
+    // Verify index.html exists
+    if (!fs.existsSync(indexPath)) {
+      console.error("index.html not found at:", indexPath);
+      return res.status(500).send("Server configuration error");
+    }
+
+    res.sendFile(indexPath);
   });
 }
