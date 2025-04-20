@@ -1,6 +1,6 @@
 import React from 'react'
-import { useState } from 'react'
-import { Route, Switch, useLocation } from 'wouter'
+import { useState, useEffect } from 'react'
+import { Route, Switch, useLocation, useRoute } from 'wouter'
 import { Shell } from './components/layout/Shell'
 import { EmbedShell } from './components/layout/EmbedShell'
 import { ShippingLabelForm } from './components/shipping/ShippingLabelForm'
@@ -26,17 +26,31 @@ import NotFound from './pages/not-found'
 function App() {
   // Check if the route is the shipping form route
   const [location] = useLocation();
+  const [matchShipping] = useRoute('/shipping');
   
-  console.log("Ruta actual:", location);
+  console.log("🚨 DEBUG - Ruta actual:", location);
+  console.log("🚨 DEBUG - matchShipping:", matchShipping);
   
   // Verificamos si la ruta actual es la del formulario de envío
-  const isShippingFormRoute = location === '/shipping';
+  const isShippingFormRoute = location === '/shipping' || matchShipping;
   
-  console.log("¿Es ruta de formulario de envío?", isShippingFormRoute);
+  console.log("🚨 DEBUG - ¿Es ruta de formulario de envío?", isShippingFormRoute);
+  
+  // Este efecto se ejecuta cuando la página carga
+  useEffect(() => {
+    console.log("🚨 DEBUG - App montada con ruta:", location);
+    console.log("🚨 DEBUG - window.location.pathname:", window.location.pathname);
+    
+    // Si estamos en /shipping pero no se ha detectado, forzar la detección
+    if (window.location.pathname === '/shipping' && !isShippingFormRoute) {
+      console.log("🚨 DEBUG - Forzando detección de ruta /shipping");
+      window.history.replaceState(null, '', '/shipping');
+    }
+  }, [location, isShippingFormRoute]);
   
   // Si estamos en la ruta del formulario de envío, usamos el shell embebido sin menú
   if (isShippingFormRoute) {
-    console.log("Renderizando formulario de envío independiente");
+    console.log("🚨 DEBUG - Renderizando formulario de envío independiente");
     return (
       <EmbedShell>
         <div className="container mx-auto py-8 max-w-2xl">
@@ -96,7 +110,13 @@ function App() {
         <Route path="/activities">
           <Activities />
         </Route>
-
+        {/* Añadir explícitamente la ruta de shipping como una alternativa */}
+        <Route path="/shipping">
+          <div className="container mx-auto py-8 max-w-2xl">
+            <h1 className="text-2xl font-bold mb-6 text-center">Formulario de Envío (Ruta Alternativa)</h1>
+            <ShippingLabelForm />
+          </div>
+        </Route>
         <Route>
           <NotFound />
         </Route>
