@@ -1,0 +1,99 @@
+Por favor, realiza los siguientes pasos con extremo cuidado. No ejecutes nada adicional ni simplifiques los pasos:
+
+⸻
+
+📁 ARCHIVOS A MODIFICAR O CREAR
+	1.	client/src/components/shipping/ShippingLabelForm.tsx
+	2.	client/src/components/shipping/Step2_Form.tsx
+	3.	client/src/components/shipping/Step3_Form.tsx
+	4.	client/src/hooks/useShippingForm.ts (NUEVO)
+	5.	server/routes-shipping-react.ts
+	6.	server/index.ts
+
+⸻
+
+⚙️ INSTRUCCIONES PASO A PASO
+
+✅ 1. Crear Hook useShippingForm.ts
+
+Ubicación: client/src/hooks/useShippingForm.ts
+Descripción: Este hook debe controlar el estado global del formulario, los pasos, la lógica de guardar el progreso como draft y hacer auto-sync con el backend sin recargar la página.
+
+Funciones clave que debe contener:
+	•	goToNextStep()
+	•	goToPreviousStep()
+	•	updateFormData(field: string, value: any)
+	•	saveAsDraft()
+	•	submitForm()
+	•	resetForm()
+
+El hook debe mantener el estado con useState y exponerlo con useContext si es necesario.
+
+⸻
+
+✅ 2. Actualizar ShippingLabelForm.tsx
+
+Reemplaza su lógica interna para:
+	•	Usar el hook useShippingForm.
+	•	Cargar Step1, Step2 y Step3 como componentes separados.
+	•	Incluir transiciones suaves entre pasos (framer-motion o CSS básico).
+	•	Llamar saveAsDraft() al avanzar entre pasos.
+	•	Mostrar SuccessModal al guardar o enviar con éxito.
+	•	Asegurar que al terminar, el cliente y orden se reflejen inmediatamente en la lista sin recarga.
+
+⸻
+
+✅ 3. Validar datos antes de guardar
+
+En el paso 1 (nuevo cliente), antes de guardar un nuevo cliente:
+	•	Consultar la base de datos vía /api/client/check-duplicate enviando cédula, correo y teléfono.
+	•	Si hay duplicado, mostrar error con mensaje visual.
+	•	Si no hay duplicado, continuar con la creación.
+
+⸻
+
+✅ 4. Añadir lógica de auto-guardado como “borrador”
+
+Cada vez que el usuario pasa al siguiente paso, se debe hacer una llamada a /api/shipping/draft para guardar parcial:
+	•	Crea o actualiza la orden con status: "draft"
+	•	Guarda los datos ingresados hasta ese punto
+	•	Debe funcionar incluso si el usuario no ha llegado hasta el paso final.
+
+⸻
+
+✅ 5. Conectar con backend para reflejar resultados en CRM sin recargar
+
+Cuando se crea o actualiza un cliente u orden, el frontend debe:
+	•	Volver a consultar (con fetch) el listado de pedidos del CRM (si está en el mismo layout).
+	•	Actualizar la tabla sin recargar toda la página.
+
+⸻
+
+✅ 6. Rutas del backend (Node/Express)
+
+En server/routes-shipping-react.ts:
+	•	Asegúrate de tener:
+	•	POST /api/shipping/check-duplicate para verificar duplicados.
+	•	POST /api/shipping/draft para guardar orden parcial.
+	•	POST /api/shipping/final para guardar completa.
+	•	GET /api/shipping/list para recargar las órdenes.
+Todas deben funcionar con validaciones básicas y status HTTP apropiados.
+
+⸻
+
+✅ 7. Registrar rutas en server/index.ts
+
+Asegúrate de tener:
+
+import { registerReactShippingRoutes } from "./routes-shipping-react";
+registerReactShippingRoutes(app);
+
+Elimina cualquier rastro de routes-shipping-check-customer.
+
+⸻
+
+📌 NOTAS FINALES PARA REPLIT AGENT
+	•	Usa validaciones con Zod en el frontend.
+	•	Asegúrate de que todos los archivos anteriores obsoletos estén eliminados (archivos .bak, .obsoleto, .temp, .new).
+	•	Si necesitas mover archivos a /deprecated/, hazlo, pero NO los dejes en uso.
+	•	Todos los cambios deben seguir buenas prácticas de desarrollo profesional.

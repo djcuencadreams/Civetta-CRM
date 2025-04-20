@@ -26,6 +26,20 @@ const customerSearchSchema = z.object({
   type: z.enum(["identification", "email", "phone"]),
 });
 
+// Esquema para validar datos para verificar duplicados
+const checkDuplicateSchema = z.object({
+  document: z.string().min(5, "El documento debe tener al menos 5 caracteres"),
+  email: z.string().email("Ingrese un email válido"),
+  phone: z.string().min(8, "El teléfono debe tener al menos 8 caracteres"),
+});
+
+// Esquema para validar datos para guardar borrador
+const draftFormSchema = z.object({
+  formData: shippingFormSchema.partial(),
+  orderId: z.number().optional(),
+  step: z.number().min(1).max(4),
+});
+
 // Función para verificar si un cliente existe
 async function checkIfCustomerExists(identifier: string, type: "identification" | "email" | "phone") {
   console.log(`🔍 Verificando cliente: ${identifier} tipo: ${type}`);
@@ -90,9 +104,127 @@ async function checkIfCustomerExists(identifier: string, type: "identification" 
   return { found: false };
 }
 
-// Función para guardar los datos del formulario
-async function saveShippingFormData(formData: z.infer<typeof shippingFormSchema>) {
-  console.log(`📝 Guardando datos del formulario de envío: ${JSON.stringify(formData)}`);
+// Función para verificar si hay clientes duplicados
+async function checkDuplicateCustomers(document: string, email: string, phone: string) {
+  console.log(`🔍 Verificando duplicados - Documento: ${document}, Email: ${email}, Teléfono: ${phone}`);
+  
+  // Importamos el cliente de la base de datos
+  const { pool } = await import("@db");
+  
+  // Verificar duplicado por documento
+  const documentResult = await pool.query(
+    "SELECT id, name FROM customers WHERE id_number = $1 LIMIT 1",
+    [document]
+  );
+  
+  // Verificar duplicado por email
+  const emailResult = await pool.query(
+    "SELECT id, name FROM customers WHERE email = $1 LIMIT 1",
+    [email]
+  );
+  
+  // Verificar duplicado por teléfono
+  const phoneResult = await pool.query(
+    "SELECT id, name FROM customers WHERE phone = $1 OR phone_number = $1 OR secondary_phone = $1 LIMIT 1",
+    [phone.replace(/^\+/, "")] // Quitar el + inicial para búsqueda en todos los campos de teléfono
+  );
+  
+  // Construimos el resultado
+  const duplicates: Record<string, { id: number; name: string }> = {};
+  
+  if (documentResult.rows.length > 0) {
+    duplicates.document = {
+      id: documentResult.rows[0].id,
+      name: documentResult.rows[0].name
+    };
+  }
+  
+  if (emailResult.rows.length > 0) {
+    duplicates.email = {
+      id: emailResult.rows[0].id,
+      name: emailResult.rows[0].name
+    };
+  }
+  
+  if (phoneResult.rows.length > 0) {
+    duplicates.phone = {
+      id: phoneResult.rows[0].id,
+      name: phoneResult.rows[0].name
+    };
+  }
+  
+  const hasDuplicates = Object.keys(duplicates).length > 0;
+  console.log(`✅ Verificación de duplicados completada: ${hasDuplicates ? "Duplicados encontrados" : "No hay duplicados"}`);
+  
+  return {
+    hasDuplicates,
+    duplicates
+  };
+}
+
+// Función para guardar formulario como borrador
+async function saveFormAsDraft(
+  formData: Partial<z.infer<typeof shippingFormSchema>>,
+  orderId: number | null,
+  step: number
+) {
+  console.log(`📝 Guardando borrador (paso ${step}) ${orderId ? `para orden #${orderId}` : "nueva orden"}`);
+  
+  // Importamos el cliente de la base de datos
+  const { pool } = await import("@db");
+  
+  // Si no hay un ID de orden existente, creamos uno nuevo
+  if (!orderId) {
+    // Verificamos si hay un cliente con este documento si está presente
+    let customerId: number | null = null;
+    
+    if (formData.document) {
+      const customerResult = await pool.query(
+        "SELECT id FROM customers WHERE id_number = $1 LIMIT 1",
+        [formData.document]
+      );
+      
+      if (customerResult.rows.length > 0) {
+        customerId = customerResult.rows[0].id;
+      }
+    }
+    
+    // Creamos una orden borrador
+    const orderResult = await pool.query(
+      `INSERT INTO orders
+       (customer_id, status, created_at, updated_at, order_number, form_data, draft_step)
+       VALUES ($1, 'draft', NOW(), NOW(), $2, $3, $4)
+       RETURNING id`,
+      [
+        customerId, // Puede ser null si no hay cliente
+        generateOrderNumber("DFT"),
+        formData, // Guardar datos parciales del formulario
+        step
+      ]
+    );
+    
+    orderId = orderResult.rows[0].id;
+    console.log(`✅ Nuevo borrador creado con ID: ${orderId}`);
+  } else {
+    // Actualizamos la orden existente
+    await pool.query(
+      `UPDATE orders
+       SET form_data = $1, updated_at = NOW(), draft_step = $2
+       WHERE id = $3`,
+      [formData, step, orderId]
+    );
+    
+    console.log(`✅ Borrador actualizado para orden ID: ${orderId}`);
+  }
+  
+  return {
+    orderId
+  };
+}
+
+// Función para guardar los datos finales del formulario
+async function saveFinalShippingForm(formData: z.infer<typeof shippingFormSchema>, draftOrderId: number | null) {
+  console.log(`📝 Guardando formulario final${draftOrderId ? ` (convertido desde borrador #${draftOrderId})` : ""}`);
   
   // Importamos el cliente de la base de datos
   const { pool } = await import("@db");
@@ -165,32 +297,47 @@ async function saveShippingFormData(formData: z.infer<typeof shippingFormSchema>
     console.log(`✅ Nuevo cliente creado con ID: ${customerId}`);
   }
   
-  // Creamos una orden pendiente asociada a este cliente
-  const orderResult = await pool.query(
-    `INSERT INTO orders
-     (customer_id, status, created_at, updated_at, order_number, form_data)
-     VALUES ($1, 'pending', NOW(), NOW(), $2, $3)
-     RETURNING id`,
-    [
-      customerId,
-      generateOrderNumber(),
-      {
-        formType: "shipping",
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        document: formData.document,
-        email: formData.email,
-        phone: formData.phoneNumber,
-        address: formData.address,
-        city: formData.city,
-        province: formData.province,
-        instructions: formData.instructions
-      }
-    ]
-  );
+  let orderId: number;
   
-  const orderId = orderResult.rows[0].id;
-  console.log(`✅ Orden pendiente creada con ID: ${orderId}`);
+  // Si tenemos un borrador, actualizamos esa orden
+  if (draftOrderId) {
+    await pool.query(
+      `UPDATE orders
+       SET customer_id = $1, status = 'pending', form_data = $2, updated_at = NOW(), draft_step = NULL
+       WHERE id = $3
+       RETURNING id`,
+      [
+        customerId,
+        {
+          formType: "shipping",
+          ...formData
+        },
+        draftOrderId
+      ]
+    );
+    
+    orderId = draftOrderId;
+    console.log(`✅ Borrador convertido a orden pendiente, ID: ${orderId}`);
+  } else {
+    // Creamos una nueva orden pendiente asociada a este cliente
+    const orderResult = await pool.query(
+      `INSERT INTO orders
+       (customer_id, status, created_at, updated_at, order_number, form_data)
+       VALUES ($1, 'pending', NOW(), NOW(), $2, $3)
+       RETURNING id`,
+      [
+        customerId,
+        generateOrderNumber("SHF"),
+        {
+          formType: "shipping",
+          ...formData
+        }
+      ]
+    );
+    
+    orderId = orderResult.rows[0].id;
+    console.log(`✅ Orden pendiente creada con ID: ${orderId}`);
+  }
   
   return {
     success: true,
@@ -199,20 +346,182 @@ async function saveShippingFormData(formData: z.infer<typeof shippingFormSchema>
   };
 }
 
+// Función para obtener listado de órdenes
+async function getOrdersList(limit: number = 50) {
+  console.log(`📋 Obteniendo lista de órdenes (limit: ${limit})`);
+  
+  // Importamos el cliente de la base de datos
+  const { pool } = await import("@db");
+  
+  // Obtenemos las órdenes incluyendo datos del cliente
+  const result = await pool.query(
+    `SELECT o.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone
+     FROM orders o
+     LEFT JOIN customers c ON o.customer_id = c.id
+     ORDER BY o.created_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  
+  // Formateamos los resultados
+  const orders = result.rows.map(row => ({
+    id: row.id,
+    orderNumber: row.order_number,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    customer: row.customer_id ? {
+      id: row.customer_id,
+      name: row.customer_name,
+      email: row.customer_email,
+      phone: row.customer_phone
+    } : null,
+    formData: row.form_data,
+    draftStep: row.draft_step
+  }));
+  
+  console.log(`✅ Obtenidas ${orders.length} órdenes`);
+  
+  return orders;
+}
+
 // Función para generar un número de orden único
-function generateOrderNumber(): string {
+function generateOrderNumber(prefix: string = "SHF"): string {
   const date = new Date();
   const year = date.getFullYear().toString().slice(2);
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const day = date.getDate().toString().padStart(2, "0");
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
   
-  return `SHF-${year}${month}${day}-${random}`;
+  return `${prefix}-${year}${month}${day}-${random}`;
 }
 
 // Función principal para registrar las rutas
 export function registerReactShippingRoutes(app: Express): void {
-  // Endpoint para guardar el formulario de envío
+  // Endpoint para verificar duplicados
+  app.post("/api/shipping/check-duplicate", async (req: Request, res: Response) => {
+    try {
+      // Validamos los datos
+      const result = checkDuplicateSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Datos inválidos",
+          details: result.error.format()
+        });
+      }
+      
+      // Verificamos duplicados
+      const { document, email, phone } = result.data;
+      const checkResult = await checkDuplicateCustomers(document, email, phone);
+      
+      // Respondemos con el resultado
+      return res.json({
+        success: true,
+        hasDuplicates: checkResult.hasDuplicates,
+        duplicates: checkResult.duplicates
+      });
+    } catch (error) {
+      console.error("❌ Error al verificar duplicados:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al verificar duplicados",
+        details: String(error)
+      });
+    }
+  });
+  
+  // Endpoint para guardar borrador
+  app.post("/api/shipping/draft", async (req: Request, res: Response) => {
+    try {
+      // Validamos los datos
+      const result = draftFormSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Datos inválidos",
+          details: result.error.format()
+        });
+      }
+      
+      // Guardamos el borrador
+      const { formData, orderId, step } = result.data;
+      const saveResult = await saveFormAsDraft(formData, orderId || null, step);
+      
+      // Respondemos con el resultado
+      return res.json({
+        success: true,
+        message: "Borrador guardado correctamente",
+        orderId: saveResult.orderId
+      });
+    } catch (error) {
+      console.error("❌ Error al guardar borrador:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al guardar borrador",
+        details: String(error)
+      });
+    }
+  });
+  
+  // Endpoint para guardar formulario final
+  app.post("/api/shipping/final", async (req: Request, res: Response) => {
+    try {
+      // Validamos los datos del formulario
+      const formDataResult = shippingFormSchema.safeParse(req.body.formData);
+      
+      if (!formDataResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: "Datos inválidos",
+          details: formDataResult.error.format()
+        });
+      }
+      
+      // Extraemos el ID de orden borrador si existe
+      const draftOrderId = req.body.orderId || null;
+      
+      // Guardamos los datos finales
+      const saveResult = await saveFinalShippingForm(formDataResult.data, draftOrderId);
+      
+      // Respondemos con éxito
+      return res.json({
+        success: true,
+        message: "Formulario guardado correctamente",
+        data: saveResult
+      });
+    } catch (error) {
+      console.error("❌ Error al guardar datos del formulario:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al guardar los datos del formulario",
+        details: String(error)
+      });
+    }
+  });
+  
+  // Endpoint para obtener lista de órdenes
+  app.get("/api/shipping/list", async (_req: Request, res: Response) => {
+    try {
+      const orders = await getOrdersList();
+      
+      return res.json({
+        success: true,
+        orders
+      });
+    } catch (error) {
+      console.error("❌ Error al obtener lista de órdenes:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al obtener lista de órdenes",
+        details: String(error)
+      });
+    }
+  });
+  
+  // Mantenemos compatibilidad con el endpoint anterior
   app.post("/api/guardar-formulario-envio", async (req: Request, res: Response) => {
     try {
       // Validamos los datos del formulario
@@ -226,8 +535,8 @@ export function registerReactShippingRoutes(app: Express): void {
         });
       }
       
-      // Guardamos los datos del formulario
-      const saveResult = await saveShippingFormData(result.data);
+      // Guardamos los datos finales
+      const saveResult = await saveFinalShippingForm(result.data, null);
       
       // Respondemos con éxito
       return res.json({
@@ -313,5 +622,5 @@ export function registerReactShippingRoutes(app: Express): void {
     }
   });
   
-  console.log("✅ Rutas del formulario React registradas: /api/guardar-formulario-envio");
+  console.log("✅ Rutas del formulario React registradas: /api/shipping/check-duplicate, /api/shipping/draft, /api/shipping/final, /api/shipping/list");
 }
