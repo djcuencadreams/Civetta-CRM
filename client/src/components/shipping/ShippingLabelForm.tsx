@@ -8,6 +8,7 @@ import Step1_Form from "./Step1_Form";
 import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
 import { ShippingFormProvider, useShippingForm, WizardStep } from "@/hooks/useShippingForm";
+import "../../styles/stepAnimations.css";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +55,7 @@ function ShippingLabelFormContent(): JSX.Element {
       toast({
         title: "Borrador guardado",
         description: "Tu progreso ha sido guardado automáticamente",
-        variant: "success",
+        variant: "default",
       });
     }
   }, [isDraftSaved, toast]);
@@ -66,7 +67,7 @@ function ShippingLabelFormContent(): JSX.Element {
       toast({
         title: "¡Formulario enviado con éxito!",
         description: "Tu información ha sido procesada correctamente",
-        variant: "success",
+        variant: "default",
       });
     } else {
       toast({

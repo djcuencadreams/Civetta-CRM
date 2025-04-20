@@ -1,0 +1,31 @@
+Realiza las siguientes tareas en el proyecto actual con precisión extrema, sin modificar nada fuera del alcance indicado, y siguiendo buenas prácticas de desarrollo modular y React moderno:
+
+1. 🌀 Añadir transiciones suaves entre los pasos del formulario multistep:
+
+   - En los componentes `Step1_Form.tsx`, `Step2_Form.tsx`, y `Step3_Form.tsx` agrega una animación CSS de entrada/salida al contenedor principal. Usa clases como `.fade-in`, `.fade-out` o transición `opacity` y `transform`. Aplica un wrapper div que permita animar el componente cada vez que se monta o desmonta.
+   - Implementa la lógica de montaje condicional para que solo el paso activo esté visible, y los demás estén ocultos con animación de salida (sin renderizarse completamente).
+   - Crea un archivo `client/src/styles/stepAnimations.css` y aplica allí las animaciones globales. Asegúrate de importar este CSS en el `ShippingLabelForm.tsx`.
+
+2. 💾 Guardado automático como "borrador":
+
+   - En el hook `useShippingForm.ts`, añade un efecto `useEffect()` que se dispare **cada vez que se avanza de paso** (cuando cambia `currentStep`).
+   - Este efecto debe ejecutar una llamada a `POST /api/shipping/save-draft` con el estado actual del formulario.
+   - Si no existe, crea una nueva ruta en `server/routes-shipping-react.ts` para manejar `/api/shipping/save-draft`, que guarde la orden como borrador (status: "draft") en la tabla `orders`.
+
+3. 🔁 Actualizar lista de pedidos en el CRM (sin recargar):
+
+   - En el hook `useShippingForm.ts`, cuando el paso final termine exitosamente (`step === 3` y `form completed`), emitir un evento `CustomEvent` llamado `"orderSaved"` con el `orderId` recién creado.
+   - En la interfaz de CRM donde se listan las órdenes, escucha ese evento con `window.addEventListener("orderSaved", callback)` para refrescar solo la lista de pedidos automáticamente.
+
+4. 🧼 Limpieza y buenas prácticas:
+
+   - Elimina cualquier referencia residual a `customerType === 'check'` si ya no existe en el flujo.
+   - Asegúrate de que todos los estados en `useShippingForm()` estén correctamente tipados y no haya `any`.
+   - Verifica que `ShippingLabelForm.tsx` importe correctamente los pasos desde `./Step1_Form`, `./Step2_Form`, `./Step3_Form` y que no haya ningún componente embebido inline.
+
+Una vez que todo esté implementado, reinicia el servidor y confirma que:
+
+✓ Las animaciones funcionan entre pasos.  
+✓ Se hace `POST` automático a `/api/shipping/save-draft` al avanzar.  
+✓ El evento `orderSaved` se emite y puede ser escuchado desde el CRM.  
+✓ El código esté limpio y modular según lo solicitado.

@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import "../styles/stepAnimations.css";
 
 // Esquema de validación para datos personales
 const customerDataSchema = z.object({
@@ -26,6 +28,16 @@ function Step2_Form() {
     errors: formErrors, 
     duplicateErrors 
   } = useShippingForm();
+  
+  const [isVisible, setIsVisible] = useState(false);
+  
+  // Efecto para animar la entrada del componente
+  useEffect(() => {
+    setIsVisible(true);
+    return () => {
+      setIsVisible(false);
+    };
+  }, []);
   
   // Inicializar el formulario con datos existentes
   const form = useForm<CustomerDataForm>({
@@ -49,153 +61,155 @@ function Step2_Form() {
   const hasDuplicateErrors = Object.keys(duplicateErrors).length > 0;
   
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-medium">Datos Personales</h3>
-      
-      {hasDuplicateErrors && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error de duplicado</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc pl-5">
-              {Object.entries(duplicateErrors).map(([field, message]) => (
-                <li key={field}>{message}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: Juan"
-                    onChange={(e) => handleFieldChange("firstName", e.target.value)}
-                  />
-                </FormControl>
-                <FormMessage />
-                {formErrors.firstName && (
-                  <p className="text-sm text-red-500">{formErrors.firstName}</p>
-                )}
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className={`step-content ${isVisible ? 'fade-in' : 'fade-out'}`}>
+      <div className="space-y-6">
+        <h3 className="text-lg font-medium">Datos Personales</h3>
         
-        <div>
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Apellido</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: Pérez"
-                    onChange={(e) => handleFieldChange("lastName", e.target.value)}
-                  />
-                </FormControl>
-                <FormMessage />
-                {formErrors.lastName && (
-                  <p className="text-sm text-red-500">{formErrors.lastName}</p>
-                )}
-              </FormItem>
-            )}
-          />
-        </div>
+        {hasDuplicateErrors && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error de duplicado</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-5">
+                {Object.entries(duplicateErrors).map(([field, message]) => (
+                  <li key={field}>{message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         
-        <div>
-          <FormField
-            control={form.control}
-            name="document"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cédula / RUC</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: 0103556734"
-                    onChange={(e) => handleFieldChange("document", e.target.value)}
-                  />
-                </FormControl>
-                {duplicateErrors.document ? (
-                  <p className="text-sm text-red-500">{duplicateErrors.document}</p>
-                ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <FormField
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Ej: Juan"
+                      onChange={(e) => handleFieldChange("firstName", e.target.value)}
+                    />
+                  </FormControl>
                   <FormMessage />
-                )}
-                {formErrors.document && !duplicateErrors.document && (
-                  <p className="text-sm text-red-500">{formErrors.document}</p>
-                )}
-              </FormItem>
-            )}
-          />
-        </div>
-        
-        <div>
-          <FormField
-            control={form.control}
-            name="phoneNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Teléfono</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: +593995815652"
-                    onChange={(e) => handleFieldChange("phoneNumber", e.target.value)}
-                  />
-                </FormControl>
-                {duplicateErrors.phoneNumber ? (
-                  <p className="text-sm text-red-500">{duplicateErrors.phoneNumber}</p>
-                ) : (
+                  {formErrors.firstName && (
+                    <p className="text-sm text-red-500">{formErrors.firstName}</p>
+                  )}
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div>
+            <FormField
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Apellido</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Ej: Pérez"
+                      onChange={(e) => handleFieldChange("lastName", e.target.value)}
+                    />
+                  </FormControl>
                   <FormMessage />
-                )}
-                {formErrors.phoneNumber && !duplicateErrors.phoneNumber && (
-                  <p className="text-sm text-red-500">{formErrors.phoneNumber}</p>
-                )}
-              </FormItem>
-            )}
-          />
-        </div>
-        
-        <div className="md:col-span-2">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Correo Electrónico</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="email"
-                    placeholder="Ej: cliente@ejemplo.com"
-                    onChange={(e) => handleFieldChange("email", e.target.value)}
-                  />
-                </FormControl>
-                {duplicateErrors.email ? (
-                  <p className="text-sm text-red-500">{duplicateErrors.email}</p>
-                ) : (
-                  <FormMessage />
-                )}
-                {formErrors.email && !duplicateErrors.email && (
-                  <p className="text-sm text-red-500">{formErrors.email}</p>
-                )}
-                <FormDescription>
-                  Le enviaremos una confirmación a este correo electrónico.
-                </FormDescription>
-              </FormItem>
-            )}
-          />
+                  {formErrors.lastName && (
+                    <p className="text-sm text-red-500">{formErrors.lastName}</p>
+                  )}
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div>
+            <FormField
+              control={form.control}
+              name="document"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cédula / RUC</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Ej: 0103556734"
+                      onChange={(e) => handleFieldChange("document", e.target.value)}
+                    />
+                  </FormControl>
+                  {duplicateErrors.document ? (
+                    <p className="text-sm text-red-500">{duplicateErrors.document}</p>
+                  ) : (
+                    <FormMessage />
+                  )}
+                  {formErrors.document && !duplicateErrors.document && (
+                    <p className="text-sm text-red-500">{formErrors.document}</p>
+                  )}
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div>
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Teléfono</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Ej: +593995815652"
+                      onChange={(e) => handleFieldChange("phoneNumber", e.target.value)}
+                    />
+                  </FormControl>
+                  {duplicateErrors.phoneNumber ? (
+                    <p className="text-sm text-red-500">{duplicateErrors.phoneNumber}</p>
+                  ) : (
+                    <FormMessage />
+                  )}
+                  {formErrors.phoneNumber && !duplicateErrors.phoneNumber && (
+                    <p className="text-sm text-red-500">{formErrors.phoneNumber}</p>
+                  )}
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div className="md:col-span-2">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Correo Electrónico</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="email"
+                      placeholder="Ej: cliente@ejemplo.com"
+                      onChange={(e) => handleFieldChange("email", e.target.value)}
+                    />
+                  </FormControl>
+                  {duplicateErrors.email ? (
+                    <p className="text-sm text-red-500">{duplicateErrors.email}</p>
+                  ) : (
+                    <FormMessage />
+                  )}
+                  {formErrors.email && !duplicateErrors.email && (
+                    <p className="text-sm text-red-500">{formErrors.email}</p>
+                  )}
+                  <FormDescription>
+                    Le enviaremos una confirmación a este correo electrónico.
+                  </FormDescription>
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
       </div>
     </div>

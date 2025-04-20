@@ -297,10 +297,18 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   // Función para refrescar la lista de órdenes
-  const refreshOrdersList = async (): Promise<void> => {
+  const refreshOrdersList = async (orderId?: number): Promise<void> => {
     try {
       // Emitir un evento personalizado que otros componentes pueden escuchar
-      window.dispatchEvent(new CustomEvent("shipping-form:order-created"));
+      // Incluir el ID de orden en el detalle del evento
+      window.dispatchEvent(new CustomEvent("shipping-form:order-created", { 
+        detail: { orderId } 
+      }));
+      
+      // Emitir también un evento 'orderSaved' como se solicita en los requisitos
+      window.dispatchEvent(new CustomEvent("orderSaved", { 
+        detail: { orderId } 
+      }));
       
       // También podríamos hacer un fetch directo para actualizar datos en caché
       const response = await fetch("/api/shipping/list");
@@ -326,6 +334,18 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setCustomerData(null);
     setDraftOrderId(null);
   };
+
+  // Efecto para guardar como borrador al cambiar de paso
+  useEffect(() => {
+    // Solo guardamos cuando el usuario ha avanzado más allá del paso 1
+    if (currentStep > 1) {
+      // Guardamos el formulario como borrador
+      saveAsDraft().then((success) => {
+        console.log(`Guardado automático en paso ${currentStep}: ${success ? 'Exitoso' : 'Fallido'}`);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]); // Se ejecuta cuando cambia el paso
 
   // Función para verificar cliente existente
   const checkCustomer = async (): Promise<void> => {
