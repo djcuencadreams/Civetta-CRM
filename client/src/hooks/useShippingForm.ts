@@ -169,7 +169,6 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setSearchType,
     isCustomerFound,
     customerData,
-    resetForm,
   };
 
   return React.createElement(
