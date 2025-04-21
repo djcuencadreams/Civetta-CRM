@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +9,7 @@ import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
 import { useShippingForm } from "@/hooks/useShippingForm";
 import type { WizardStep } from "@/hooks/useShippingForm";
-import "../../styles/stepAnimations.css";
+import '../../styles/stepAnimations.css';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,10 +33,10 @@ export function ShippingLabelForm(): JSX.Element {
     closeSuccessModal,
     formData
   } = useShippingForm();
-  
+
   const { toast } = useToast();
   const [progressPercent, setProgressPercent] = useState(25);
-  
+
   useEffect(() => {
     setProgressPercent(currentStep * 25);
   }, [currentStep]);
@@ -82,7 +81,7 @@ export function ShippingLabelForm(): JSX.Element {
               Paso {currentStep} de 4
             </div>
           </CardTitle>
-          
+
           <div className="w-full h-2 bg-gray-200 rounded-full mt-4">
             <motion.div 
               className="h-full bg-primary rounded-full"
@@ -92,7 +91,7 @@ export function ShippingLabelForm(): JSX.Element {
             />
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-6">
           <AnimatePresence mode="wait">
             <motion.div
@@ -105,9 +104,9 @@ export function ShippingLabelForm(): JSX.Element {
               {renderCurrentStep(currentStep)}
             </motion.div>
           </AnimatePresence>
-          
+
           <Separator className="my-6" />
-          
+
           <div className="flex justify-between">
             <Button
               variant="outline"
@@ -117,7 +116,7 @@ export function ShippingLabelForm(): JSX.Element {
             >
               <ChevronLeftIcon size={16} /> Anterior
             </Button>
-            
+
             {currentStep < 4 ? (
               <Button
                 onClick={goToNextStep}
@@ -138,7 +137,7 @@ export function ShippingLabelForm(): JSX.Element {
           </div>
         </CardContent>
       </Card>
-      
+
       <AlertDialog open={showSuccessModal} onOpenChange={closeSuccessModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -169,16 +168,16 @@ function renderCurrentStep(step: WizardStep): JSX.Element {
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Resumen y Confirmación</h3>
           <p className="text-gray-500">Por favor revisa la información antes de enviar:</p>
-          
+
           <div className="rounded-lg bg-gray-50 p-4 space-y-2">
             <SummaryItem label="Tipo de Cliente" value="Nuevo Cliente" />
             <SummarySection title="Datos Personales" />
             <SummaryDataFromHook fields={["firstName", "lastName", "document", "email", "phoneNumber"]} />
-            
+
             <SummarySection title="Dirección de Envío" />
             <SummaryDataFromHook fields={["address", "city", "province", "instructions"]} />
           </div>
-          
+
           <p className="text-sm text-gray-500">
             Al hacer clic en "Finalizar", confirmas que toda la información proporcionada es correcta.
           </p>
@@ -209,7 +208,7 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 
 function SummaryDataFromHook({ fields }: { fields: string[] }) {
   const { formData } = useShippingForm();
-  
+
   return (
     <div className="space-y-1 pl-2">
       {fields.map(field => {
@@ -225,7 +224,7 @@ function SummaryDataFromHook({ fields }: { fields: string[] }) {
           .replace('City', 'Ciudad')
           .replace('Province', 'Provincia')
           .replace('Instructions', 'Instrucciones');
-        
+
         if (formData[field as keyof typeof formData]) {
           return (
             <SummaryItem 
