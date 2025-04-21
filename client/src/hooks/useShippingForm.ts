@@ -147,7 +147,7 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const closeSuccessModal = () => setShowSuccessModal(false);
 
-  const value = {
+  const contextValue: ShippingFormContextType = {
     formData,
     currentStep,
     updateFormData,
@@ -172,7 +172,7 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   return (
-    <ShippingFormContext.Provider value={value}>
+    <ShippingFormContext.Provider value={contextValue}>
       {children}
     </ShippingFormContext.Provider>
   );
