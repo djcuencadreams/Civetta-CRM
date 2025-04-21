@@ -1,0 +1,115 @@
+// 🔧 Reemplaza completamente el archivo client/src/components/shipping/Step1_Form.tsx por el siguiente contenido:
+
+import { useState, useEffect } from 'react';
+import { useShippingForm } from '@/hooks/useShippingForm';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+import '@/styles/stepAnimations.css';
+
+function Step1_Form() {
+  const shippingForm = useShippingForm();
+
+  if (!shippingForm) {
+    return (
+      <div className="p-4 text-red-700 bg-red-100 rounded-md text-center">
+        ⚠️ Error: El contexto del formulario no está disponible. Asegúrate de que el componente esté envuelto en <ShippingFormProvider>.
+      </div>
+    );
+  }
+
+  const {
+    customerType,
+    setCustomerType,
+    searchType,
+    setSearchType,
+    searchIdentifier,
+    setSearchIdentifier,
+    checkCustomer,
+    isCustomerFound,
+    setIsCustomerFound,
+  } = shippingForm;
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+    return () => setIsVisible(false);
+  }, []);
+
+  const handleSearch = async () => {
+    if (!checkCustomer) return;
+    try {
+      setIsSearching(true);
+      await checkCustomer();
+    } catch (error) {
+      console.error('❌ Error searching customer:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  return (
+    <div className={`step-content ${isVisible ? 'fade-in' : 'fade-out'}`}>
+      <div className="step-title">
+        <h2 className="text-xl font-semibold">Tipo de Cliente</h2>
+      </div>
+
+      <RadioGroup
+        value={customerType}
+        onValueChange={(value) => setCustomerType(value as 'existing' | 'new')}
+        className="flex gap-4"
+      >
+        <div>
+          <RadioGroupItem value="existing" id="existing" />
+          <label htmlFor="existing" className="ml-2">Cliente Existente</label>
+        </div>
+        <div>
+          <RadioGroupItem value="new" id="new" />
+          <label htmlFor="new" className="ml-2">Nuevo Cliente</label>
+        </div>
+      </RadioGroup>
+
+      {customerType === 'existing' && (
+        <div className="mt-6">
+          <div className="flex items-center gap-4 mb-4">
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value as 'identification' | 'email' | 'phone')}
+              className="border px-3 py-2 rounded-md"
+            >
+              <option value="identification">Cédula / RUC</option>
+              <option value="email">Email</option>
+              <option value="phone">Teléfono</option>
+            </select>
+
+            <input
+              type="text"
+              value={searchIdentifier}
+              onChange={(e) => setSearchIdentifier(e.target.value)}
+              placeholder="Ej: 0103556734"
+              className="flex-1 border px-3 py-2 rounded-md"
+            />
+
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={isSearching}
+              className="bg-black text-white px-4 py-2 rounded-md"
+            >
+              {isSearching ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+
+          {!isCustomerFound && searchIdentifier !== '' && (
+            <div className="p-3 text-sm text-yellow-700 bg-yellow-100 rounded-md">
+              Cliente no encontrado. Puedes registrar uno nuevo.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default Step1_Form;
