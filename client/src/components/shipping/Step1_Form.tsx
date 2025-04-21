@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useShippingForm } from "@/hooks/useShippingForm";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -10,6 +11,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import "../../styles/stepAnimations.css";
 
 function Step1_Form() {
+  const shippingForm = useShippingForm();
+  
+  // Early return with error if context is not available
+  if (!shippingForm) {
+    return (
+      <Alert>
+        <AlertDescription>Error: Shipping form context not available</AlertDescription>
+      </Alert>
+    );
+  }
+
   const {
     customerType,
     setCustomerType,
@@ -21,12 +33,11 @@ function Step1_Form() {
     isLoading,
     isCustomerFound,
     customerData,
-  } = useShippingForm();
+  } = shippingForm;
   
   const [isSearching, setIsSearching] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   
-  // Efecto para animar la entrada del componente
   useEffect(() => {
     setIsVisible(true);
     return () => {
@@ -34,11 +45,16 @@ function Step1_Form() {
     };
   }, []);
   
-  // Función para manejar la búsqueda de cliente
   const handleSearch = async () => {
+    if (!checkCustomer) return;
     setIsSearching(true);
-    await checkCustomer();
-    setIsSearching(false);
+    try {
+      await checkCustomer();
+    } catch (error) {
+      console.error('Error searching customer:', error);
+    } finally {
+      setIsSearching(false);
+    }
   };
   
   return (
@@ -48,7 +64,7 @@ function Step1_Form() {
         
         <RadioGroup
           defaultValue={customerType}
-          onValueChange={(value) => setCustomerType(value as "existing" | "new")}
+          onValueChange={(value) => setCustomerType?.(value as "existing" | "new")}
           className="flex flex-col space-y-3"
         >
           <div className="flex items-center space-x-2">
@@ -78,7 +94,7 @@ function Step1_Form() {
                 <Select
                   value={searchType}
                   onValueChange={(value) => 
-                    setSearchType(value as "identification" | "email" | "phone")
+                    setSearchType?.(value as "identification" | "email" | "phone")
                   }
                 >
                   <SelectTrigger id="searchType">
@@ -98,7 +114,7 @@ function Step1_Form() {
                   <Input
                     id="searchIdentifier"
                     value={searchIdentifier}
-                    onChange={(e) => setSearchIdentifier(e.target.value)}
+                    onChange={(e) => setSearchIdentifier?.(e.target.value)}
                     placeholder={
                       searchType === "identification"
                         ? "Ej: 0103556734"
