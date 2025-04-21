@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
@@ -26,8 +25,11 @@ import NotFound from './pages/not-found'
 function App() {
   const [location] = useLocation()
 
-  // Return embed layout for shipping route
-  if (location === '/shipping') {
+  const isShippingRoute =
+    location === '/shipping' ||
+    (typeof window !== 'undefined' && window.location.pathname === '/shipping')
+
+  if (isShippingRoute) {
     return (
       <EmbedShell>
         <ShippingFormPage />
