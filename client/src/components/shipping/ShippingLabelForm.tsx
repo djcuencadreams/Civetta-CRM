@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -7,9 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import Step1_Form from "./Step1_Form";
 import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
-import { ShippingFormProvider, useShippingForm } from "@/hooks/useShippingForm";
+import { useShippingForm } from "@/hooks/useShippingForm";
 import type { WizardStep } from "@/hooks/useShippingForm";
-import "../../styles/stepAnimations.css";
+import "../styles/stepAnimations.css";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,17 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, PackageOpenIcon } from "lucide-react";
 
-// Componente contenedor que usa el Provider
 export function ShippingLabelForm(): JSX.Element {
-  return (
-    <ShippingFormProvider>
-      <ShippingLabelFormContent />
-    </ShippingFormProvider>
-  );
-}
-
-// Componente interno que consume el contexto
-function ShippingLabelFormContent(): JSX.Element {
   const { 
     currentStep, 
     goToNextStep, 
@@ -40,17 +31,17 @@ function ShippingLabelFormContent(): JSX.Element {
     isLoading, 
     isDraftSaved,
     showSuccessModal,
-    closeSuccessModal
+    closeSuccessModal,
+    formData
   } = useShippingForm();
+  
   const { toast } = useToast();
   const [progressPercent, setProgressPercent] = useState(25);
   
-  // Calcular el progreso basado en el paso actual
   useEffect(() => {
     setProgressPercent(currentStep * 25);
   }, [currentStep]);
 
-  // Efecto para mostrar toast cuando se guarda un borrador
   useEffect(() => {
     if (isDraftSaved) {
       toast({
@@ -61,7 +52,6 @@ function ShippingLabelFormContent(): JSX.Element {
     }
   }, [isDraftSaved, toast]);
 
-  // Función para enviar el formulario
   const handleSubmit = async () => {
     const success = await submitForm();
     if (success) {
@@ -80,75 +70,75 @@ function ShippingLabelFormContent(): JSX.Element {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto shadow-lg border border-gray-200">
-      <CardHeader className="bg-gray-50 border-b border-gray-200">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <PackageOpenIcon className="text-primary" />
-            <span>Formulario de Envío</span>
-          </div>
-          <div className="text-sm font-normal text-gray-500">
-            Paso {currentStep} de 4
-          </div>
-        </CardTitle>
-        
-        {/* Barra de progreso */}
-        <div className="w-full h-2 bg-gray-200 rounded-full mt-4">
-          <motion.div 
-            className="h-full bg-primary rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-      </CardHeader>
-      
-      <CardContent className="p-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {renderCurrentStep(currentStep)}
-          </motion.div>
-        </AnimatePresence>
-        
-        <Separator className="my-6" />
-        
-        <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={goToPreviousStep}
-            disabled={currentStep === 1 || isLoading}
-            className="flex items-center gap-1"
-          >
-            <ChevronLeftIcon size={16} /> Anterior
-          </Button>
+    <div className="shipping-label-form">
+      <Card className="w-full max-w-4xl mx-auto shadow-lg border border-gray-200">
+        <CardHeader className="bg-gray-50 border-b border-gray-200">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PackageOpenIcon className="text-primary" />
+              <span>Formulario de Envío</span>
+            </div>
+            <div className="text-sm font-normal text-gray-500">
+              Paso {currentStep} de 4
+            </div>
+          </CardTitle>
           
-          {currentStep < 4 ? (
+          <div className="w-full h-2 bg-gray-200 rounded-full mt-4">
+            <motion.div 
+              className="h-full bg-primary rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderCurrentStep(currentStep)}
+            </motion.div>
+          </AnimatePresence>
+          
+          <Separator className="my-6" />
+          
+          <div className="flex justify-between">
             <Button
-              onClick={goToNextStep}
-              disabled={isLoading}
+              variant="outline"
+              onClick={goToPreviousStep}
+              disabled={currentStep === 1 || isLoading}
               className="flex items-center gap-1"
             >
-              Siguiente <ChevronRightIcon size={16} />
+              <ChevronLeftIcon size={16} /> Anterior
             </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="flex items-center gap-1"
-            >
-              Finalizar <CheckIcon size={16} />
-            </Button>
-          )}
-        </div>
-      </CardContent>
+            
+            {currentStep < 4 ? (
+              <Button
+                onClick={goToNextStep}
+                disabled={isLoading}
+                className="flex items-center gap-1"
+              >
+                Siguiente <ChevronRightIcon size={16} />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="flex items-center gap-1"
+              >
+                Finalizar <CheckIcon size={16} />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       
-      {/* Modal de éxito */}
       <AlertDialog open={showSuccessModal} onOpenChange={closeSuccessModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -162,11 +152,10 @@ function ShippingLabelFormContent(): JSX.Element {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   );
 }
 
-// Función para renderizar el paso actual
 function renderCurrentStep(step: WizardStep): JSX.Element {
   switch (step) {
     case 1:
@@ -200,7 +189,6 @@ function renderCurrentStep(step: WizardStep): JSX.Element {
   }
 }
 
-// Componentes auxiliares para el resumen
 function SummarySection({ title }: { title: string }) {
   return (
     <div className="mt-3 mb-1">
@@ -225,7 +213,6 @@ function SummaryDataFromHook({ fields }: { fields: string[] }) {
   return (
     <div className="space-y-1 pl-2">
       {fields.map(field => {
-        // Convertir camelCase a texto legible
         const label = field
           .replace(/([A-Z])/g, ' $1')
           .replace(/^./, str => str.toUpperCase())
@@ -239,7 +226,6 @@ function SummaryDataFromHook({ fields }: { fields: string[] }) {
           .replace('Province', 'Provincia')
           .replace('Instructions', 'Instrucciones');
         
-        // Solo mostrar si tiene un valor
         if (formData[field as keyof typeof formData]) {
           return (
             <SummaryItem 
