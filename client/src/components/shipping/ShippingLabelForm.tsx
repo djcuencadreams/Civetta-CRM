@@ -10,7 +10,7 @@ import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
 import { useShippingForm } from "@/hooks/useShippingForm";
 import type { WizardStep } from "@/hooks/useShippingForm";
-import "../styles/stepAnimations.css";
+import "../../styles/stepAnimations.css";
 import {
   AlertDialog,
   AlertDialogAction,
