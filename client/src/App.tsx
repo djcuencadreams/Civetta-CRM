@@ -70,7 +70,9 @@ function App() {
         <Route path="/activities">
           <Activities />
         </Route>
-        <Route path="/shipping" element={<ShippingFormPage />} />
+        <Route path="/shipping">
+          <ShippingFormPage />
+        </Route>
         <Route>
           <NotFound />
         </Route>
