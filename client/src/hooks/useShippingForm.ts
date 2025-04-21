@@ -168,13 +168,14 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
     searchType,
     setSearchType,
     isCustomerFound,
-    customerData
+    customerData,
+    resetForm,
   };
 
-  return (
-    <ShippingFormContext.Provider value={contextValue}>
-      {children}
-    </ShippingFormContext.Provider>
+  return React.createElement(
+    ShippingFormContext.Provider,
+    { value: contextValue },
+    children
   );
 };
 
