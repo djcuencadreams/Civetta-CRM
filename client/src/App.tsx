@@ -1,6 +1,8 @@
+
 import React from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useLocation } from 'wouter'
 import { Shell } from './components/layout/Shell'
+import { EmbedShell } from './components/layout/EmbedShell'
 import ShippingFormPage from './pages/embed/shipping-form'
 
 // Import pages
@@ -22,6 +24,18 @@ import Activities from './pages/activities'
 import NotFound from './pages/not-found'
 
 function App() {
+  const [location] = useLocation()
+
+  // Return embed layout for shipping route
+  if (location === '/shipping') {
+    return (
+      <EmbedShell>
+        <ShippingFormPage />
+      </EmbedShell>
+    )
+  }
+
+  // Default CRM layout for all other routes
   return (
     <Shell>
       <Switch>
@@ -69,9 +83,6 @@ function App() {
         </Route>
         <Route path="/activities">
           <Activities />
-        </Route>
-        <Route path="/shipping">
-          <ShippingFormPage />
         </Route>
         <Route>
           <NotFound />
