@@ -4,6 +4,7 @@ import { Route, Switch, useLocation, useRoute } from 'wouter'
 import { Shell } from './components/layout/Shell'
 import { EmbedShell } from './components/layout/EmbedShell'
 import { ShippingLabelForm } from './components/shipping/ShippingLabelForm'
+import ShippingFormPage from './pages/embed/shipping-form'
 
 // Import pages
 import Dashboard from './pages/dashboard'
@@ -110,13 +111,7 @@ function App() {
         <Route path="/activities">
           <Activities />
         </Route>
-        {/* Añadir explícitamente la ruta de shipping como una alternativa */}
-        <Route path="/shipping">
-          <div className="container mx-auto py-8 max-w-2xl">
-            <h1 className="text-2xl font-bold mb-6 text-center">Formulario de Envío (Ruta Alternativa)</h1>
-            <ShippingLabelForm />
-          </div>
-        </Route>
+        <Route path="/shipping" element={<ShippingFormPage />} />
         <Route>
           <NotFound />
         </Route>
