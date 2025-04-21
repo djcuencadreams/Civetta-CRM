@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useShippingForm } from '@/hooks/useShippingForm';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-import '@/styles/stepAnimations.css';
+import { useState, useEffect } from "react";
+import { useShippingForm } from "@/hooks/useShippingForm";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import "@/styles/stepAnimations.css";
 
 function Step1_Form() {
   const shippingForm = useShippingForm();
 
+  // Verifica que el contexto esté disponible antes de desestructurar
   if (!shippingForm) {
     return (
       <div className="p-4 text-red-700 bg-red-100 rounded-md text-center">
-        ⚠️ Error: El contexto del formulario no está disponible. Asegúrate de que el componente esté envuelto en <ShippingFormProvider>.
+        ⚠️ Error: El contexto del formulario no está disponible. Asegúrate de que el componente esté envuelto en {"<ShippingFormProvider>"}.
       </div>
     );
   }
@@ -25,6 +26,8 @@ function Step1_Form() {
     checkCustomer,
     isCustomerFound,
     setIsCustomerFound,
+    customerData,
+    isLoading,
   } = shippingForm;
 
   const [isSearching, setIsSearching] = useState(false);
@@ -41,43 +44,40 @@ function Step1_Form() {
       setIsSearching(true);
       await checkCustomer();
     } catch (error) {
-      console.error('❌ Error searching customer:', error);
+      console.error("❌ Error buscando cliente:", error);
     } finally {
       setIsSearching(false);
     }
   };
 
   return (
-    <div className={`step-content ${isVisible ? 'fade-in' : 'fade-out'}`}>
+    <div className={`step-content ${isVisible ? "fade-in" : "fade-out"}`}>
       <div className="step-title">
         <h2 className="text-xl font-semibold">Tipo de Cliente</h2>
       </div>
 
       <RadioGroup
         value={customerType}
-        onValueChange={(value) => setCustomerType(value as 'existing' | 'new')}
+        onValueChange={(value) => setCustomerType(value === "existing" ? "existing" : "new")}
         className="flex gap-4"
       >
-        <div>
-          <RadioGroupItem value="existing" id="existing" />
-          <label htmlFor="existing" className="ml-2">Cliente Existente</label>
-        </div>
-        <div>
-          <RadioGroupItem value="new" id="new" />
-          <label htmlFor="new" className="ml-2">Nuevo Cliente</label>
-        </div>
+        <RadioGroupItem value="existing" id="existing" />
+        <label htmlFor="existing" className="ml-2">Cliente Existente</label>
+
+        <RadioGroupItem value="new" id="new" />
+        <label htmlFor="new" className="ml-2">Nuevo Cliente</label>
       </RadioGroup>
 
-      {customerType === 'existing' && (
+      {customerType === "existing" && (
         <div className="mt-6">
           <div className="flex items-center gap-4 mb-4">
             <select
               value={searchType}
-              onChange={(e) => setSearchType(e.target.value as 'identification' | 'email' | 'phone')}
+              onChange={(e) => setSearchType(e.target.value as "identification" | "email" | "phone")}
               className="border px-3 py-2 rounded-md"
             >
               <option value="identification">Cédula / RUC</option>
-              <option value="email">Email</option>
+              <option value="email">Correo</option>
               <option value="phone">Teléfono</option>
             </select>
 
@@ -85,7 +85,11 @@ function Step1_Form() {
               type="text"
               value={searchIdentifier}
               onChange={(e) => setSearchIdentifier(e.target.value)}
-              placeholder="Ej: 0103556734"
+              placeholder={searchType === "identification"
+                ? "Ej: 0103556734"
+                : searchType === "email"
+                ? "Ej: cliente@ejemplo.com"
+                : "Ej: 0991234567"}
               className="flex-1 border px-3 py-2 rounded-md"
             />
 
@@ -95,15 +99,33 @@ function Step1_Form() {
               disabled={isSearching}
               className="bg-black text-white px-4 py-2 rounded-md"
             >
-              {isSearching ? 'Buscando...' : 'Buscar'}
+              {isSearching ? "Buscando..." : "Buscar"}
             </button>
           </div>
 
-          {!isCustomerFound && searchIdentifier !== '' && (
+          {!isCustomerFound && searchIdentifier !== "" && (
             <div className="p-3 text-sm text-yellow-700 bg-yellow-100 rounded-md">
               Cliente no encontrado. Puedes registrar uno nuevo.
             </div>
           )}
+
+          {isCustomerFound && customerData && (
+            <div className="p-3 text-sm text-green-700 bg-green-100 rounded-md">
+              <p className="font-medium">Cliente encontrado ✅</p>
+              <p>
+                {customerData.firstName} {customerData.lastName} – {customerData.email}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {customerType === "new" && (
+        <div className="border rounded-md p-4 bg-gray-50 fade-in step-transition mt-6">
+          <h3 className="font-semibold">🧾 Nuevo Cliente</h3>
+          <p className="text-sm text-gray-600">
+            Completa los siguientes pasos para registrar un nuevo cliente y su dirección de envío.
+          </p>
         </div>
       )}
     </div>
