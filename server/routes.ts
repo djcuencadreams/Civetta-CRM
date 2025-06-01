@@ -23,6 +23,94 @@ export function registerRoutes(app: Express): void {
   // No need to create a new HTTP server here
   app.use(router);
 
+  // Dashboard statistics endpoints
+  app.get("/api/customers/count", async (req, res) => {
+    try {
+      const result = await db.select().from(customers);
+      res.json({ count: result.length });
+    } catch (error) {
+      console.error("Error getting customers count:", error);
+      res.json({ count: 0 });
+    }
+  });
+
+  app.get("/api/leads/count", async (req, res) => {
+    try {
+      const result = await db.select().from(leads).where(eq(leads.converted, false));
+      res.json({ count: result.length });
+    } catch (error) {
+      console.error("Error getting leads count:", error);
+      res.json({ count: 0 });
+    }
+  });
+
+  app.get("/api/orders/count", async (req, res) => {
+    try {
+      // Obtener fecha del primer día del mes actual
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const result = await db.select().from(sales);
+      const monthlyOrders = result.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate >= startOfMonth;
+      });
+      
+      res.json({ count: monthlyOrders.length });
+    } catch (error) {
+      console.error("Error getting orders count:", error);
+      res.json({ count: 0 });
+    }
+  });
+
+  app.get("/api/sales/total", async (req, res) => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const result = await db.select().from(sales);
+      const monthlySales = result.filter(sale => {
+        const saleDate = new Date(sale.createdAt);
+        return saleDate >= startOfMonth;
+      });
+      
+      const total = monthlySales.reduce((sum, sale) => {
+        return sum + (parseFloat(sale.amount) || 0);
+      }, 0);
+      
+      res.json({ total: total.toFixed(2) });
+    } catch (error) {
+      console.error("Error getting sales total:", error);
+      res.json({ total: "0.00" });
+    }
+  });
+
+  app.get("/api/dashboard/recent-activity", async (req, res) => {
+    try {
+      // Obtener actividades recientes de leads
+      const recentLeadActivities = await db.select({
+        id: leadActivities.id,
+        type: leadActivities.type,
+        description: leadActivities.description,
+        createdAt: leadActivities.createdAt
+      })
+      .from(leadActivities)
+      .orderBy(desc(leadActivities.createdAt))
+      .limit(5);
+
+      const activities = recentLeadActivities.map(activity => ({
+        description: activity.description || `${activity.type} registrado`,
+        time: new Date(activity.createdAt).toLocaleString('es-ES'),
+        icon: activity.type === 'call' ? 'phone' : activity.type === 'email' ? 'mail' : 'activity'
+      }));
+
+      res.json(activities);
+    } catch (error) {
+      console.error("Error getting recent activity:", error);
+      res.json([]);
+    }
+  });
+
   // Enable file uploads
   app.use(fileUpload({
     limits: { fileSize: 10 * 1024 * 1024 },
