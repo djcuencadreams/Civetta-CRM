@@ -163,7 +163,9 @@ function Step2_Form() {
                   <FormControl>
                     <Input
                       {...field}
+                      type="tel"
                       placeholder="Ej: +593995815652"
+                      className="bg-background"
                       onChange={(e) => handleFieldChange("phoneNumber", e.target.value)}
                     />
                   </FormControl>

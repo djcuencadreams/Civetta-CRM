@@ -104,8 +104,8 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
           firstName: data.customer.firstName || '',
           lastName: data.customer.lastName || '',
           email: data.customer.email || '',
-          phoneNumber: data.customer.phone || '',
-          document: data.customer.document || '',
+          phoneNumber: data.customer.phoneNumber || data.customer.phone || '',
+          document: data.customer.document || data.customer.idNumber || '',
           address: data.customer.address || '',
           city: data.customer.city || '',
           province: data.customer.province || '',
@@ -126,14 +126,30 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const response = await fetch('/api/shipping/final', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          formData: formData,
+          orderId: null // Por ahora no manejamos borradores
+        })
       });
       const data = await response.json();
       if (response.ok) {
         setShowSuccessModal(true);
+        // Emitir eventos para compatibilidad con otros sistemas
+        window.dispatchEvent(new CustomEvent('shipping-form:order-created', { 
+          detail: { 
+            customerId: data.data?.customerId, 
+            orderId: data.data?.orderId 
+          } 
+        }));
+        window.dispatchEvent(new CustomEvent('orderSaved', { 
+          detail: { 
+            customerId: data.data?.customerId, 
+            orderId: data.data?.orderId 
+          } 
+        }));
         return true;
       } else {
-        setErrors(data.errors || {});
+        setErrors(data.errors || { submit: data.error || 'Error al enviar formulario' });
         return false;
       }
     } catch (error) {

@@ -398,6 +398,55 @@ function generateOrderNumber(prefix: string = "SHF"): string {
 
 // Función principal para registrar las rutas
 export function registerReactShippingRoutes(app: Express): void {
+  // Endpoint para verificar si un cliente existe (usado por el hook useShippingForm)
+  app.post("/api/shipping/check-customer-v2", async (req: Request, res: Response) => {
+    try {
+      console.log("🔍 Verificando cliente existente:", JSON.stringify(req.body, null, 2));
+      
+      // Validamos los datos de búsqueda
+      const { searchType, searchIdentifier } = req.body;
+      
+      if (!searchType || !searchIdentifier) {
+        return res.status(400).json({
+          success: false,
+          error: "searchType y searchIdentifier son requeridos"
+        });
+      }
+      
+      // Buscamos el cliente
+      const result = await checkIfCustomerExists(searchIdentifier, searchType);
+      
+      console.log("✅ Resultado de búsqueda:", JSON.stringify(result, null, 2));
+      
+      // Devolvemos el resultado en el formato esperado por el frontend
+      if (result.found && result.customer) {
+        return res.json({
+          found: true,
+          customer: {
+            ...result.customer,
+            document: result.customer.idNumber, // Mapear idNumber a document para compatibilidad
+            address: result.address?.street || "",
+            city: result.address?.city || "",
+            province: result.address?.province || "",
+            deliveryInstructions: result.address?.instructions || ""
+          }
+        });
+      } else {
+        return res.json({
+          found: false,
+          customer: null
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error al verificar cliente:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Error al verificar cliente",
+        details: String(error)
+      });
+    }
+  });
+
   // Endpoint para verificar duplicados
   app.post("/api/shipping/check-duplicate", async (req: Request, res: Response) => {
     try {
@@ -469,16 +518,21 @@ export function registerReactShippingRoutes(app: Express): void {
   // Endpoint para guardar formulario final
   app.post("/api/shipping/final", async (req: Request, res: Response) => {
     try {
+      console.log("📝 Datos recibidos en /api/shipping/final:", JSON.stringify(req.body, null, 2));
+      
       // Validamos los datos del formulario
-      const formDataResult = shippingFormSchema.safeParse(req.body.formData);
+      const formDataResult = shippingFormSchema.safeParse(req.body.formData || req.body);
       
       if (!formDataResult.success) {
+        console.error("❌ Error de validación:", formDataResult.error.format());
         return res.status(400).json({
           success: false,
           error: "Datos inválidos",
           details: formDataResult.error.format()
         });
       }
+      
+      console.log("✅ Datos validados correctamente:", JSON.stringify(formDataResult.data, null, 2));
       
       // Extraemos el ID de orden borrador si existe
       const draftOrderId = req.body.orderId || null;
