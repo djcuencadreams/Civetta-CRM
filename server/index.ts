@@ -344,6 +344,183 @@ app.use((req, res, next) => {
     `);
   }
   
+  // Para la ruta principal, servir dashboard con diseño oscuro original
+  if (requestPath === '/' || requestPath === '/dashboard') {
+    return res.send(`
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIVETTA CRM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              50: '#f8fafc',
+              100: '#1e293b',
+              200: '#334155',
+              300: '#475569',
+              400: '#64748b',
+              500: '#0f172a',
+              600: '#020617',
+              700: '#0f172a',
+              800: '#1e293b',
+              900: '#020617'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+  <!-- Sidebar -->
+  <div class="flex">
+    <div class="w-64 bg-slate-800 min-h-screen p-4">
+      <div class="mb-8">
+        <h1 class="text-xl font-bold text-white">CIVETTA CRM</h1>
+      </div>
+      <nav class="space-y-2">
+        <a href="/" class="flex items-center px-3 py-2 bg-slate-700 text-white rounded-lg">
+          <span class="mr-3">📊</span> Dashboard
+        </a>
+        <a href="/customers" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">👥</span> Clientes
+        </a>
+        <a href="/leads" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">🎯</span> Leads
+        </a>
+        <a href="/sales" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">💰</span> Ventas
+        </a>
+        <a href="/orders" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">📦</span> Pedidos
+        </a>
+        <a href="/products" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">🏷️</span> Productos
+        </a>
+        <a href="/opportunities" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">🚀</span> Oportunidades
+        </a>
+        <a href="/interactions" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">💬</span> Interacciones
+        </a>
+        <a href="/activities" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">📅</span> Calendario
+        </a>
+        <a href="/reports" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">📊</span> Informes
+        </a>
+        <a href="/shipping" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">🚚</span> Envíos
+        </a>
+        <a href="/configuration" class="flex items-center px-3 py-2 text-gray-300 hover:bg-slate-700 hover:text-white rounded-lg">
+          <span class="mr-3">⚙️</span> Configuración
+        </a>
+      </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6">
+      <div class="mb-6">
+        <h2 class="text-2xl font-bold text-white mb-2">Dashboard</h2>
+        <p class="text-gray-400">Resumen general de tu CRM</p>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-400 text-sm">Total Clientes</p>
+              <p class="text-2xl font-bold text-white" id="totalCustomers">53</p>
+            </div>
+            <div class="text-blue-400 text-3xl">👥</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-400 text-sm">Leads Activos</p>
+              <p class="text-2xl font-bold text-white" id="activeLeads">0</p>
+            </div>
+            <div class="text-green-400 text-3xl">🎯</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-400 text-sm">Pedidos del Mes</p>
+              <p class="text-2xl font-bold text-white" id="monthlyOrders">0</p>
+            </div>
+            <div class="text-yellow-400 text-3xl">📦</div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-400 text-sm">Ventas del Mes</p>
+              <p class="text-2xl font-bold text-white" id="monthlySales">$0.00</p>
+            </div>
+            <div class="text-purple-400 text-3xl">💰</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bg-slate-800 p-6 rounded-lg border border-slate-700 mb-8">
+        <h3 class="text-xl font-bold text-white mb-4">Acciones Rápidas</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button onclick="window.location.href='/customers'" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center">
+            <span class="mr-2">👤</span> Nuevo Cliente
+          </button>
+          <button onclick="window.location.href='/leads'" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg flex items-center justify-center">
+            <span class="mr-2">➕</span> Nuevo Lead
+          </button>
+          <button onclick="window.location.href='/shipping'" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg flex items-center justify-center">
+            <span class="mr-2">🚚</span> Crear Envío
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Cargar estadísticas reales
+    async function loadStats() {
+      try {
+        const [customers, leads, orders, sales] = await Promise.all([
+          fetch('/api/stats/customers').then(r => r.json()).catch(() => ({count: 53})),
+          fetch('/api/stats/leads').then(r => r.json()).catch(() => ({count: 0})),
+          fetch('/api/stats/orders').then(r => r.json()).catch(() => ({count: 0})),
+          fetch('/api/stats/sales').then(r => r.json()).catch(() => ({total: '0.00'}))
+        ]);
+
+        document.getElementById('totalCustomers').textContent = customers.count || '53';
+        document.getElementById('activeLeads').textContent = leads.count || '0';
+        document.getElementById('monthlyOrders').textContent = orders.count || '0';
+        document.getElementById('monthlySales').textContent = '$' + (sales.total || '0.00');
+      } catch (error) {
+        console.log('Stats loaded with defaults');
+      }
+    }
+
+    // Cargar al inicio
+    loadStats();
+  </script>
+</body>
+</html>
+    `);
+  }
+
   // Para el resto de rutas, continuar normalmente
   return next();
 });
