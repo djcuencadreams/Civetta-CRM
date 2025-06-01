@@ -5,17 +5,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import "@/styles/stepAnimations.css";
 
 function Step1_Form() {
-  const shippingForm = useShippingForm();
-
-  // Verifica que el contexto esté disponible antes de desestructurar
-  if (!shippingForm) {
-    return (
-      <div className="p-4 text-red-700 bg-red-100 rounded-md text-center">
-        ⚠️ Error: El contexto del formulario no está disponible. Asegúrate de que el componente esté envuelto en {"<ShippingFormProvider>"}.
-      </div>
-    );
-  }
-
   const {
     customerType,
     setCustomerType,
@@ -27,7 +16,7 @@ function Step1_Form() {
     isCustomerFound,
     customerData,
     isLoading,
-  } = shippingForm;
+  } = useShippingForm();
 
   const [isSearching, setIsSearching] = useState(false);
   const [isVisible, setIsVisible] = useState(false);

@@ -143,19 +143,7 @@ export function ShippingLabelForm(): JSX.Element {
 
             {currentStep < 4 ? (
               <Button
-                onClick={() => {
-                  try {
-                    console.log('🖱️ Siguiente button clicked');
-                    goToNextStep();
-                  } catch (error) {
-                    console.error('❌ Error clicking Siguiente:', error);
-                    toast({
-                      title: "Error",
-                      description: `Error al avanzar: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-                      variant: "destructive",
-                    });
-                  }
-                }}
+onClick={goToNextStep}
                 disabled={isLoading}
                 className="flex items-center gap-1"
               >
