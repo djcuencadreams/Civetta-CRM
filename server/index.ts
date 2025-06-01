@@ -30,7 +30,26 @@ app.use(bodyParser.json());
 // ⚠️⚠️⚠️ PRIMERO: REGISTRAR LAS RUTAS REACT PARA ASEGURAR PRIORIDAD ABSOLUTA ⚠️⚠️⚠️
 console.log("🔥🔥🔥 REGISTRANDO RUTAS REACT CON PRIORIDAD ABSOLUTA 🔥🔥🔥");
 
-app.use(express.static(clientDistPath)); // Sirve los assets
+// Configurar Vite en modo desarrollo
+import { createServer as createViteServer } from 'vite';
+
+async function setupViteDevServer() {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
+    root: './client'
+  });
+  app.use(vite.ssrFixStacktrace);
+  app.use(vite.middlewares);
+  return vite;
+}
+
+// Solo para desarrollo - servir desde Vite
+if (process.env.NODE_ENV !== 'production') {
+  setupViteDevServer().catch(console.error);
+} else {
+  app.use(express.static(clientDistPath));
+}
 
 // ⚠️⚠️⚠️ INTERCEPCIÓN NUCLEAR: APLICAR MISMO ENFOQUE DEL PUERTO 3003 AL SERVIDOR PRINCIPAL
 // Implementar el mismo middleware radical aquí para asegurar consistencia en TODOS los puertos
