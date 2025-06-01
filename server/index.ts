@@ -35,18 +35,18 @@ app.use(express.static(clientDistPath)); // Sirve los assets
 // ⚠️⚠️⚠️ INTERCEPCIÓN NUCLEAR: APLICAR MISMO ENFOQUE DEL PUERTO 3003 AL SERVIDOR PRINCIPAL
 // Implementar el mismo middleware radical aquí para asegurar consistencia en TODOS los puertos
 
-// INTERCEPTAR TODAS LAS RUTAS PARA SERVIR SOLO EL FORMULARIO DE ENVÍO
+// INTERCEPTAR TODAS LAS RUTAS NO-API (máxima prioridad)
 app.use((req, res, next) => {
   const requestPath = req.path.toLowerCase();
   
-  // Permitir API específicas del formulario de envío
-  if (requestPath.startsWith('/api/shipping/') || requestPath.startsWith('/assets/') || requestPath.includes('.')) {
+  // Permitir API
+  if (requestPath.startsWith('/api/')) {
     return next();
   }
   
-  // REDIRIGIR TODAS LAS RUTAS AL FORMULARIO DE ENVÍO
-  if (requestPath === '/shipping' || requestPath === '/' || requestPath === '/index.html') {
-    console.log(`✅ [FORMULARIO SOLO] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
+  // DETECTAR la ruta canónica del formulario de envío
+  if (requestPath === '/shipping') {
+    console.log(`✅ [RUTA CANÓNICA] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
     
     // Eliminar cachés y forzar tipo
     res.set({
@@ -54,51 +54,54 @@ app.use((req, res, next) => {
       'Pragma': 'no-cache',
       'Expires': '0',
       'Surrogate-Control': 'no-store',
-      'X-Mode': 'FORMULARIO-SOLO-ENFORCED',
+      'X-Mode': 'REACT-ONLY-ENFORCED-3002',
       'Content-Type': 'text/html; charset=UTF-8'
     });
     
     // Verificar explícitamente si el archivo existe antes de enviarlo
     const indexHtmlPath = path.join(clientDistPath, "index.html");
-    console.log(`[FORMULARIO SOLO] Enviando index.html desde: ${indexHtmlPath}`);
+    console.log(`Enviando index.html desde: ${indexHtmlPath}`);
     
     return res.sendFile(indexHtmlPath, {
       headers: {
         'X-React-Enforced': 'true',
         'X-Content-Type-Options': 'nosniff'
       }
-    }, (err) => {
-      if (err) {
-        console.error(`[FORMULARIO SOLO] Error enviando archivo:`, err);
-        res.status(500).send('Error interno del servidor');
-      }
     });
   }
   
-  // BLOQUEAR TODAS LAS DEMÁS RUTAS DEL CRM
-  console.log(`⛔ [FORMULARIO SOLO] ${req.method} ${requestPath} ➡️ RUTA BLOQUEADA - SOLO FORMULARIO DISPONIBLE`);
+  // DETECTAR rutas obsoletas y devolver 404
+  if (
+    requestPath.includes('embed/shipping') || 
+    requestPath.includes('etiqueta') || 
+    requestPath.includes('wordpress-embed') || 
+    requestPath.includes('shipping-form') || 
+    requestPath === '/forms/shipping'
+  ) {
+    console.log(`⛔ [RUTA OBSOLETA] ${req.method} ${requestPath} ➡️ DEVOLVIENDO 404`);
+    
+    return res.status(404).send(`
+      <html>
+        <head>
+          <title>404 - Página no encontrada</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            h1 { color: #e74c3c; }
+            p { margin: 20px 0; }
+            a { color: #3498db; text-decoration: none; }
+          </style>
+        </head>
+        <body>
+          <h1>404 - Página no encontrada</h1>
+          <p>La ruta solicitada ya no está disponible.</p>
+          <p>Por favor, utilice la nueva ruta canónica: <a href="/shipping">/shipping</a></p>
+        </body>
+      </html>
+    `);
+  }
   
-  return res.status(403).send(`
-    <html>
-      <head>
-        <title>Acceso Restringido</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }
-          h1 { color: #e74c3c; margin-bottom: 20px; }
-          p { margin: 20px 0; color: #666; }
-          a { color: #007bff; text-decoration: none; font-weight: bold; }
-          .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🚫 Acceso Restringido</h1>
-          <p>Solo el formulario de envío está disponible actualmente.</p>
-          <p><a href="/shipping">Ir al Formulario de Envío</a></p>
-        </div>
-      </body>
-    </html>
-  `);
+  // Para el resto de rutas, continuar normalmente
+  return next();
 });
 
 // ⚠️ Endpoint "/" para health check de Replit sin romper frontend
@@ -300,8 +303,6 @@ serviceRegistry.initializeAll().then(() => {
   console.error("Error inicializando servicios:", error);
 });
 
-// COMENTADO - MODO FORMULARIO SOLO
-/*
 // Registrar las rutas básicas de la API para diagnóstico
 console.log("Registrando rutas básicas para diagnóstico...");
 registerRoutes(app);
@@ -315,7 +316,6 @@ console.log("Registrando rutas de email...");
 registerEmailRoutes(app);
 console.log("Registrando rutas adicionales...");
 registerAdditionalRoutes(app);
-*/
 console.log("Registrando endpoints para verificación de clientes...");
 // Se ha migrado la función de verificación de clientes a las nuevas rutas del formulario React
 // registerCustomerCheckEndpoint(app);
