@@ -192,14 +192,14 @@ async function saveFormAsDraft(
     // Creamos una orden borrador
     const orderResult = await pool.query(
       `INSERT INTO orders
-       (customer_id, status, created_at, updated_at, order_number, form_data, draft_step)
+       (customer_id, status, created_at, updated_at, order_number, notes, is_from_web_form)
        VALUES ($1, 'draft', NOW(), NOW(), $2, $3, $4)
        RETURNING id`,
       [
         customerId, // Puede ser null si no hay cliente
         generateOrderNumber("DFT"),
-        formData, // Guardar datos parciales del formulario
-        step
+        JSON.stringify({ formType: "shipping_draft", step, ...formData }), // Guardar datos parciales en notes
+        true
       ]
     );
     
@@ -209,9 +209,9 @@ async function saveFormAsDraft(
     // Actualizamos la orden existente
     await pool.query(
       `UPDATE orders
-       SET form_data = $1, updated_at = NOW(), draft_step = $2
-       WHERE id = $3`,
-      [formData, step, orderId]
+       SET notes = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [JSON.stringify({ formType: "shipping_draft", step, ...formData }), orderId]
     );
     
     console.log(`✅ Borrador actualizado para orden ID: ${orderId}`);
@@ -303,15 +303,14 @@ async function saveFinalShippingForm(formData: z.infer<typeof shippingFormSchema
   if (draftOrderId) {
     await pool.query(
       `UPDATE orders
-       SET customer_id = $1, status = 'pending', form_data = $2, updated_at = NOW(), draft_step = NULL
-       WHERE id = $3
-       RETURNING id`,
+       SET customer_id = $1, status = 'pending', notes = $2, updated_at = NOW()
+       WHERE id = $3`,
       [
         customerId,
-        {
+        JSON.stringify({
           formType: "shipping",
           ...formData
-        },
+        }),
         draftOrderId
       ]
     );
@@ -322,16 +321,23 @@ async function saveFinalShippingForm(formData: z.infer<typeof shippingFormSchema
     // Creamos una nueva orden pendiente asociada a este cliente
     const orderResult = await pool.query(
       `INSERT INTO orders
-       (customer_id, status, created_at, updated_at, order_number, form_data)
-       VALUES ($1, 'pending', NOW(), NOW(), $2, $3)
+       (customer_id, status, created_at, updated_at, order_number, notes, is_from_web_form, total_amount, subtotal, tax, discount, shipping_cost, source)
+       VALUES ($1, 'pending', NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id`,
       [
         customerId,
         generateOrderNumber("SHF"),
-        {
+        JSON.stringify({
           formType: "shipping",
           ...formData
-        }
+        }),
+        true,
+        0.00, // total_amount
+        0.00, // subtotal
+        0.00, // tax
+        0.00, // discount
+        0.00, // shipping_cost
+        "shipping_form" // source
       ]
     );
     
@@ -376,8 +382,14 @@ async function getOrdersList(limit: number = 50) {
       email: row.customer_email,
       phone: row.customer_phone
     } : null,
-    formData: row.form_data,
-    draftStep: row.draft_step
+    formData: row.notes ? (() => {
+      try {
+        return JSON.parse(row.notes);
+      } catch {
+        return { notes: row.notes };
+      }
+    })() : null,
+    isFromWebForm: row.is_from_web_form
   }));
   
   console.log(`✅ Obtenidas ${orders.length} órdenes`);
