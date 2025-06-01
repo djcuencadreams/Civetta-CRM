@@ -192,14 +192,20 @@ async function saveFormAsDraft(
     // Creamos una orden borrador
     const orderResult = await pool.query(
       `INSERT INTO orders
-       (customer_id, status, created_at, updated_at, order_number, notes, is_from_web_form)
-       VALUES ($1, 'draft', NOW(), NOW(), $2, $3, $4)
+       (customer_id, status, created_at, updated_at, order_number, notes, is_from_web_form, total_amount, subtotal, tax, discount, shipping_cost, source)
+       VALUES ($1, 'draft', NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id`,
       [
         customerId, // Puede ser null si no hay cliente
         generateOrderNumber("DFT"),
         JSON.stringify({ formType: "shipping_draft", step, ...formData }), // Guardar datos parciales en notes
-        true
+        true,
+        0.00, // total_amount
+        0.00, // subtotal
+        0.00, // tax
+        0.00, // discount
+        0.00, // shipping_cost
+        "shipping_form" // source
       ]
     );
     
@@ -303,7 +309,13 @@ async function saveFinalShippingForm(formData: z.infer<typeof shippingFormSchema
   if (draftOrderId) {
     await pool.query(
       `UPDATE orders
-       SET customer_id = $1, status = 'pending', notes = $2, updated_at = NOW()
+       SET customer_id = $1, status = 'pending', notes = $2, updated_at = NOW(),
+           total_amount = COALESCE(total_amount, 0.00),
+           subtotal = COALESCE(subtotal, 0.00),
+           tax = COALESCE(tax, 0.00),
+           discount = COALESCE(discount, 0.00),
+           shipping_cost = COALESCE(shipping_cost, 0.00),
+           source = COALESCE(source, 'shipping_form')
        WHERE id = $3`,
       [
         customerId,
