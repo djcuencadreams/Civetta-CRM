@@ -62,12 +62,256 @@ app.use((req, res, next) => {
     const indexHtmlPath = path.join(clientDistPath, "index.html");
     console.log(`Enviando index.html desde: ${indexHtmlPath}`);
     
-    return res.sendFile(indexHtmlPath, {
-      headers: {
-        'X-React-Enforced': 'true',
-        'X-Content-Type-Options': 'nosniff'
+    return res.send(`
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formulario de Envío - Civetta CRM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-4">
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow p-6">
+      <h1 class="text-2xl font-bold mb-6">Formulario de Envío</h1>
+      
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-6">
+        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 25%;"></div>
+      </div>
+      
+      <div id="step1" class="space-y-4">
+        <h3 class="text-lg font-medium">Paso 1: Selección de Cliente</h3>
+        <div class="space-y-2">
+          <label class="flex items-center space-x-2">
+            <input type="radio" name="customerType" value="existing" onchange="toggleSearch()">
+            <span>Cliente Existente</span>
+          </label>
+          <label class="flex items-center space-x-2">
+            <input type="radio" name="customerType" value="new" checked onchange="toggleSearch()">
+            <span>Nuevo Cliente</span>
+          </label>
+        </div>
+        <div id="searchSection" class="hidden space-y-2">
+          <label class="block text-sm font-medium">Cédula/RUC</label>
+          <div class="flex space-x-2">
+            <input type="text" id="searchId" class="flex-1 px-3 py-2 border border-gray-300 rounded-md" placeholder="Ingresa cédula o RUC">
+            <button onclick="searchCustomer()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Buscar</button>
+          </div>
+          <div id="customerFound" class="text-green-600 hidden">✓ Cliente encontrado</div>
+        </div>
+      </div>
+      
+      <div id="step2" class="space-y-4 hidden">
+        <h3 class="text-lg font-medium">Paso 2: Datos Personales</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Nombre</label>
+            <input type="text" id="firstName" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Apellido</label>
+            <input type="text" id="lastName" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Cédula/RUC</label>
+          <input type="text" id="document" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Email</label>
+          <input type="email" id="email" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Teléfono</label>
+          <input type="tel" id="phone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+      </div>
+      
+      <div id="step3" class="space-y-4 hidden">
+        <h3 class="text-lg font-medium">Paso 3: Dirección de Envío</h3>
+        <div>
+          <label class="block text-sm font-medium mb-1">Dirección</label>
+          <input type="text" id="address" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Ciudad</label>
+            <input type="text" id="city" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Provincia</label>
+            <input type="text" id="province" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Instrucciones de entrega</label>
+          <input type="text" id="instructions" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+      </div>
+      
+      <div id="step4" class="space-y-4 hidden">
+        <h3 class="text-lg font-medium">Paso 4: Resumen</h3>
+        <div id="summary" class="bg-gray-50 p-4 rounded-md space-y-2"></div>
+      </div>
+      
+      <div class="flex justify-between mt-6">
+        <button id="prevBtn" onclick="prevStep()" disabled class="px-4 py-2 bg-gray-300 text-gray-600 rounded-md disabled:cursor-not-allowed">Anterior</button>
+        <button id="nextBtn" onclick="nextStep()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Siguiente</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let currentStep = 1;
+    const maxSteps = 4;
+    
+    function toggleSearch() {
+      const customerType = document.querySelector('input[name="customerType"]:checked').value;
+      const searchSection = document.getElementById('searchSection');
+      if (customerType === 'existing') {
+        searchSection.classList.remove('hidden');
+      } else {
+        searchSection.classList.add('hidden');
       }
-    });
+    }
+    
+    function updateUI() {
+      for (let i = 1; i <= maxSteps; i++) {
+        const step = document.getElementById('step' + i);
+        if (i === currentStep) {
+          step.classList.remove('hidden');
+        } else {
+          step.classList.add('hidden');
+        }
+      }
+      
+      const progress = (currentStep / maxSteps) * 100;
+      document.getElementById('progressBar').style.width = progress + '%';
+      
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      
+      prevBtn.disabled = currentStep === 1;
+      prevBtn.className = currentStep === 1 ? 
+        'px-4 py-2 bg-gray-300 text-gray-600 rounded-md disabled:cursor-not-allowed' :
+        'px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700';
+      
+      if (currentStep === maxSteps) {
+        nextBtn.textContent = 'Finalizar';
+        nextBtn.onclick = submitForm;
+      } else {
+        nextBtn.textContent = 'Siguiente';
+        nextBtn.onclick = nextStep;
+      }
+    }
+    
+    function nextStep() {
+      if (currentStep < maxSteps) {
+        if (currentStep === 3) {
+          updateSummary();
+        }
+        currentStep++;
+        updateUI();
+      }
+    }
+    
+    function prevStep() {
+      if (currentStep > 1) {
+        currentStep--;
+        updateUI();
+      }
+    }
+    
+    function updateSummary() {
+      const summary = document.getElementById('summary');
+      const data = {
+        firstName: document.getElementById('firstName').value || 'No especificado',
+        lastName: document.getElementById('lastName').value || 'No especificado',
+        email: document.getElementById('email').value || 'No especificado',
+        phone: document.getElementById('phone').value || 'No especificado',
+        address: document.getElementById('address').value || 'No especificado',
+        city: document.getElementById('city').value || 'No especificado'
+      };
+      
+      summary.innerHTML = 
+        '<div><strong>Nombre:</strong> ' + data.firstName + ' ' + data.lastName + '</div>' +
+        '<div><strong>Email:</strong> ' + data.email + '</div>' +
+        '<div><strong>Teléfono:</strong> ' + data.phone + '</div>' +
+        '<div><strong>Dirección:</strong> ' + data.address + '</div>' +
+        '<div><strong>Ciudad:</strong> ' + data.city + '</div>';
+    }
+    
+    async function searchCustomer() {
+      const searchId = document.getElementById('searchId').value;
+      if (!searchId) return;
+      
+      try {
+        const response = await fetch('/api/shipping/check-customer-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            searchType: 'identification',
+            searchIdentifier: searchId
+          })
+        });
+        
+        const data = await response.json();
+        if (data.found) {
+          document.getElementById('customerFound').classList.remove('hidden');
+          document.getElementById('firstName').value = data.customer.firstName || '';
+          document.getElementById('lastName').value = data.customer.lastName || '';
+          document.getElementById('email').value = data.customer.email || '';
+          document.getElementById('phone').value = data.customer.phone || '';
+          if (data.address) {
+            document.getElementById('address').value = data.address.street || '';
+            document.getElementById('city').value = data.address.city || '';
+            document.getElementById('province').value = data.address.province || '';
+            document.getElementById('instructions').value = data.address.instructions || '';
+          }
+        }
+      } catch (error) {
+        console.error('Error buscando cliente:', error);
+      }
+    }
+    
+    async function submitForm() {
+      const formData = {
+        customerType: document.querySelector('input[name="customerType"]:checked').value,
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        document: document.getElementById('document').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        address: document.getElementById('address').value,
+        city: document.getElementById('city').value,
+        province: document.getElementById('province').value,
+        instructions: document.getElementById('instructions').value
+      };
+      
+      try {
+        const response = await fetch('/api/shipping/final', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ formData })
+        });
+        
+        if (response.ok) {
+          alert('Formulario enviado exitosamente');
+          location.reload();
+        } else {
+          alert('Error al enviar formulario');
+        }
+      } catch (error) {
+        console.error('Error enviando formulario:', error);
+        alert('Error al enviar formulario');
+      }
+    }
+    
+    updateUI();
+  </script>
+</body>
+</html>`);
   }
   
   // DETECTAR rutas obsoletas y devolver 404
