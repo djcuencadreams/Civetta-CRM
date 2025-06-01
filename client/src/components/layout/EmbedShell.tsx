@@ -1,17 +1,15 @@
-/**
- * EmbedShell proporciona un layout minimal para páginas embebibles
- * sin cabecera, pie de página, ni barra lateral
- */
+import React from 'react';
+
 interface EmbedShellProps {
   children: React.ReactNode;
 }
 
 export function EmbedShell({ children }: EmbedShellProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <main className="w-full">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto py-8">
         {children}
-      </main>
+      </div>
     </div>
   );
 }
