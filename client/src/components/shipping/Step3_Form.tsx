@@ -1,10 +1,7 @@
 import { useShippingForm } from "@/hooks/useShippingForm";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import "../../styles/stepAnimations.css";
@@ -37,20 +34,25 @@ const PROVINCIAS_ECUADOR = [
   "Zamora Chinchipe",
 ];
 
-// Esquema de validación para dirección
-const shippingAddressSchema = z.object({
-  address: z.string().min(3, "La dirección debe tener al menos 3 caracteres"),
-  city: z.string().min(2, "La ciudad debe tener al menos 2 caracteres"),
-  province: z.string().min(3, "Debe seleccionar una provincia"),
-  instructions: z.string().optional(),
-});
-
-type ShippingAddressForm = z.infer<typeof shippingAddressSchema>;
+// Validaciones simples para dirección
+const validateAddressField = (field: string, value: string) => {
+  switch (field) {
+    case 'address':
+      return value.length >= 3 ? null : 'La dirección debe tener al menos 3 caracteres';
+    case 'city':
+      return value.length >= 2 ? null : 'La ciudad debe tener al menos 2 caracteres';
+    case 'province':
+      return value.length >= 3 ? null : 'Debe seleccionar una provincia';
+    default:
+      return null;
+  }
+};
 
 function Step3_Form() {
   const { formData, updateFormData, errors: formErrors } = useShippingForm();
   const [isVisible, setIsVisible] = useState(false);
-  
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
+
   // Efecto para animar la entrada del componente
   useEffect(() => {
     setIsVisible(true);
@@ -58,126 +60,103 @@ function Step3_Form() {
       setIsVisible(false);
     };
   }, []);
-  
-  // Inicializar el formulario con datos existentes
-  const form = useForm<ShippingAddressForm>({
-    resolver: zodResolver(shippingAddressSchema),
-    defaultValues: {
-      address: formData.address || "",
-      city: formData.city || "",
-      province: formData.province || "",
-      instructions: formData.instructions || "",
-    },
-  });
-  
+
   // Manejar cambios en los campos
-  const handleFieldChange = (field: keyof ShippingAddressForm, value: string) => {
-    form.setValue(field, value);
+  const handleFieldChange = (field: keyof typeof formData, value: string) => {
     updateFormData(field, value);
+    
+    // Validar el campo
+    const error = validateAddressField(field, value);
+    setLocalErrors(prev => {
+      const newErrors = { ...prev };
+      if (error) {
+        newErrors[field] = error;
+      } else {
+        delete newErrors[field];
+      }
+      return newErrors;
+    });
   };
-  
+
   return (
     <div className={`step-content ${isVisible ? 'fade-in' : 'fade-out'}`}>
       <div className="space-y-6">
         <h3 className="text-lg font-medium">Dirección de Envío</h3>
         
         <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dirección</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Ej: Av. Principal 123 y Secundaria"
-                    onChange={(e) => handleFieldChange("address", e.target.value)}
-                  />
-                </FormControl>
-                <FormMessage />
-                {formErrors.address && (
-                  <p className="text-sm text-red-500">{formErrors.address}</p>
-                )}
-              </FormItem>
+          <div>
+            <Label htmlFor="address">Dirección Completa</Label>
+            <Input
+              id="address"
+              type="text"
+              value={formData.address || ""}
+              placeholder="Ej: Av. 9 de Octubre 123 y Malecón"
+              className="bg-background"
+              onChange={(e) => handleFieldChange("address", e.target.value)}
+            />
+            {(localErrors.address || formErrors.address) && (
+              <p className="text-sm text-red-500 mt-1">
+                {localErrors.address || formErrors.address}
+              </p>
             )}
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ciudad</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Ej: Quito"
-                      onChange={(e) => handleFieldChange("city", e.target.value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  {formErrors.city && (
-                    <p className="text-sm text-red-500">{formErrors.city}</p>
-                  )}
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="province"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Provincia</FormLabel>
-                  <Select
-                    onValueChange={(value) => handleFieldChange("province", value)}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una provincia" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {PROVINCIAS_ECUADOR.map((provincia) => (
-                        <SelectItem key={provincia} value={provincia}>
-                          {provincia}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                  {formErrors.province && (
-                    <p className="text-sm text-red-500">{formErrors.province}</p>
-                  )}
-                </FormItem>
-              )}
-            />
           </div>
-          
-          <FormField
-            control={form.control}
-            name="instructions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Instrucciones de Entrega (Opcional)</FormLabel>
-                <FormControl>
-                  <Textarea
-                    {...field}
-                    placeholder="Ej: Edificio azul, piso 3, timbre 302. Entregar en horario de oficina."
-                    rows={3}
-                    onChange={(e) => handleFieldChange("instructions", e.target.value)}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Cualquier información adicional para facilitar la entrega.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="city">Ciudad</Label>
+              <Input
+                id="city"
+                type="text"
+                value={formData.city || ""}
+                placeholder="Ej: Cuenca"
+                className="bg-background"
+                onChange={(e) => handleFieldChange("city", e.target.value)}
+              />
+              {(localErrors.city || formErrors.city) && (
+                <p className="text-sm text-red-500 mt-1">
+                  {localErrors.city || formErrors.city}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="province">Provincia</Label>
+              <Select
+                value={formData.province || ""}
+                onValueChange={(value) => handleFieldChange("province", value)}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Selecciona una provincia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVINCIAS_ECUADOR.map((provincia) => (
+                    <SelectItem key={provincia} value={provincia}>
+                      {provincia}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(localErrors.province || formErrors.province) && (
+                <p className="text-sm text-red-500 mt-1">
+                  {localErrors.province || formErrors.province}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="instructions">Instrucciones de Entrega (Opcional)</Label>
+            <Textarea
+              id="instructions"
+              value={formData.instructions || ""}
+              placeholder="Ej: Casa de color azul, timbre no funciona, llamar al llegar"
+              className="bg-background min-h-[80px]"
+              onChange={(e) => handleFieldChange("instructions", e.target.value)}
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Proporciona detalles adicionales para facilitar la entrega (opcional)
+            </p>
+          </div>
         </div>
       </div>
     </div>

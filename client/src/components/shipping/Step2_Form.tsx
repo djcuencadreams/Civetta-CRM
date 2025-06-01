@@ -48,10 +48,15 @@ function Step2_Form() {
     
     // Validar el campo
     const error = validateField(field, value);
-    setLocalErrors(prev => ({
-      ...prev,
-      [field]: error
-    }));
+    setLocalErrors(prev => {
+      const newErrors = { ...prev };
+      if (error) {
+        newErrors[field] = error;
+      } else {
+        delete newErrors[field];
+      }
+      return newErrors;
+    });
   };
   
   // Verificar si hay errores de duplicados para mostrar alertas
