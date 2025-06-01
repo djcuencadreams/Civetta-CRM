@@ -7,8 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import Step1_Form from "./Step1_Form";
 import Step2_Form from "./Step2_Form";
 import Step3_Form from "./Step3_Form";
-import { useShippingForm } from "@/hooks/useShippingForm";
-import type { WizardStep } from "@/hooks/useShippingForm";
+import { useShippingForm, type WizardStep } from "@/hooks/useShippingForm";
+
 import '../../styles/stepAnimations.css';
 import {
   AlertDialog,
@@ -127,7 +127,7 @@ export function ShippingLabelForm(): JSX.Element {
                     console.error('❌ Error clicking Siguiente:', error);
                     toast({
                       title: "Error",
-                      description: `Error al avanzar: ${error.message}`,
+                      description: `Error al avanzar: ${error instanceof Error ? error.message : 'Error desconocido'}`,
                       variant: "destructive",
                     });
                   }

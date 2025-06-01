@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { z } from 'zod';
 
 // Tipos y esquemas de validación
-type WizardStep = 1 | 2 | 3 | 4;
+export type WizardStep = 1 | 2 | 3 | 4;
 
 interface ShippingFormData {
   customerType: "existing" | "new";
