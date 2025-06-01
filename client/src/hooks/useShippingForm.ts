@@ -76,8 +76,18 @@ export const ShippingFormProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const goToNextStep = () => {
-    if (currentStep < 4) {
-      setCurrentStep((prev) => (prev + 1) as WizardStep);
+    try {
+      console.log('🔄 goToNextStep called, currentStep:', currentStep);
+      if (currentStep < 4) {
+        const nextStep = (currentStep + 1) as WizardStep;
+        console.log('➡️ Moving to step:', nextStep);
+        setCurrentStep(nextStep);
+      } else {
+        console.log('⚠️ Already at final step');
+      }
+    } catch (error) {
+      console.error('❌ Error in goToNextStep:', error);
+      throw error;
     }
   };
 
