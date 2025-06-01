@@ -37,6 +37,30 @@ export function ShippingLabelForm(): JSX.Element {
   const { toast } = useToast();
   const [progressPercent, setProgressPercent] = useState(25);
 
+  const renderCurrentStep = (step: WizardStep): JSX.Element => {
+    switch (step) {
+      case 1:
+        return <Step1_Form />;
+      case 2:
+        return <Step2_Form />;
+      case 3:
+        return <Step3_Form />;
+      case 4:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Resumen Final</h3>
+            <div className="bg-gray-50 p-4 rounded-md">
+              <p className="text-sm text-gray-600">
+                Revisa todos los datos antes de finalizar el envío.
+              </p>
+            </div>
+          </div>
+        );
+      default:
+        return <Step1_Form />;
+    }
+  };
+
   useEffect(() => {
     setProgressPercent(currentStep * 25);
   }, [currentStep]);
@@ -167,87 +191,3 @@ export function ShippingLabelForm(): JSX.Element {
   );
 }
 
-function renderCurrentStep(step: WizardStep): JSX.Element {
-  switch (step) {
-    case 1:
-      return <Step1_Form />;
-    case 2:
-      return <Step2_Form />;
-    case 3:
-      return <Step3_Form />;
-    case 4:
-      return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Resumen y Confirmación</h3>
-          <p className="text-gray-500">Por favor revisa la información antes de enviar:</p>
-
-          <div className="rounded-lg bg-gray-50 p-4 space-y-2">
-            <SummaryItem label="Tipo de Cliente" value="Nuevo Cliente" />
-            <SummarySection title="Datos Personales" />
-            <SummaryDataFromHook fields={["firstName", "lastName", "document", "email", "phoneNumber"]} />
-
-            <SummarySection title="Dirección de Envío" />
-            <SummaryDataFromHook fields={["address", "city", "province", "instructions"]} />
-          </div>
-
-          <p className="text-sm text-gray-500">
-            Al hacer clic en "Finalizar", confirmas que toda la información proporcionada es correcta.
-          </p>
-        </div>
-      );
-    default:
-      return <div>Paso inválido</div>;
-  }
-}
-
-function SummarySection({ title }: { title: string }) {
-  return (
-    <div className="mt-3 mb-1">
-      <h4 className="font-medium text-gray-700">{title}</h4>
-      <Separator className="my-2" />
-    </div>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-gray-600">{label}:</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
-}
-
-function SummaryDataFromHook({ fields }: { fields: string[] }) {
-  const { formData } = useShippingForm();
-
-  return (
-    <div className="space-y-1 pl-2">
-      {fields.map(field => {
-        const label = field
-          .replace(/([A-Z])/g, ' $1')
-          .replace(/^./, str => str.toUpperCase())
-          .replace('First Name', 'Nombre')
-          .replace('Last Name', 'Apellido')
-          .replace('Phone Number', 'Teléfono')
-          .replace('Document', 'Cédula/RUC')
-          .replace('Email', 'Correo')
-          .replace('Address', 'Dirección')
-          .replace('City', 'Ciudad')
-          .replace('Province', 'Provincia')
-          .replace('Instructions', 'Instrucciones');
-
-        if (formData[field as keyof typeof formData]) {
-          return (
-            <SummaryItem 
-              key={field} 
-              label={label} 
-              value={formData[field as keyof typeof formData] as string} 
-            />
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
-}
