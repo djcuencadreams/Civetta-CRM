@@ -549,6 +549,56 @@ serviceRegistry.initializeAll().then(() => {
 
 // Registrar las rutas básicas de la API para diagnóstico
 console.log("Registrando rutas básicas para diagnóstico...");
+
+// Dashboard statistics endpoints
+app.get("/api/stats/customers", async (req, res) => {
+  try {
+    const { pool } = await import("@db");
+    const result = await pool.query('SELECT COUNT(*) as count FROM customers');
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error("Error getting customers count:", error);
+    res.json({ count: 0 });
+  }
+});
+
+app.get("/api/stats/leads", async (req, res) => {
+  try {
+    const { pool } = await import("@db");
+    const result = await pool.query('SELECT COUNT(*) as count FROM leads WHERE converted = false');
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error("Error getting leads count:", error);
+    res.json({ count: 0 });
+  }
+});
+
+app.get("/api/stats/orders", async (req, res) => {
+  try {
+    const { pool } = await import("@db");
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const result = await pool.query('SELECT COUNT(*) as count FROM sales WHERE created_at >= $1', [startOfMonth]);
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error("Error getting orders count:", error);
+    res.json({ count: 0 });
+  }
+});
+
+app.get("/api/stats/sales", async (req, res) => {
+  try {
+    const { pool } = await import("@db");
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const result = await pool.query('SELECT COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as total FROM sales WHERE created_at >= $1', [startOfMonth]);
+    res.json({ total: parseFloat(result.rows[0].total || 0).toFixed(2) });
+  } catch (error) {
+    console.error("Error getting sales total:", error);
+    res.json({ total: "0.00" });
+  }
+});
+
 registerRoutes(app);
 
 // Registrar rutas adicionales

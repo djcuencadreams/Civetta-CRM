@@ -23,8 +23,8 @@ export function registerRoutes(app: Express): void {
   // No need to create a new HTTP server here
   app.use(router);
 
-  // Dashboard statistics endpoints
-  app.get("/api/customers/count", async (req, res) => {
+  // Dashboard statistics endpoints - usando rutas que no conflicten
+  app.get("/api/stats/customers", async (req, res) => {
     try {
       const result = await db.select().from(customers);
       res.json({ count: result.length });
@@ -34,7 +34,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/leads/count", async (req, res) => {
+  app.get("/api/stats/leads", async (req, res) => {
     try {
       const result = await db.select().from(leads).where(eq(leads.converted, false));
       res.json({ count: result.length });
@@ -44,7 +44,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/orders/count", async (req, res) => {
+  app.get("/api/stats/orders", async (req, res) => {
     try {
       // Obtener fecha del primer día del mes actual
       const now = new Date();
@@ -63,7 +63,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/sales/total", async (req, res) => {
+  app.get("/api/stats/sales", async (req, res) => {
     try {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
