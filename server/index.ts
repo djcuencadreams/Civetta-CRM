@@ -39,14 +39,14 @@ app.use(express.static(clientDistPath)); // Sirve los assets
 app.use((req, res, next) => {
   const requestPath = req.path.toLowerCase();
   
-  // Permitir API
-  if (requestPath.startsWith('/api/')) {
+  // Permitir API y assets estáticos
+  if (requestPath.startsWith('/api/') || requestPath.startsWith('/assets/') || requestPath.includes('.')) {
     return next();
   }
   
   // DETECTAR la ruta canónica del formulario de envío
   if (requestPath === '/shipping') {
-    console.log(`✅ [RUTA CANÓNICA] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
+    console.log(`✅ [SERVIDOR 3002] ${req.method} ${requestPath} ➡️ SIRVIENDO FORMULARIO REACT`);
     
     // Eliminar cachés y forzar tipo
     res.set({
@@ -60,12 +60,17 @@ app.use((req, res, next) => {
     
     // Verificar explícitamente si el archivo existe antes de enviarlo
     const indexHtmlPath = path.join(clientDistPath, "index.html");
-    console.log(`Enviando index.html desde: ${indexHtmlPath}`);
+    console.log(`[SERVIDOR 3002] Enviando index.html desde: ${indexHtmlPath}`);
     
     return res.sendFile(indexHtmlPath, {
       headers: {
         'X-React-Enforced': 'true',
         'X-Content-Type-Options': 'nosniff'
+      }
+    }, (err) => {
+      if (err) {
+        console.error(`[SERVIDOR 3002] Error enviando archivo:`, err);
+        res.status(500).send('Error interno del servidor');
       }
     });
   }
@@ -78,7 +83,7 @@ app.use((req, res, next) => {
     requestPath.includes('shipping-form') || 
     requestPath === '/forms/shipping'
   ) {
-    console.log(`⛔ [RUTA OBSOLETA] ${req.method} ${requestPath} ➡️ DEVOLVIENDO 404`);
+    console.log(`⛔ [SERVIDOR 3002] ${req.method} ${requestPath} ➡️ RUTA OBSOLETA (404)`);
     
     return res.status(404).send(`
       <html>
