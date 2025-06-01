@@ -3,8 +3,6 @@ import { Route, Switch, useLocation } from 'wouter'
 import ShippingFormPage from "@/pages/embed/shipping-form";
 import { EmbedShell } from "@/components/layout/EmbedShell";
 import { Shell } from './components/layout/Shell'
-// import { EmbedShell } from './components/layout/EmbedShell' // Duplicate import, removing
-// import ShippingFormPage from './pages/embed/shipping-form' // Duplicate import, removing
 
 // Import pages
 import Dashboard from './pages/dashboard'
