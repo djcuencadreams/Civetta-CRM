@@ -39,61 +39,36 @@ function App() {
     )
   }
 
-  // Default CRM layout for all other routes
+  // COMENTADO - MODO FORMULARIO SOLO
+  /*
   return (
     <Shell>
-      <Switch>
-        <Route path="/">
-          <Dashboard />
-        </Route>
-        <Route path="/customers">
-          <Customers />
-        </Route>
-        <Route path="/leads">
-          <Leads />
-        </Route>
-        <Route path="/sales">
-          <Sales />
-        </Route>
-        <Route path="/orders">
-          <Orders />
-        </Route>
-        <Route path="/products">
-          <Products />
-        </Route>
-        <Route path="/reports">
-          <SimpleReports />
-        </Route>
-        <Route path="/reports-new">
-          <EnhancedReports />
-        </Route>
-        <Route path="/reports-advanced">
-          <Reports />
-        </Route>
-        <Route path="/configuration">
-          <Configuration />
-        </Route>
-        <Route path="/opportunities">
-          <Opportunities />
-        </Route>
-        <Route path="/opportunities/new">
-          <OpportunitiesNew />
-        </Route>
-        <Route path="/opportunities/:id">
-          <OpportunityDetail />
-        </Route>
-        <Route path="/interactions">
-          <Interactions />
-        </Route>
-        <Route path="/activities">
-          <Activities />
-        </Route>
-        <Route>
-          <NotFound />
-        </Route>
-      </Switch>
+      <QueryClient client={queryClient}>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/customers" component={() => import('./pages/customers')} />
+          <Route path="/leads" component={() => import('./pages/leads')} />
+          <Route path="/sales" component={() => import('./pages/sales')} />
+          <Route path="/orders" component={() => import('./pages/orders')} />
+          <Route path="/products" component={() => import('./pages/products')} />
+          <Route path="/configuration" component={() => import('./pages/configuration')} />
+          <Route path="/integrations" component={() => import('./pages/integrations')} />
+          <Route path="/reports" component={() => import('./pages/reports')} />
+          <Route path="/reports-new" component={() => import('./pages/reports-new')} />
+          <Route path="/reports-simple" component={() => import('./pages/reports-simple')} />
+          <Route path="/activities" component={() => import('./pages/activities')} />
+          <Route path="/interactions" component={() => import('./pages/interactions')} />
+          <Route path="/opportunities" component={() => import('./pages/opportunities')} />
+          <Route path="/opportunities/new" component={() => import('./pages/opportunities/new')} />
+          <Route path="/opportunities/new-simple" component={() => import('./pages/opportunities/new-simple')} />
+          <Route path="/opportunities/:id" component={() => import('./pages/opportunities/[id]')} />
+          <Route component={() => import('./pages/not-found')} />
+        </Switch>
+      </QueryClient>
     </Shell>
   )
+  */
 }
 
 export default App
