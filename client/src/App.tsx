@@ -23,74 +23,68 @@ import Activities from './pages/activities'
 import NotFound from './pages/not-found'
 
 function App() {
-  const [location] = useLocation()
-
-  const isShippingRoute =
-    location === '/shipping' ||
-    (typeof window !== 'undefined' && window.location.pathname === '/shipping')
-
-  if (isShippingRoute) {
-    return (
-      <EmbedShell>
-        <ShippingFormPage />
-      </EmbedShell>
-    )
-  }
-
-  // Default CRM layout for all other routes
   return (
-    <Shell>
-      <Switch>
-        <Route path="/">
-          <Dashboard />
-        </Route>
-        <Route path="/customers">
-          <Customers />
-        </Route>
-        <Route path="/leads">
-          <Leads />
-        </Route>
-        <Route path="/sales">
-          <Sales />
-        </Route>
-        <Route path="/orders">
-          <Orders />
-        </Route>
-        <Route path="/products">
-          <Products />
-        </Route>
-        <Route path="/reports">
-          <SimpleReports />
-        </Route>
-        <Route path="/reports-new">
-          <EnhancedReports />
-        </Route>
-        <Route path="/reports-advanced">
-          <Reports />
-        </Route>
-        <Route path="/configuration">
-          <Configuration />
-        </Route>
-        <Route path="/opportunities">
-          <Opportunities />
-        </Route>
-        <Route path="/opportunities/new">
-          <OpportunitiesNew />
-        </Route>
-        <Route path="/opportunities/:id">
-          <OpportunityDetail />
-        </Route>
-        <Route path="/interactions">
-          <Interactions />
-        </Route>
-        <Route path="/activities">
-          <Activities />
-        </Route>
-        <Route>
-          <NotFound />
-        </Route>
-      </Switch>
-    </Shell>
+    <Switch>
+      <Route path="/shipping">
+        <EmbedShell>
+          <ShippingFormPage />
+        </EmbedShell>
+      </Route>
+      <Route path="*">
+        <Shell>
+          <Switch>
+            <Route path="/">
+              <Dashboard />
+            </Route>
+            <Route path="/customers">
+              <Customers />
+            </Route>
+            <Route path="/leads">
+              <Leads />
+            </Route>
+            <Route path="/sales">
+              <Sales />
+            </Route>
+            <Route path="/orders">
+              <Orders />
+            </Route>
+            <Route path="/products">
+              <Products />
+            </Route>
+            <Route path="/reports">
+              <SimpleReports />
+            </Route>
+            <Route path="/reports-new">
+              <EnhancedReports />
+            </Route>
+            <Route path="/reports-advanced">
+              <Reports />
+            </Route>
+            <Route path="/configuration">
+              <Configuration />
+            </Route>
+            <Route path="/opportunities">
+              <Opportunities />
+            </Route>
+            <Route path="/opportunities/new">
+              <OpportunitiesNew />
+            </Route>
+            <Route path="/opportunities/:id">
+              <OpportunityDetail />
+            </Route>
+            <Route path="/interactions">
+              <Interactions />
+            </Route>
+            <Route path="/activities">
+              <Activities />
+            </Route>
+            <Route>
+              <NotFound />
+            </Route>
+          </Switch>
+        </Shell>
+      </Route>
+    </Switch>
   )
 }
 
