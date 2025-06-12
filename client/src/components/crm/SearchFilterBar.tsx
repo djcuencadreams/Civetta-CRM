@@ -148,12 +148,12 @@ export function SearchFilterBar({
     <div className="space-y-2">
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
             value={searchText}
             onChange={handleSearchChange}
-            className="pl-8"
+            className="pl-10"
           />
           {searchText && (
             <X
