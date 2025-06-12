@@ -150,11 +150,11 @@ export function InteractionFilters({ filters, onApplyFilters, onResetFilters }: 
       <div className="space-y-2">
         <Label htmlFor="query">Búsqueda</Label>
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             id="query"
             placeholder="Buscar en contenido..."
-            className="pl-8"
+            className="pl-10"
             value={localFilters.query}
             onChange={(e) => handleFilterChange('query', e.target.value)}
           />
