@@ -160,18 +160,18 @@ export const CustomerSearchSelect = forwardRef<HTMLButtonElement, CustomerSearch
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[300px] sm:w-[450px]" align="start">
         <div className="flex flex-col">
-          <div className="p-2 flex items-center border-b">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-70" />
+          <div className="p-2 relative border-b">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-70" />
             <Input
               ref={inputRef}
               placeholder="Buscar por nombre, cédula o ubicación..."
-              className="flex-1 border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="pl-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
             />
             {isLoading && (
-              <Loader2 className="ml-2 h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             )}
           </div>
           <ScrollArea className="h-[300px]">
