@@ -1,0 +1,28 @@
+{
+  "name": "Civetta CRM",
+  "description": "Sistema CRM empresarial para retail de moda",
+  "version": "1.0.0",
+  "backupDate": "2025-06-14T19:22:03.377Z",
+  "backupDateEcuador": "14/6/2025, 2:22:03 p. m.",
+  "gitCommit": "wmi11d",
+  "nodeVersion": "v20.18.1",
+  "platform": "linux",
+  "architecture": "x64",
+  "backupType": "Código fuente optimizado (sin node_modules ni multimedia)",
+  "estimatedRestoreTime": "5-10 minutos",
+  "technologies": [
+    "React 18 + TypeScript",
+    "Express.js + TypeScript",
+    "PostgreSQL + Drizzle ORM",
+    "Tailwind CSS + Radix UI",
+    "Vite + ESBuild"
+  ],
+  "structure": {
+    "frontend": "client/",
+    "backend": "server/",
+    "database": "db/",
+    "tests": "__tests__/",
+    "scripts": "scripts/",
+    "docs": "*.md files"
+  }
+}

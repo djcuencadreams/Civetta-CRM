@@ -1,287 +1,174 @@
 # MANIFIESTO DE BACKUP - CIVETTA CRM
 ## Inventario Completo de Archivos y Procedimientos de Restauración
+*Actualizado automáticamente: 14/6/2025, 2:22:06 p. m.*
 
 ---
 
 ## INFORMACIÓN DEL BACKUP
 
-**Proyecto:** Civetta CRM
-**Sistema:** Documentación Automática y Backup de Código
-**Generado:** Se actualiza automáticamente con cada backup
-**Cumplimiento:** ISO 9001, IEEE 1471, TOGAF, DevOps, Agile
+**Proyecto:** Civetta CRM v1.0.0
+**Última actualización:** 2025-06-14T19:22:03.401Z
+**Total archivos analizados:** 6500
+**Total líneas de código:** 1419102
 
 ---
 
-## CATEGORIZACIÓN DE ARCHIVOS
+## CATEGORIZACIÓN AUTOMÁTICA DE ARCHIVOS
 
-### 🔧 CORE - Archivos Fundamentales del Sistema
-```
-├── package.json              # Configuración de dependencias y scripts
-├── vite.config.ts            # Configuración del bundler frontend
-├── tailwind.config.ts        # Configuración de estilos
-├── drizzle.config.ts         # Configuración ORM base de datos
-├── jest.config.js            # Configuración testing
-├── postcss.config.js         # Configuración CSS
-├── tsconfig.json             # Configuración TypeScript
-└── replit.md                 # Documentación de configuración del proyecto
-```
+### 🔧 CORE - Archivos Fundamentales (2330 archivos críticos)
+- __tests__/lead-customer-order-flow.test.ts (538 líneas, typescript)
+- client/public/assets/index-BA0z3RHW.js (882 líneas, javascript)
+- client/src/components/configuration/SimpleSpreadsheetImporter.tsx (376 líneas, typescript)
+- client/src/components/configuration/SpreadsheetImportComponent.tsx (1125 líneas, typescript)
+- client/src/components/crm/ActivityForm.tsx (665 líneas, typescript)
+- client/src/components/crm/CustomerForm.tsx (1136 líneas, typescript)
+- client/src/components/crm/LeadForm.tsx (589 líneas, typescript)
+- client/src/components/crm/LeadsList.tsx (312 líneas, typescript)
+- client/src/components/crm/OrderDetailsView.tsx (634 líneas, typescript)
+- client/src/components/crm/OrderForm.tsx (850 líneas, typescript)
+- ... y 2320 archivos más
 
-### 🖥️ FRONTEND - Interfaz de Usuario React
-```
-client/
-├── src/
-│   ├── App.tsx               # Componente principal y routing
-│   ├── main.tsx              # Punto de entrada React
-│   ├── components/           # Componentes reutilizables UI
-│   │   ├── ui/               # Componentes base shadcn/ui
-│   │   ├── shipping/         # Formularios de envío
-│   │   └── layout/           # Componentes de layout
-│   ├── pages/                # Páginas principales de la aplicación
-│   ├── lib/                  # Utilidades y configuraciones
-│   └── hooks/                # Custom hooks React
-├── public/                   # Assets estáticos
-└── index.html                # Template HTML base
-```
+### 🖥️ FRONTEND - Interfaz de Usuario (171 archivos)
+- client/index.html (12 líneas, html)
+- client/manifest.json (23 líneas, json)
+- client/public/assets/index-BdRveRFI.css (2 líneas, css)
+- client/public/clientes-importacion-manual.md (57 líneas, markdown)
+- client/public/icons/icon-192.svg (0 líneas, other)
+- client/public/icons/icon-512.svg (0 líneas, other)
+- client/public/index.html (58 líneas, html)
+- client/public/media/logoCivetta01.png (0 líneas, other)
+- client/public/offline.html (69 líneas, html)
+- client/public/plantilla_clientes.csv (0 líneas, other)
+- ... y 161 archivos más
 
-### ⚙️ BACKEND - Servidor Express.js
-```
-server/
-├── index.ts                  # Punto de entrada del servidor
-├── routes.ts                 # Definición de rutas API
-├── services/                 # Lógica de negocio
-│   ├── customers.service.ts  # Gestión de clientes
-│   ├── leads.service.ts      # Gestión de leads
-│   ├── orders.service.ts     # Gestión de pedidos
-│   └── *.service.ts          # Otros servicios de negocio
-├── lib/                      # Utilidades del servidor
-├── middlewares/              # Middleware Express
-├── utils/                    # Funciones utilitarias
-└── webhooks/                 # Endpoints para webhooks externos
-```
+### ⚙️ BACKEND - Servidor Express.js (42 archivos)
+- server/README-SHIPPING.md (130 líneas, markdown)
+- server/lib/date-formatter.ts (73 líneas, typescript)
+- server/lib/event-emitter.ts (67 líneas, typescript)
+- server/lib/slack.ts (29 líneas, typescript)
+- server/lib/whatsapp.ts (1 líneas, typescript)
+- server/middlewares/validate.ts (78 líneas, typescript)
+- server/routes.ts.bak (0 líneas, other)
+- server/services/event-listener.service.ts (135 líneas, typescript)
+- server/services/index.ts (45 líneas, typescript)
+- server/services/service-registry.ts (101 líneas, typescript)
+- ... y 32 archivos más
 
-### 🗃️ DATABASE - Esquemas y Configuración BD
-```
-db/
-├── schema.ts                 # Definición completa del esquema
-├── index.ts                  # Configuración de conexión
-└── backup.ts                 # Sistema de backup de datos
-```
+### 🗃️ DATABASE - Esquemas y Configuración (11 archivos)
+- db/index.ts (22 líneas, typescript)
+- db/migrations/001_create_leads.sql (24 líneas, sql)
+- db/migrations/002_update_leads.sql (9 líneas, sql)
+- db/migrations/003_add_lead_fields.sql (11 líneas, sql)
+- db/migrations/004_add_brand_field.sql (33 líneas, sql)
+- db/migrations/004_seed_test_data.sql (21 líneas, sql)
+- db/schema-original.ts (175 líneas, typescript)
+- db/schema.ts.bak (0 líneas, other)
+- db/schema-new.ts (345 líneas, typescript)
+- db/backup.ts (268 líneas, typescript)
+- ... y 1 archivos más
 
-### 🧪 TESTS - Suite de Pruebas
-```
-__tests__/
-├── basic.test.ts             # Pruebas básicas de configuración
-├── customer-name-handling.test.ts # Pruebas de gestión de nombres
-├── lead-customer-order-flow.test.ts # Pruebas de flujo completo
-└── name-util.test.ts         # Pruebas de utilidades de nombres
-```
+### 🧪 TESTS - Suite de Pruebas (4 archivos)
+- __tests__/basic.test.ts (18 líneas, typescript)
+- __tests__/customer-name-handling.test.ts (169 líneas, typescript)
+- __tests__/name-util.test.ts (71 líneas, typescript)
+- __tests__/lead-customer-order-flow.test.ts (538 líneas, typescript)
 
-### 📜 SCRIPTS - Automatización y Mantenimiento
-```
-scripts/
-├── auto-update-docs.js       # Sistema de documentación automática
-└── backup-code-only.js       # Sistema de backup inteligente
-```
+### 📜 SCRIPTS - Automatización (19 archivos)
+- scripts/add-web-form-column.ts (37 líneas, typescript)
+- scripts/backup.ts (30 líneas, typescript)
+- scripts/generate-template.cjs (0 líneas, other)
+- scripts/generate-test-data.js (175 líneas, javascript)
+- scripts/generate-test-data.mjs (0 líneas, other)
+- scripts/restore.ts (52 líneas, typescript)
+- scripts/alter-tables.ts (207 líneas, typescript)
+- scripts/check-schema.ts (99 líneas, typescript)
+- scripts/create-db-schema.ts (251 líneas, typescript)
+- scripts/create-orders-table.ts (187 líneas, typescript)
+- ... y 9 archivos más
 
-### 📋 DOCS - Documentación del Proyecto
-```
-├── SYSTEM_DOCUMENTATION.md   # Documentación maestra del sistema
-├── BACKUP_MANIFEST.md        # Este archivo - manifiesto de backup
-├── CODE_REVIEW_GUIDE.md      # Guía para revisores de código
-├── ARCHITECTURE_REVIEW_STANDARD.md # Estándares arquitecturales
-├── EXTERNAL_REVIEWER_ONBOARDING.md # Guía de incorporación
-├── replit.md                 # Configuración y preferencias del proyecto
-└── *.md                      # Documentación específica de módulos
-```
+---
 
-### ⚙️ CONFIG - Archivos de Configuración
-```
-├── commit-and-backup.js      # Script de commit automatizado
-├── zip-project.js            # Script de generación de backups
-├── config.js                 # Configuración global de la aplicación
-└── auto-build-frontend.js    # Script de build automático
-```
+## ARCHIVOS INCLUIDOS EN BACKUP
+
+### Criterios de Inclusión Automática
+- ✅ Archivos de código fuente (.ts, .tsx, .js, .jsx)
+- ✅ Configuraciones del proyecto (.json, .yaml, .config.*)
+- ✅ Documentación (.md, .txt)
+- ✅ Esquemas de base de datos
+- ✅ Tests y scripts de automatización
+
+### Archivos Críticos Garantizados
+- package.json
+- vite.config.ts
+- drizzle.config.ts
 
 ---
 
 ## ARCHIVOS EXCLUIDOS DEL BACKUP
 
-### 📁 Directorios Excluidos
-- `node_modules/` - Dependencias (se reinstalan con npm install)
-- `.git/` - Historial de Git (no necesario para funcionalidad)
-- `dist/` - Archivos compilados (se regeneran con build)
-- `build/` - Archivos de build temporales
-- `.cache/` - Cache de herramientas de desarrollo
-- `.local/` - Datos locales del entorno
+### 📁 Directorios Excluidos (Automático)
+- `node_modules/` - Se reinstala con npm install
+- `.git/` - Control de versiones (no esencial para funcionalidad)
+- `dist/` - Archivos compilados (se regeneran)
 - `BackupforChatGPT/` - Backups anteriores
-- `attached_assets/` - Assets adjuntos temporales
+- `attached_assets/` - Assets temporales
 
-### 🚫 Archivos Excluidos
-- `*.png, *.jpg, *.jpeg, *.gif` - Imágenes (no esenciales para funcionalidad)
-- `*.pdf, *.zip` - Documentos binarios
-- `Screenshot*` - Capturas de pantalla temporales
-- `Pasted-*` - Archivos de texto temporales
-- `.env, .env.local` - Variables de entorno (contienen secretos)
-- `package-lock.json` - Lock file (se regenera automáticamente)
-
-### ⚠️ Razones de Exclusión
-1. **Seguridad:** Archivos .env contienen claves API sensibles
-2. **Tamaño:** Multimedia y dependencies ocupan 95% del espacio
-3. **Regenerabilidad:** Build artifacts se recrean automáticamente
-4. **Temporalidad:** Screenshots y archivos pegados son temporales
-5. **Redundancia:** Lock files se regeneran con npm install
+### 🚫 Tipos de Archivo Excluidos
+- Multimedia: *.png, *.jpg, *.pdf (650 archivos)
+- Temporales: Screenshot*, Pasted-* (archivos temporales)
+- Logs y cache: *.log, *.tmp, .cache/*
 
 ---
 
-## INSTRUCCIONES DE RESTAURACIÓN PASO A PASO
+## INSTRUCCIONES DE RESTAURACIÓN
 
-### 🚀 Restauración Completa - Procedimiento Standard
+### 🚀 Procedimiento Standard (5-10 minutos)
 
 #### Paso 1: Preparar Entorno
 ```bash
-# 1. Crear nuevo proyecto en Replit
-# 2. Extraer backup en directorio raíz
-# 3. Verificar estructura de archivos
+# Extraer backup en directorio limpio
+unzip backup_*.zip
+cd civetta-crm/
 ```
 
 #### Paso 2: Instalar Dependencias
 ```bash
 npm install
-# Esto recreará node_modules/ y package-lock.json automáticamente
+# Esto recreará node_modules automáticamente
 ```
 
 #### Paso 3: Configurar Variables de Entorno
 ```bash
-# Crear archivo .env con las siguientes variables:
-DATABASE_URL=postgresql://[configurar_bd]
-PORT=3000
-NODE_ENV=development
-
-# Variables opcionales para servicios externos:
-SENDGRID_API_KEY=[clave_sendgrid]
-SLACK_BOT_TOKEN=[token_slack]
-TWILIO_ACCOUNT_SID=[sid_twilio]
-TWILIO_AUTH_TOKEN=[token_twilio]
+# Crear .env con configuración necesaria
+echo "DATABASE_URL=postgresql://..." > .env
+echo "PORT=3000" >> .env
+echo "NODE_ENV=development" >> .env
 ```
 
-#### Paso 4: Preparar Base de Datos
+#### Paso 4: Verificar y Ejecutar
 ```bash
-# Aplicar esquema a la base de datos
-npm run db:push
-
-# Verificar conexión
-node -e "import('./db/index.js').then(db => console.log('BD conectada'))"
-```
-
-#### Paso 5: Verificar Funcionalidad
-```bash
-# Verificar TypeScript
-npm run check
-
-# Ejecutar tests
-npm test
-
-# Iniciar en modo desarrollo
-npm run dev
-```
-
-#### Paso 6: Validación Final
-```bash
-# Verificar que la aplicación responde en puerto 3000
-curl http://localhost:3000/api/health
-
-# Verificar frontend
-curl http://localhost:3000/
-```
-
-### 🔧 Restauración de Emergencia - Procedimiento Mínimo
-
-En caso de problemas con la restauración completa:
-
-#### Opción A: Solo Backend
-```bash
-npm install express @neondatabase/serverless drizzle-orm
-node server/index.ts
-```
-
-#### Opción B: Solo Frontend
-```bash
-npm install react react-dom vite @vitejs/plugin-react
-npm run dev
-```
-
-#### Opción C: Verificación de Integridad
-```bash
-# Verificar archivos críticos
-ls package.json server/index.ts client/src/App.tsx db/schema.ts
-
-# Verificar estructura mínima
-tree -I 'node_modules|.git|dist'
+npm run check     # Verificar TypeScript
+npm run db:push   # Aplicar esquema BD
+npm run dev       # Iniciar aplicación
 ```
 
 ---
 
 ## REQUISITOS TÉCNICOS
 
-### 💻 Entorno Mínimo
+### Entorno Mínimo
 - **Node.js:** v18+ (recomendado v20)
-- **NPM:** v8+ (incluido con Node.js)
-- **PostgreSQL:** v13+ (o Neon Serverless)
+- **PostgreSQL:** v13+ o Neon Serverless
 - **Memoria:** 512MB mínimo, 1GB recomendado
-- **Almacenamiento:** 100MB para código, 500MB con node_modules
 
-### 🌐 Entorno de Desarrollo
-- **SO:** Linux, macOS, Windows (WSL recomendado)
-- **Editor:** VS Code con extensiones TypeScript y Tailwind
-- **Browser:** Chrome/Firefox para desarrollo
-- **Terminal:** Bash/Zsh para scripts de automatización
-
-### ☁️ Entorno de Producción
-- **Plataforma:** Replit, Google Cloud Run, Vercel, Railway
-- **Build:** Automático con npm run build
-- **Puerto:** Configurable vía variable PORT (default: 3000)
-- **HTTPS:** Automático en plataformas cloud
+### Dependencias Principales Detectadas
+- **FRONTEND:** React 18, Wouter Router, TanStack Query, Radix UI
+- **BACKEND:** Express.js, Zod Validation, SendGrid Email, Slack Integration
+- **DATABASE:** Drizzle ORM, PostgreSQL (Neon)
+- **TOOLS:** Archiver (Backup)
+- **TESTING:** 
 
 ---
 
-## NOTAS IMPORTANTES
-
-### ✅ Funcionalidad Completa vs. Backup de Código
-
-**Este backup contiene:**
-- ✅ Código fuente completo y funcional
-- ✅ Configuraciones de desarrollo y producción
-- ✅ Esquemas de base de datos
-- ✅ Tests y documentación
-- ✅ Scripts de automatización
-
-**Este backup NO contiene:**
-- ❌ Datos de producción de la base de datos
-- ❌ Variables de entorno con claves API
-- ❌ Assets multimedia grandes
-- ❌ Historial de Git (commits)
-- ❌ Cache de desarrollo
-
-### 🔄 Proceso de Sincronización
-
-El sistema garantiza que:
-1. **Documentación siempre actualizada** antes de cada backup
-2. **Análisis automático** de cambios en el código
-3. **Versionado coherente** con package.json
-4. **Timestamps precisos** en zona horaria Ecuador
-5. **Verificación de integridad** post-backup
-
-### 🚨 Contingencias
-
-En caso de errores durante la restauración:
-1. Verificar que todas las dependencias están instaladas
-2. Comprobar variables de entorno necesarias
-3. Revisar logs de error en consola
-4. Contactar al equipo de desarrollo con detalles del error
-5. Usar procedimiento de restauración de emergencia si es necesario
-
----
-
-**Última actualización del manifiesto:** Se actualiza automáticamente con cada backup
-**Mantenido por:** Sistema de Documentación Automática v1.0.0
-**Cumplimiento:** ISO 9001 (Documentación Controlada), IEEE 1471 (Arquitectura), TOGAF (Gobierno)
+*Manifiesto generado automáticamente por Sistema de Análisis v1.0.0*
+*Cumplimiento: ISO 9001, IEEE 1471, TOGAF, DevOps, Agile*
