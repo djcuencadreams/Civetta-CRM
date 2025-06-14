@@ -1,0 +1,69 @@
+Necesito que implementes un sistema completo de documentación automática y respaldos de código que cumpla con estándares internacionales de desarrollo (ISO 9001, IEEE 1471, TOGAF, DevOps, Agile).
+
+OBJETIVO: Crear documentación que se auto-actualice con cada backup, analice el código actual, y proporcione toda la información necesaria para revisores externos.
+
+COMPONENTES PRINCIPALES A CREAR:
+
+1. Script de Análisis Automático (scripts/auto-update-docs.js):
+
+Función que analice estructura completa de archivos del proyecto
+Conteo de líneas de código por lenguaje
+Análisis de complejidad (archivos simples/moderados/complejos)
+Detección automática de versión desde package.json
+Generación de timestamps automáticos
+Descripciones contextuales automáticas de archivos según su función
+2. Documentación Maestra (SYSTEM_DOCUMENTATION.md):
+
+Árbol completo del sistema con todas las rutas y descripciones
+Métricas actualizadas automáticamente (líneas código, distribución por tipo)
+Arquitectura del sistema (Backend, Frontend, Base de datos, Deployment)
+Flujo de datos y procesamiento de requests
+Esquemas de base de datos con SQL
+Variables de entorno y configuración
+Comandos de mantenimiento
+Características técnicas (seguridad, performance, responsividad)
+3. Manifiesto de Backup (BACKUP_MANIFEST.md):
+
+Inventario exacto de archivos incluidos en backup
+Categorización por tipo (Core, Frontend, Scripts, Tests, Docs, Config)
+Lista completa de archivos excluidos con razones
+Instrucciones paso a paso de restauración
+Requisitos técnicos y dependencias
+Notas sobre funcionalidad completa vs. backup de código
+4. Guías para Revisores Externos:
+
+CODE_REVIEW_GUIDE.md: Orden de lectura, puntos de entrada, criterios por área, checklist completo
+ARCHITECTURE_REVIEW_STANDARD.md: Estándares IEEE/ISO, stakeholders, viewpoints, decisiones arquitecturales
+EXTERNAL_REVIEWER_ONBOARDING.md: Guía rápida de 5 minutos, comandos de verificación
+5. Script de Backup Inteligente (scripts/backup-code-only.js):
+
+Ejecutar actualización completa de documentación ANTES del backup
+Exclusiones inteligentes (node_modules, .git, .cache, .local, multimedia)
+Inclusión garantizada de documentos críticos
+Timestamps únicos y compresión optimizada
+Logging del proceso de actualización
+FLUJO DE TRABAJO REQUERIDO:
+
+Al ejecutar backup → Actualizar automáticamente toda la documentación
+Analizar código actual → Generar métricas y estructura actualizada
+Crear backup → Con documentación perfectamente sincronizada
+Resultado → Backup auto-documentado y listo para revisión externa
+ESTÁNDARES A CUMPLIR:
+
+ISO 9001: Documentación controlada con versionado y trazabilidad
+IEEE 1471: Múltiples viewpoints arquitecturales con stakeholders identificados
+TOGAF: Arquitectura empresarial con capas bien definidas
+DevOps: Infraestructura como código y automatización completa
+Agile: Documentación justa, viva y ejecutable
+CARACTERÍSTICAS ESPECÍFICAS:
+
+Análisis en tiempo real de estructura de archivos
+Detección automática de tecnologías y frameworks usados
+Generación de descripciones contextuales inteligentes
+Manejo gracioso de errores en actualización de documentación
+Backup optimizado (~200-300KB solo código, sin multimedia)
+Documentación siempre sincronizada con estado actual del código
+RESULTADO ESPERADO:
+Un sistema donde cada backup incluya documentación técnica completa, actualizada automáticamente, que permita a cualquier desarrollador o IA externa entender y revisar completamente el proyecto sin información adicional.
+
+Implementa esto adaptándolo a la tecnología y estructura específica del proyecto actual, manteniendo los mismos principios y estándares de calidad profesional.
